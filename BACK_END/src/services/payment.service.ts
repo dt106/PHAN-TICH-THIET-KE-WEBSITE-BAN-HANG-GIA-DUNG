@@ -443,6 +443,31 @@ export const getAllPaymentsAdmin = async (query: {
   };
 };
 
+/**
+ * Đánh dấu một giao dịch là đã hoàn tiền và đồng bộ Order liên quan.
+ * Dùng chung cho: hoàn tiền thủ công của admin, hủy đơn đã paid, hoàn trả hàng.
+ */
+const markPaymentRefunded = async (
+  payment: IPayment,
+  refundAmount: number,
+  reason?: string
+): Promise<void> => {
+  payment.status = "refunded";
+  payment.refundAmount = refundAmount;
+  payment.refundedAt = new Date();
+  payment.refundTransactionCode = `RF-${payment.transactionCode ?? payment._id.toString()}`;
+  if (reason) {
+    payment.failedReason = reason;
+  }
+  await payment.save();
+
+  const order = await Order.findById(payment.orderId);
+  if (order && order.paymentStatus === "paid") {
+    order.paymentStatus = "refunded";
+    await order.save();
+  }
+};
+
 export const refundPaymentAdmin = async (
   paymentId: string,
   refundAmountInput?: number,
@@ -463,22 +488,28 @@ export const refundPaymentAdmin = async (
       ? Math.round(refundAmountInput)
       : payment.amount;
 
-  payment.status = "refunded";
-  payment.refundAmount = refundAmount;
-  payment.refundedAt = new Date();
-  payment.refundTransactionCode = `RF-${payment.transactionCode ?? payment._id.toString()}`;
-  if (reason) {
-    payment.failedReason = reason;
-  }
-  await payment.save();
-
-  const order = await Order.findById(payment.orderId);
-  if (order && order.paymentStatus === "paid") {
-    order.paymentStatus = "refunded";
-    await order.save();
-  }
+  await markPaymentRefunded(payment, refundAmount, reason);
 
   return payment;
+};
+
+/**
+ * Tự động hoàn tiền toàn bộ cho giao dịch "paid" mới nhất của một đơn hàng.
+ * Không lỗi khi đơn chưa có giao dịch nào đã thanh toán (bỏ qua im lặng).
+ */
+export const refundPaidPaymentForOrder = async (
+  orderId: Types.ObjectId,
+  reason?: string
+): Promise<void> => {
+  const payment = await Payment.findOne({ orderId, status: "paid" }).sort({
+    createdAt: -1,
+  });
+
+  if (!payment) {
+    return;
+  }
+
+  await markPaymentRefunded(payment, payment.amount, reason);
 };
 
 export const buildPaymentResultRedirect = (

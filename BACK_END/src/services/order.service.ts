@@ -5,7 +5,7 @@ import CouponUsage from "../models/CouponUsage.model";
 import Order, { IOrder, OrderStatus } from "../models/Order.model";
 import OrderItem from "../models/OrderItem.model";
 import ProductVariant from "../models/ProductVariant.model";
-import { recordCodPayment } from "./payment.service";
+import { recordCodPayment, refundPaidPaymentForOrder } from "./payment.service";
 
 export const ORDER_STATUS_TRANSITIONS: Record<OrderStatus, OrderStatus[]> = {
   pending: ["confirmed", "cancelled"],
@@ -237,7 +237,13 @@ export const updateOrderStatusAdmin = async (
 
   order.status = nextStatus;
 
-  if (nextStatus === "completed" && order.paymentMethod === "COD") {
+  // COD: ghi nhận tiền ngay khi giao hàng (delivered) — "completed" chỉ là
+  // khách xác nhận không có vấn đề. Giữ nhánh completed cho đường rút ngắn
+  // shipping -> completed; recordCodPayment tự chống ghi trùng (idempotent).
+  if (
+    (nextStatus === "delivered" || nextStatus === "completed") &&
+    order.paymentMethod === "COD"
+  ) {
     await recordCodPayment(order);
   }
 
@@ -246,6 +252,12 @@ export const updateOrderStatusAdmin = async (
     await order.save();
     await restockOrderItems(order._id);
     await rollbackCouponUsage(order);
+    // Admin hủy đơn đã thanh toán → tự hoàn tiền đầy đủ (Payment + Order).
+    if (order.paymentStatus === "paid") {
+      order.paymentStatus = "refunded";
+      await order.save();
+      await refundPaidPaymentForOrder(order._id, "Đơn hàng bị hủy bởi quản trị viên.");
+    }
     return order;
   }
 
@@ -256,6 +268,8 @@ export const updateOrderStatusAdmin = async (
     if (order.paymentStatus === "paid") {
       order.paymentStatus = "refunded";
       await order.save();
+      // Ghi bản ghi hoàn tiền trên Payment (trước đây chỉ sửa Order).
+      await refundPaidPaymentForOrder(order._id, "Đơn hàng bị hoàn trả.");
     }
     return order;
   }

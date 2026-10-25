@@ -160,7 +160,7 @@ User ─┬─< UserAddress
 | `ProductMedia.mediaType` | `image`, `video` | `ProductMedia.model.ts` |
 | `OtpCode.type` (dead) | `register`, `forgot_password`, `verify_email` — lệch với `OTPType` service: `register`, `reset_password`, `change_email` (giữ nguyên theo quyết định C3) | `OtpCode.model.ts` vs `otp.service.ts:49` |
 
-State machine Order cập nhật (2026-10-22): `pending → confirmed → processing → shipping → {delivered | completed | cancelled}`; `delivered → {completed | returned}`; `completed → returned`. COD vẫn tự ghi payment khi vào `completed` (đơn `delivered` chờ xác nhận vẫn `paymentStatus=pending`).
+State machine Order cập nhật (2026-10-22; sửa 2026-10-24): `pending → confirmed → processing → shipping → {delivered | completed | cancelled}`; `delivered → {completed | returned}`; `completed → returned`. **COD ghi nhận tiền ngay khi vào `delivered`** (từ 2026-10-24, quyết định chủ dự án — `completed` chỉ là khách xác nhận; giữ nhánh `completed` cho đường rút ngắn shipping→completed, `recordCodPayment` idempotent).
 
 ### 4.3 Ràng buộc & index đáng chú ý cho việc viết tài liệu
 
@@ -246,7 +246,7 @@ Xóa bị chặn khi còn quan hệ (brand←product, category←con/sản phẩ
 |---|---|---|
 | D1 | Kế hoạch mục II dùng `/api/auth/*` | `/api/customer/*` + `/api/admin/*`; `otp.controller.ts` (dead) còn comment `/api/admin/auth/...` |
 | D2 | Kế hoạch vẽ admin route dạng `/api/admin/brands`, `/api/products/:id/variants`… | Thực tế dạng resource-nested: `/api/brands/admin`, `/api/admin/products/:id/variants`… (chính EVIDENCE mục VI §3-note 6 đã nhận xét mâu thuẫn này). **→ ĐÃ GIẢI QUYẾT 2026-10-22:** refactor đồng nhất mọi admin API về `/api/admin/<resource>` (5 file mới `src/routes/admin/admin.{brand,category,attribute,product,coupon}.routes.ts`, gỡ path cũ, cập nhật 8 test script; verify runtime 18/18 PASS — xem ghi chú đầu `API_CATALOG.md`) |
-| D3 | Kế hoạch/EVIDENCE mục XVII: "PAYMENT VNPAY/MOMO/ZALOPAY sandbox đã hoàn thành 14/14" | Chỉ VNPay build được URL thật; MoMo/ZaloPay **không có bước tạo đơn** — IPN verify tồn tại nhưng không bao giờ được gateway gọi trong thực tế; refund chỉ ghi DB |
+| D3 | Kế hoạch/EVIDENCE mục XVII: "PAYMENT VNPAY/MOMO/ZALOPAY sandbox đã hoàn thành 14/14" | Chỉ VNPay build được URL thật; MoMo/ZaloPay **không có bước tạo đơn** — IPN verify tồn tại nhưng không bao giờ được gateway gọi trong thực tế; refund chỉ ghi DB. **→ ĐÃ CHỐT 2026-10-24: MoMo/ZaloPay là việc chưa làm xong, giữ nguyên stub chờ cấu hình** — tài liệu sẽ ghi "chưa kích hoạt" cho 2 phương thức này |
 | D4 | Kế hoạch mục XXI "AI Product Assistant — planned" | AI Search + AI Chat **đã có code và route** (làm ngoài kế hoạch, không có PROMPT/EVIDENCE) |
 | D5 | Kế hoạch mục XVIII–XX (Review, Admin Mgmt, Dashboard) | Không có API nào; riêng `ProductReview` chỉ được đếm trong statistics |
 | D6 | `EVIDENCE_MUC_XVII` ghi "đã thêm test:payment vào npm test" | `package.json:27` chuỗi `test` thiếu `test:payment` |
@@ -271,12 +271,15 @@ Xóa bị chặn khi còn quan hệ (brand←product, category←con/sản phẩ
 
 ### 7.6 Câu hỏi mở cho chủ dự án (không thể trả lời từ code)
 
-1. MoMo/ZaloPay là "chưa làm xong" hay "cố ý để stub, chỉ VNPay là phương án thật"? → quyết định viết tài liệu Payment thế nào (D3).
-2. `shippingFee` do client gửi và `taxAmount = 0` là nghiệp vụ chấp nhận hay placeholder chờ bảng phí?
-3. Admin hủy đơn đã thanh toán: nghiệp vụ có nên tự chuyển `paymentStatus=refunded` không, hay bắt buộc gọi refund riêng?
-4. OTP trong RAM có phải thiết kế tạm cho demo không (đã có model OtpCode sẵn mà không dùng)?
-5. AI endpoints public + không rate-limit: có cần đăng nhập/ôt hạn mức trước khi công bố tài liệu?
-6. Các model Announcement/Notification/Chat người thật: đang chờ triển khai mục nào của kế hoạch (không thấy trong mục XVIII–XXIII)?
+> **CHỐT 2026-10-24** — chủ dự án đã trả lời:
+
+1. **MoMo/ZaloPay: CHƯA LÀM XONG** — giữ nguyên stub, chờ đưa cấu hình gateway vào. Tài liệu Payment sẽ ghi rõ các phương thức này "chưa kích hoạt" (chỉ VNPay và `PAYMENT_ENV=mock` có luồng tạo URL thật).
+2. **`shippingFee` do client gửi lên từ checkout: NGHIỆP VỤ CHẤP NHẬN** — admin sẽ cấu hình phí ship (tính năng cấu hình phí, làm sau). Tài liệu ghi rõ: server tin `shippingFee` từ request; backend không có bảng phí.
+3. **Admin hủy đơn đã paid: ĐÃ TRIỂN KHAI PHƯƠNG ÁN (c) 2026-10-24** — tự động hoàn tiền đầy đủ qua hàm refund dùng chung: tách `markPaymentRefunded` (nội bộ `payment.service.ts`) + export `refundPaidPaymentForOrder(orderId, reason)`; `updateOrderStatusAdmin` giờ ở nhánh `cancelled` **và** `returned` đều gọi hàm này khi `paymentStatus=paid` — sửa luôn bất đối xứng cũ của `returned` (trước đây chỉ sửa Order, không ghi bản ghi Payment). `refundPaymentAdmin` (API refund thủ công) dùng chung hàm mutation. Test `test-order.ts` thêm case "Admin hủy đơn paid → refund tự động (Order + Payment)" và mở rộng case returned kiểm tra Payment record.
+4. **COD: GHI NHẬN TIỀN TẠI `delivered`** (`completed` = khách xác nhận hoàn tất, không có vấn đề). Đã triển khai 2026-10-24: `updateOrderStatusAdmin` gọi `recordCodPayment` khi vào `delivered` (giữ nhánh `completed` cho đường rút ngắn shipping→completed; idempotent nên không ghi trùng). Test `test-order.ts` cập nhật: expected `paymentStatus=paid` ngay tại delivered.
+5. OTP trong RAM: **GIỮ NGUYÊN** — không phải phần của chủ dự án làm (đồng bộ quyết định C3).
+6. AI endpoints public / không rate-limit: **GIỮ NGUYÊN** — không phải phần của chủ dự án làm.
+7. Model Announcement/Notification/Chat: **GIỮ NGUYÊN** — không phải phần của chủ dự án làm.
 
 ---
 
