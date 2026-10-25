@@ -1,5 +1,5 @@
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
 import { ChevronDown } from 'lucide-react';
 
@@ -7,6 +7,11 @@ import { Button } from '../components/ui/buttons/Button';
 import type { NavigationItem } from '../constants/navigation';
 import { navigation } from '../constants/navigation';
 import { cn } from '../utils/cn';
+
+// Giới hạn chiều rộng sidebar
+const MIN_SIDEBAR_WIDTH = 200;
+const MAX_SIDEBAR_WIDTH = 440;
+const DEFAULT_SIDEBAR_WIDTH = 260;
 
 function isPathActive(pathname: string, path: string): boolean {
   return pathname === path || pathname.startsWith(`${path}/`);
@@ -46,8 +51,8 @@ function SidebarMenu({
         const Icon = item.icon;
         const hasChildren = Boolean(item.children?.length);
         const isOpen = openGroups.includes(item.id);
-        const isActive =
-          !hasChildren && pathname === item.path;
+        const isActive = !hasChildren && pathname === item.path;
+
         const hasActiveChild =
           hasChildren && containsActivePath(item, pathname);
 
@@ -154,6 +159,14 @@ export default function Sidebar() {
   const { pathname } = useLocation();
 
   const [openGroups, setOpenGroups] = useState<string[]>([]);
+  const [sidebarWidth, setSidebarWidth] = useState(
+    DEFAULT_SIDEBAR_WIDTH,
+  );
+  const [isDragging, setIsDragging] = useState(false);
+
+  // Lưu vị trí chuột lúc bắt đầu kéo
+  const dragStartX = useRef(0);
+  const dragStartWidth = useRef(DEFAULT_SIDEBAR_WIDTH);
 
   useEffect(() => {
     const activeGroupIds: string[] = [];
@@ -174,6 +187,7 @@ export default function Sidebar() {
 
     visit(navigation);
 
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setOpenGroups((current) =>
       Array.from(new Set([...current, ...activeGroupIds])),
     );
@@ -187,19 +201,96 @@ export default function Sidebar() {
     );
   };
 
+  // Bắt đầu kéo thanh phân cách
+  const handleDragStart = (
+    event: React.PointerEvent<HTMLDivElement>,
+  ) => {
+    // Chỉ sử dụng chuột trái hoặc thao tác pointer chính
+    if (event.button !== 0) return;
+
+    event.preventDefault();
+    event.currentTarget.setPointerCapture(event.pointerId);
+
+    dragStartX.current = event.clientX;
+    dragStartWidth.current = sidebarWidth;
+
+    setIsDragging(true);
+  };
+
+  // Thay đổi chiều rộng theo trục X
+  const handleDragMove = (
+    event: React.PointerEvent<HTMLDivElement>,
+  ) => {
+    if (!isDragging) return;
+
+    const deltaX = event.clientX - dragStartX.current;
+
+    const nextWidth = Math.min(
+      MAX_SIDEBAR_WIDTH,
+      Math.max(
+        MIN_SIDEBAR_WIDTH,
+        dragStartWidth.current + deltaX,
+      ),
+    );
+
+    setSidebarWidth(nextWidth);
+  };
+
+  const handleDragEnd = () => {
+    setIsDragging(false);
+  };
+
+  // Hỗ trợ điều chỉnh bằng bàn phím
+  const handleResizeKeyDown = (
+    event: React.KeyboardEvent<HTMLDivElement>,
+  ) => {
+    const step = event.shiftKey ? 32 : 8;
+
+    if (event.key === 'ArrowRight') {
+      event.preventDefault();
+
+      setSidebarWidth((width) =>
+        Math.min(MAX_SIDEBAR_WIDTH, width + step),
+      );
+    }
+
+    if (event.key === 'ArrowLeft') {
+      event.preventDefault();
+
+      setSidebarWidth((width) =>
+        Math.max(MIN_SIDEBAR_WIDTH, width - step),
+      );
+    }
+
+    if (event.key === 'Home') {
+      event.preventDefault();
+      setSidebarWidth(MIN_SIDEBAR_WIDTH);
+    }
+
+    if (event.key === 'End') {
+      event.preventDefault();
+      setSidebarWidth(MAX_SIDEBAR_WIDTH);
+    }
+  };
+
   return (
     <aside
       aria-label="Thanh điều hướng quản trị"
       className={cn(
-        'flex h-full w-sidebar shrink-0 flex-col',
+        'relative flex h-full shrink-0 flex-col',
         'border-r border-border-default bg-bg-sidebar',
       )}
+      style={{
+        width: `${sidebarWidth}px`,
+        minWidth: `${MIN_SIDEBAR_WIDTH}px`,
+        maxWidth: `${MAX_SIDEBAR_WIDTH}px`,
+      }}
     >
       {/* Brand */}
       <div
         className={cn(
           'flex h-header shrink-0 items-center gap-3',
-          'border-b border-border-default px-6',
+          'overflow-hidden border-b border-border-default px-6',
         )}
       >
         <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-btn bg-accent-primary">
@@ -232,10 +323,47 @@ export default function Sidebar() {
       </nav>
 
       {/* Footer */}
-      <div className="shrink-0 border-t border-border-default px-4 py-3">
-        <p className="text-center text-[11px] text-text-muted">
+      <div className="shrink-0 overflow-hidden border-t border-border-default px-4 py-3">
+        <p className="whitespace-nowrap text-center text-[11px] text-text-muted">
           AdminFlux · Commerce
         </p>
+      </div>
+
+      {/* Thanh kéo nằm dọc cạnh phải.
+          Có thể bắt đầu kéo tại bất kỳ vị trí nào trên trục Y. */}
+      <div
+        role="separator"
+        aria-label="Điều chỉnh chiều rộng sidebar"
+        aria-orientation="vertical"
+        aria-valuemin={MIN_SIDEBAR_WIDTH}
+        aria-valuemax={MAX_SIDEBAR_WIDTH}
+        aria-valuenow={Math.round(sidebarWidth)}
+        tabIndex={0}
+        onPointerDown={handleDragStart}
+        onPointerMove={handleDragMove}
+        onPointerUp={handleDragEnd}
+        onPointerCancel={handleDragEnd}
+        onLostPointerCapture={handleDragEnd}
+        onKeyDown={handleResizeKeyDown}
+        className={cn(
+          'group absolute right-0 top-0 z-50 h-full w-1.5',
+          '-translate-x-1/2 cursor-col-resize touch-none',
+          'select-none',
+          isDragging ? 'bg-accent-primary/30' : 'bg-transparent',
+          'focus-visible:outline-none focus-visible:ring-2',
+          'focus-visible:ring-inset focus-visible:ring-accent-primary',
+        )}
+      >
+        {/* Vạch hiển thị khi hover hoặc đang kéo */}
+        <div
+          className={cn(
+            'absolute inset-y-0 left-1/2 w-0.5 -translate-x-1/2',
+            'transition-colors duration-150',
+            isDragging
+              ? 'bg-accent-primary'
+              : 'bg-transparent group-hover:bg-accent-primary',
+          )}
+        />
       </div>
     </aside>
   );

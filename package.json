@@ -1,5 +1,6 @@
 {
   "dependencies": {
+    "@google/genai": "^2.31.0",
     "mongoose": "^9.11.0"
   },
   "name": "phan-tich-thiet-ke-website-ban-hang-gia-dung",
