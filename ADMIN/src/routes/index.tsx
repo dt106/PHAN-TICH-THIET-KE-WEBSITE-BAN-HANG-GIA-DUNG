@@ -51,6 +51,7 @@ import AnnouncementsPage from '../pages/announcements/components/AnnouncementFor
 import ConversationsPage from '../pages/conversations/ConversationsPage';
 import NotificationsPage from '../pages/notifications/NotificationsPage';
 import type { AnnouncementFormValues } from '../types/announcement.types';
+import ProfilePage from '../pages/profile/ProfilePage';
 
 // ==========================================
 // ADMIN 404 PAGE
@@ -214,11 +215,16 @@ export const router = createBrowserRouter([
             path: 'reviews',
             element: <ReviewsPage />,
           },
+          // Hồ sơ cá nhân Admin
+{
+  path: 'profile',
+  element: <ProfilePage />,
+},
           {
   path: 'announcements',
   element: <AnnouncementsPage open={false} onClose={function (): void {
     throw new Error('Function not implemented.');
-  } } onSubmit={function (values: AnnouncementFormValues): void {
+  } } onSubmit={function (): void {
     throw new Error('Function not implemented.');
   } } />,
 },

@@ -1,8 +1,19 @@
-import { Search, Bell, Plus, LogOut,LogIn, User as UserIcon } from 'lucide-react';
+
+import {
+  Search,
+  Bell,
+  Plus,
+  LogOut,
+  LogIn,
+  User as UserIcon,
+  Loader2,
+} from 'lucide-react';
 import { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+
 import { Button } from '../components/ui/buttons/Button';
 import { cn } from '../utils/cn';
+import { useAuth } from '../contexts/AuthContext';
 
 interface HeaderProps {
   title: string;
@@ -11,111 +22,234 @@ interface HeaderProps {
 
 export default function Header({ title, subtitle }: HeaderProps) {
   const navigate = useNavigate();
+
+  const { user, isAuthenticated, isLoading, logout } = useAuth();
+
   const [menuOpen, setMenuOpen] = useState(false);
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
+
   const menuRef = useRef<HTMLDivElement>(null);
 
+  // Đóng menu khi bấm ra ngoài.
   useEffect(() => {
-    const onClick = (e: MouseEvent) => {
-      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+    const onClick = (event: MouseEvent) => {
+      if (
+        menuRef.current &&
+        !menuRef.current.contains(event.target as Node)
+      ) {
         setMenuOpen(false);
       }
     };
+
     document.addEventListener('mousedown', onClick);
-    return () => document.removeEventListener('mousedown', onClick);
+
+    return () => {
+      document.removeEventListener('mousedown', onClick);
+    };
   }, []);
 
-  const handleLogout = () => {
-    navigate('/login', { replace: true });
+  // Lấy thông tin tài khoản từ AuthContext.
+  const adminName = user?.name?.trim() || user?.email || 'Admin';
+  const adminEmail = user?.email || '';
+  const avatarLetter = adminName.charAt(0).toUpperCase() || 'A';
+
+  // Đăng xuất thông qua AuthContext để đồng bộ toàn ứng dụng.
+  const handleLogout = async () => {
+    if (isLoggingOut) return;
+
+    setIsLoggingOut(true);
+    setMenuOpen(false);
+
+    try {
+      await logout();
+    } finally {
+      navigate('/login', { replace: true });
+      setIsLoggingOut(false);
+    }
   };
 
   return (
-    <header className={cn(
-      'h-header border-b border-border-default bg-bg-app',
-      'flex items-center justify-between px-6 lg:px-8 gap-4'
-    )}>
+    <header
+      className={cn(
+        'min-h-header border-b border-border-default bg-bg-app',
+        'flex items-center justify-between px-4 py-3 lg:px-8 gap-4',
+      )}
+    >
+      {/* Tiêu đề trang */}
       <div className="min-w-0">
-        <h1 className="text-text-primary text-xl font-semibold truncate">{title}</h1>
-        {subtitle && <p className="text-text-muted text-xs mt-0.5 truncate">{subtitle}</p>}
+        <h1 className="truncate text-xl font-semibold text-text-primary">
+          {title}
+        </h1>
+
+        {subtitle && (
+          <p className="mt-0.5 truncate text-xs text-text-muted">
+            {subtitle}
+          </p>
+        )}
       </div>
 
-      <div className="flex items-center gap-3 shrink-0">
+      {/* Các thao tác bên phải */}
+      <div className="flex shrink-0 items-center gap-3">
+        {/* Tìm kiếm */}
         <div className="relative hidden md:block">
-          <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-text-muted" />
+          <Search
+            size={16}
+            className="absolute left-3 top-1/2 -translate-y-1/2 text-text-muted"
+          />
+
           <input
+            type="search"
             placeholder="Search..."
+            aria-label="Tìm kiếm"
             className={cn(
-              'w-64 h-10 pl-10 pr-4 rounded-btn',
-              'bg-bg-elevated border border-border-strong',
-              'text-text-primary text-sm placeholder:text-text-muted',
-              'focus:outline-none focus:border-accent-primary focus:ring-1 focus:ring-accent-primary',
-              'transition-all duration-app'
+              'h-10 w-64 rounded-btn pl-10 pr-4',
+              'border border-border-strong bg-bg-elevated',
+              'text-sm text-text-primary placeholder:text-text-muted',
+              'focus:border-accent-primary focus:outline-none focus:ring-1 focus:ring-accent-primary',
+              'transition-all duration-app',
             )}
           />
         </div>
 
-        <button className={cn(
-          'relative inline-flex items-center justify-center w-10 h-10 rounded-btn',
-          'bg-transparent text-text-secondary',
-          'hover:bg-bg-hover hover:text-text-primary active:translate-y-px',
-          'transition-all duration-app'
-        )}>
+        {/* Thông báo */}
+        <button
+          type="button"
+          aria-label="Thông báo"
+          className={cn(
+            'relative inline-flex h-10 w-10 items-center justify-center rounded-btn',
+            'bg-transparent text-text-secondary',
+            'transition-all duration-app hover:bg-bg-hover hover:text-text-primary',
+            'active:translate-y-px',
+          )}
+        >
           <Bell size={18} />
-          <span className="absolute top-2 right-2 w-2 h-2 rounded-full bg-accent-primary" />
+          <span className="absolute right-2 top-2 h-2 w-2 rounded-full bg-accent-primary" />
         </button>
 
-     <Button>
-  <Plus size={16} />
-  <span className="hidden sm:inline">Create</span>
-</Button>
+        {/* Tạo mới */}
+        <Button
+          type="button"
+          onClick={() => {
+            // Gắn hành động tạo mới theo từng trang khi cần.
+          }}
+        >
+          <Plus size={16} />
+          <span className="hidden sm:inline">Create</span>
+        </Button>
 
-{/* Nút Đăng nhập nhanh — chỉ hiện khi chưa auth thật */}
-<Button variant="secondary" onClick={() => navigate('/login')}>
-  <LogIn size={16} />
-  <span className="hidden sm:inline">Đăng nhập</span>
-</Button>
-        {/* User menu */}
-        <div className="relative" ref={menuRef}>
-          <button
-            onClick={() => setMenuOpen(!menuOpen)}
-            className={cn(
-              'w-10 h-10 rounded-full bg-bg-elevated border border-border-strong',
-              'flex items-center justify-center text-text-primary font-semibold text-sm',
-              'hover:border-text-muted transition-all duration-app',
-              'focus:outline-none focus:ring-2 focus:ring-accent-primary focus:ring-offset-2 focus:ring-offset-bg-app'
-            )}
+        {/* Đang khôi phục phiên: không hiển thị nhầm nút đăng nhập */}
+        {isLoading ? (
+          <div
+            className="flex h-10 w-10 items-center justify-center"
+            aria-label="Đang kiểm tra phiên đăng nhập"
           >
-            A
-          </button>
+            <Loader2
+              size={18}
+              className="animate-spin text-text-muted"
+            />
+          </div>
+        ) : !isAuthenticated ? (
+          /* Chưa đăng nhập */
+          <Button
+            type="button"
+            variant="secondary"
+            onClick={() => navigate('/login')}
+          >
+            <LogIn size={16} />
+            <span className="hidden sm:inline">Đăng nhập</span>
+          </Button>
+        ) : (
+          /* Đã đăng nhập: hiển thị menu tài khoản */
+          <div className="relative" ref={menuRef}>
+            <button
+              type="button"
+              onClick={() => setMenuOpen((current) => !current)}
+              aria-label="Menu tài khoản Admin"
+              aria-expanded={menuOpen}
+              aria-haspopup="menu"
+              className={cn(
+                'flex h-10 items-center gap-2 rounded-full',
+                'border border-border-strong bg-bg-elevated px-1.5 pr-3',
+                'text-text-primary transition-all duration-app',
+                'hover:border-text-muted',
+                'focus:outline-none focus:ring-2 focus:ring-accent-primary focus:ring-offset-2 focus:ring-offset-bg-app',
+              )}
+            >
+              <span className="flex h-7 w-7 items-center justify-center rounded-full bg-accent-primary text-sm font-semibold text-black">
+                {avatarLetter}
+              </span>
 
-          {menuOpen && (
-            <div className={cn(
-              'absolute right-0 top-12 w-56 py-1.5 rounded-btn z-50',
-              'bg-bg-elevated border border-border-default shadow-xl'
-            )}>
-              <div className="px-3 py-2 border-b border-border-default">
-                <p className="text-text-primary text-sm font-medium truncate">Admin</p>
-                <p className="text-text-muted text-xs truncate">admin@shop.com</p>
-              </div>
-              <button className={cn(
-                'w-full flex items-center gap-2.5 px-3 py-2 text-sm text-text-secondary',
-                'hover:bg-bg-hover hover:text-text-primary transition-colors'
-              )}>
-                <UserIcon size={16} />
-                Hồ sơ cá nhân
-              </button>
-              <button
-                onClick={handleLogout}
+              <span className="hidden max-w-28 truncate text-sm font-medium sm:block">
+                {adminName}
+              </span>
+            </button>
+
+            {menuOpen && (
+              <div
+                role="menu"
                 className={cn(
-                  'w-full flex items-center gap-2.5 px-3 py-2 text-sm text-status-danger',
-                  'hover:bg-status-danger/10 transition-colors'
+                  'absolute right-0 top-12 z-50 w-60 rounded-btn py-1.5',
+                  'border border-border-default bg-bg-elevated shadow-xl',
                 )}
               >
-                <LogOut size={16} />
-                Đăng xuất
-              </button>
-            </div>
-          )}
-        </div>
+                {/* Thông tin Admin */}
+                <div className="border-b border-border-default px-3 py-3">
+                  <p className="truncate text-sm font-medium text-text-primary">
+                    {adminName}
+                  </p>
+
+                  <p className="mt-1 truncate text-xs text-text-muted">
+                    {adminEmail}
+                  </p>
+
+                  <p className="mt-1 text-xs text-text-muted">
+                    Quản trị viên
+                  </p>
+                </div>
+
+                {/* Hồ sơ cá nhân */}
+                <button
+                  type="button"
+                  role="menuitem"
+                  onClick={() => {
+                    setMenuOpen(false);
+                    navigate('/profile');
+                  }}
+                  className={cn(
+                    'flex w-full items-center gap-2.5 px-3 py-2.5 text-sm',
+                    'text-text-secondary transition-colors',
+                    'hover:bg-bg-hover hover:text-text-primary',
+                  )}
+                >
+                  <UserIcon size={16} />
+                  Hồ sơ cá nhân
+                </button>
+
+                {/* Đăng xuất */}
+                <button
+                  type="button"
+                  role="menuitem"
+                  onClick={handleLogout}
+                  disabled={isLoggingOut}
+                  className={cn(
+                    'flex w-full items-center gap-2.5 px-3 py-2.5 text-sm',
+                    'text-status-danger transition-colors',
+                    'hover:bg-status-danger/10',
+                    'disabled:cursor-not-allowed disabled:opacity-60',
+                  )}
+                >
+                  {isLoggingOut ? (
+                    <Loader2 size={16} className="animate-spin" />
+                  ) : (
+                    <LogOut size={16} />
+                  )}
+
+                  {isLoggingOut ? 'Đang đăng xuất...' : 'Đăng xuất'}
+                </button>
+              </div>
+            )}
+          </div>
+        )}
       </div>
     </header>
   );

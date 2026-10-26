@@ -158,15 +158,6 @@ const createAdmin = async (): Promise<void> => {
          * =======================================================
          * 5. KIỂM TRA ADMIN ĐÃ TỒN TẠI CHƯA
          * =======================================================
-         *
-         * Hệ thống chỉ sử dụng một tài khoản Admin.
-         *
-         * Vì vậy:
-         *
-         * - Nếu đã có Admin → dừng chương trình.
-         * - Không tạo Admin thứ hai.
-         *
-         * =======================================================
          */
 
         const existingAdmin = await User.findOne({
@@ -196,11 +187,6 @@ const createAdmin = async (): Promise<void> => {
          * =======================================================
          * 6. KIỂM TRA EMAIL ĐÃ ĐƯỢC SỬ DỤNG CHƯA
          * =======================================================
-         *
-         * Vì email User đang unique nên không được tạo
-         * Admin bằng email đã tồn tại.
-         *
-         * =======================================================
          */
 
         const existingUser = await User.findOne({
@@ -216,19 +202,6 @@ const createAdmin = async (): Promise<void> => {
         /**
          * =======================================================
          * 7. HASH PASSWORD
-         * =======================================================
-         *
-         * Tuyệt đối không lưu password dạng plain text.
-         *
-         * Ví dụ:
-         *
-         * ADMIN_PASSWORD:
-         * Admin@123456
-         *
-         * Sau bcrypt sẽ thành dạng:
-         *
-         * $2b$12$....................
-         *
          * =======================================================
          */
 
@@ -252,37 +225,16 @@ const createAdmin = async (): Promise<void> => {
             name: adminName,
             email: adminEmail,
             password: hashedPassword,
-
-            /**
-             * Admin được xác định bằng role.
-             */
-
             role: "admin",
-
-            /**
-             * Admin mới được phép đăng nhập ngay.
-             */
-
             status: "active",
-
-            /**
-             * Email được xác nhận khi Admin được tạo
-             * bằng script hệ thống.
-             */
-
             emailVerifiedAt: new Date(),
-
-            /**
-             * Các trường này User Model cho phép null.
-             */
-
             phone: null,
             avatar: null,
         });
 
         /**
          * =======================================================
-         * 9. THÔNG BÁO THÀNH CÔNG
+         * 9. THÔNG BÁO THÀNH CÔNG (ĐÃ HIỂN THỊ PASSWORD)
          * =======================================================
          */
 
@@ -293,6 +245,7 @@ const createAdmin = async (): Promise<void> => {
 
         console.log(`👤 Tên      : ${admin.name}`);
         console.log(`📧 Email    : ${admin.email}`);
+        console.log(`🔑 Password : ${adminPassword}`); // Hiển thị mật khẩu để đăng nhập lần đầu
         console.log(`🔑 Role     : ${admin.role}`);
         console.log(`🟢 Status   : ${admin.status}`);
         console.log(
@@ -302,13 +255,7 @@ const createAdmin = async (): Promise<void> => {
         console.log("");
 
         console.log(
-            "⚠️ Password không được hiển thị để đảm bảo an toàn.",
-        );
-
-        console.log("");
-
-        console.log(
-            "👉 Bây giờ có thể đăng nhập bằng API:",
+            "👉 Hãy lưu lại thông tin trên để đăng nhập API:",
         );
 
         console.log(
@@ -337,11 +284,6 @@ const createAdmin = async (): Promise<void> => {
         /**
          * =======================================================
          * ĐÓNG KẾT NỐI MONGODB
-         * =======================================================
-         *
-         * Script chỉ chạy một lần rồi kết thúc,
-         * nên cần đóng kết nối MongoDB.
-         *
          * =======================================================
          */
 
