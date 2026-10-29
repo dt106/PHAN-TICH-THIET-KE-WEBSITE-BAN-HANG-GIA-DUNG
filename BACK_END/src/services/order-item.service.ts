@@ -15,7 +15,7 @@ export interface OrderItemsSummary {
 
 export interface AdminOrderItemsResult {
   items: IOrderItem[];
-  meta: {
+  pagination: {
     page: number;
     limit: number;
     total: number;
@@ -105,7 +105,7 @@ export const getAllOrderItemsAdmin = async (query: {
 
   return {
     items,
-    meta: {
+    pagination: {
       page,
       limit,
       total,

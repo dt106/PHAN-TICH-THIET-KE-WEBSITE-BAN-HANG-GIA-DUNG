@@ -197,9 +197,9 @@ const main = async (): Promise<void> => {
   expect(
     "Admin loc theo orderId",
     filterByOrder.status === 200 &&
-      filterByOrder.json.data.items.length === 1 &&
-      filterByOrder.json.data.meta.total === 1,
-    `HTTP ${filterByOrder.status} | total=${filterByOrder.json.data?.meta?.total}`
+      filterByOrder.json.data.length === 1 &&
+      filterByOrder.json.pagination.total === 1,
+    `HTTP ${filterByOrder.status} | total=${filterByOrder.json.pagination?.total}`
   );
 
   const filterByProduct = await call(
@@ -211,11 +211,11 @@ const main = async (): Promise<void> => {
   expect(
     "Admin loc theo productId",
     filterByProduct.status === 200 &&
-      filterByProduct.json.data.meta.total === 2 &&
-      filterByProduct.json.data.items.every(
+      filterByProduct.json.pagination.total === 2 &&
+      filterByProduct.json.data.every(
         (item: any) => item.productSku === "OI-PRO-01"
       ),
-    `HTTP ${filterByProduct.status} | total=${filterByProduct.json.data?.meta?.total}`
+    `HTTP ${filterByProduct.status} | total=${filterByProduct.json.pagination?.total}`
   );
 
   const filterByDate = await call(
@@ -226,8 +226,8 @@ const main = async (): Promise<void> => {
   );
   expect(
     "Admin loc theo thoi gian",
-    filterByDate.status === 200 && filterByDate.json.data.meta.total === 2,
-    `HTTP ${filterByDate.status} | total=${filterByDate.json.data?.meta?.total}`
+    filterByDate.status === 200 && filterByDate.json.pagination.total === 2,
+    `HTTP ${filterByDate.status} | total=${filterByDate.json.pagination?.total}`
   );
 
   const filterByDateOutside = await call(
@@ -238,8 +238,8 @@ const main = async (): Promise<void> => {
   );
   expect(
     "Admin loc thoi gian ngoai pham vi",
-    filterByDateOutside.status === 200 && filterByDateOutside.json.data.meta.total === 0,
-    `HTTP ${filterByDateOutside.status} | total=${filterByDateOutside.json.data?.meta?.total}`
+    filterByDateOutside.status === 200 && filterByDateOutside.json.pagination.total === 0,
+    `HTTP ${filterByDateOutside.status} | total=${filterByDateOutside.json.pagination?.total}`
   );
 
   const summary = await call(
@@ -251,8 +251,8 @@ const main = async (): Promise<void> => {
   expect(
     "Admin thong ke summary",
     summary.status === 200 &&
-      summary.json.data.summary.totalQuantity === 3 &&
-      summary.json.data.summary.totalRevenue === 950000,
+      summary.json.summary.totalQuantity === 3 &&
+      summary.json.summary.totalRevenue === 950000,
     `HTTP ${summary.status} | ${JSON.stringify(summary.json.data?.summary ?? {})}`
   );
 

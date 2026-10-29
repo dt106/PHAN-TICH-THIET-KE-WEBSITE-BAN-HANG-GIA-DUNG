@@ -393,9 +393,9 @@ const main = async (): Promise<void> => {
   expect(
     "Admin list tìm kiếm SALE10 kèm phân trang",
     adminListSearch.status === 200 &&
-      adminListSearch.json.data?.pagination?.page === 1 &&
-      (adminListSearch.json.data?.items ?? []).some((c: any) => c.code === "SALE10"),
-    `status=${adminListSearch.status}, total=${adminListSearch.json.data?.pagination?.total}`
+      adminListSearch.json.pagination?.page === 1 &&
+      (adminListSearch.json.data ?? []).some((c: any) => c.code === "SALE10"),
+    `status=${adminListSearch.status}, total=${adminListSearch.json.pagination?.total}`
   );
 
   const adminDetail = await call("GET", `/api/admin/coupons/${sale10Id}`, undefined, adminToken);
@@ -416,9 +416,9 @@ const main = async (): Promise<void> => {
   expect(
     "Admin xem lịch sử Used10 có 1 lượt dùng",
     adminUsages.status === 200 &&
-      adminUsages.json.data?.items?.length === 1 &&
-      adminUsages.json.data?.pagination?.total === 1,
-    `status=${adminUsages.status}, items=${adminUsages.json.data?.items?.length}`
+      (adminUsages.json.data ?? []).length === 1 &&
+      adminUsages.json.pagination?.total === 1,
+    `status=${adminUsages.status}, items=${(adminUsages.json.data ?? []).length}`
   );
 
   const temp05 = await Coupon.findOne({ code: "TEMP05" });
@@ -457,7 +457,7 @@ const main = async (): Promise<void> => {
   expect(
     "Admin list lọc isActive=false chứa TEMP05",
     adminListInactive.status === 200 &&
-      (adminListInactive.json.data?.items ?? []).some((c: any) => c.code === "TEMP05"),
+      (adminListInactive.json.data ?? []).some((c: any) => c.code === "TEMP05"),
     `status=${adminListInactive.status}`
   );
 

@@ -15,6 +15,13 @@ router.get("/my-orders", myOrdersQueryValidator, validate, orderController.getMy
 
 router.get("/:id", orderIdParamValidator, validate, orderController.getOrderDetail);
 
+router.put(
+  "/:id/confirm-delivery",
+  orderIdParamValidator,
+  validate,
+  orderController.confirmDeliveryOrder
+);
+
 router.put("/:id/cancel", orderIdParamValidator, validate, orderController.cancelMyOrder);
 
 export default router;

@@ -264,10 +264,10 @@ const main = async (): Promise<void> => {
   expect(
     "Admin doi soat tong tien",
     adminList.status === 200 &&
-      adminList.json.data.summary.totalPaidAmount ===
+      adminList.json.summary.totalPaidAmount ===
         orderA.totalAmount + orderCod.totalAmount &&
-      adminList.json.data.summary.totalPaidCount === 2,
-    `HTTP ${adminList.status} | ${JSON.stringify(adminList.json.data?.summary ?? {})}`
+      adminList.json.summary.totalPaidCount === 2,
+    `HTTP ${adminList.status} | ${JSON.stringify(adminList.json.summary ?? {})}`
   );
 
   const refunded = await call(

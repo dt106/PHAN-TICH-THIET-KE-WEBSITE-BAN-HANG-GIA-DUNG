@@ -42,7 +42,7 @@ const buildPaginationMeta = (
 export const getMyOrders = async (
   userId: string,
   query: { status?: string; page?: number; limit?: number }
-): Promise<{ orders: IOrder[]; meta: OrderPaginationMeta }> => {
+): Promise<{ orders: IOrder[]; pagination: OrderPaginationMeta }> => {
   const page = query.page && query.page > 0 ? query.page : 1;
   const limit = query.limit && query.limit > 0 ? query.limit : 10;
 
@@ -58,7 +58,7 @@ export const getMyOrders = async (
     Order.countDocuments(filter),
   ]);
 
-  return { orders, meta: buildPaginationMeta(page, limit, total) };
+  return { orders, pagination: buildPaginationMeta(page, limit, total) };
 };
 
 export const getOrderDetailForUser = async (
@@ -105,6 +105,28 @@ const rollbackCouponUsage = async (order: IOrder): Promise<void> => {
   }
 };
 
+export const confirmDeliveryByCustomer = async (
+  userId: string,
+  orderId: string
+): Promise<IOrder> => {
+  const order = await getOrderDetailForUser(userId, orderId);
+
+  if (order.status !== "delivered") {
+    throw createHttpError(
+      400,
+      "Chỉ đơn hàng ở trạng thái 'delivered' mới có thể xác nhận đã nhận hàng."
+    );
+  }
+
+  // COD đã được ghi nhận tiền ngay khi vào delivered; bước này chỉ chốt
+  // khách xác nhận không có vấn đề và đóng đơn.
+  order.status = "completed";
+  order.completedAt = new Date();
+  await order.save();
+
+  return order;
+};
+
 export const cancelMyOrder = async (
   userId: string,
   orderId: string
@@ -145,7 +167,7 @@ export const getAllOrdersAdmin = async (query: {
   to?: string;
   page?: number;
   limit?: number;
-}): Promise<{ orders: IOrder[]; meta: OrderPaginationMeta }> => {
+}): Promise<{ orders: IOrder[]; pagination: OrderPaginationMeta }> => {
   const page = query.page && query.page > 0 ? query.page : 1;
   const limit = query.limit && query.limit > 0 ? query.limit : 10;
 
@@ -186,7 +208,7 @@ export const getAllOrdersAdmin = async (query: {
     Order.countDocuments(filter),
   ]);
 
-  return { orders, meta: buildPaginationMeta(page, limit, total) };
+  return { orders, pagination: buildPaginationMeta(page, limit, total) };
 };
 
 export const getOrderByIdAdmin = async (

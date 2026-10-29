@@ -367,7 +367,7 @@ export const getAllPaymentsAdmin = async (query: {
   limit?: number;
 }): Promise<{
   payments: IPayment[];
-  meta: { page: number; limit: number; total: number; totalPages: number };
+  pagination: { page: number; limit: number; total: number; totalPages: number };
   summary: { totalPaidAmount: number; totalPaidCount: number; totalRefundedAmount: number };
 }> => {
   const page = query.page && query.page > 0 ? query.page : 1;
@@ -433,7 +433,7 @@ export const getAllPaymentsAdmin = async (query: {
 
   return {
     payments,
-    meta: {
+    pagination: {
       page,
       limit,
       total,

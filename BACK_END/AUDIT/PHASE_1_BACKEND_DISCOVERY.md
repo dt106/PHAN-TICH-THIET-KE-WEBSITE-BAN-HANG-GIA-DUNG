@@ -58,7 +58,7 @@ src/models/*.model.ts         (25 Mongoose model, plugin toJSON)
 | Cloudinary | `src/config/cloudinary.ts` (3 env `CLOUDINARY_*`) | Chỉ dùng upload **avatar** (`upload.service.ts`). ProductMedia nhận URL từ JSON — không upload file |
 | SMTP (nodemailer) | `src/config/mail.ts` (`MAIL_HOST/PORT/USER/PASSWORD/FROM`) | Gửi email OTP 3 loại. ⚠️ `debug: true, logger: true` bật vô điều kiện; log OTP ra console |
 | Google Gemini | `src/config/gemini.ts` (`GEMINI_API_KEY`, model mặc định `gemini-2.5-flash`) | AI Chat tư vấn + AI Product Search. Không có fallback khi lỗi (trừ retry 503/429 của search) |
-| OpenAI | `src/config/openai.ts` (`OPENAI_API_KEY`) | **Dead config** — code gọi OpenAI trong `aiProductSearch.service.ts` bị comment toàn bộ |
+| OpenAI | ~~`src/config/openai.ts` (`OPENAI_API_KEY`)~~ | **ĐÃ DỌN 2026-10-24** — xóa config + dependency; AI dùng hoàn toàn Gemini |
 | VNPay / MoMo / ZaloPay | `src/config/payment.ts` (chỉ là hằng số env, không SDK) | VNPay: có build URL + HMAC-SHA512 thật. MoMo/ZaloPay: **chỉ có hàm verify callback, không có bước tạo đơn/gọi API gateway** → không thể phát sinh giao dịch thật |
 | Ngân hàng (BANK) | `BANK_NAME/BANK_ACCOUNT_NO/BANK_ACCOUNT_HOLDER` | Chỉ là chuỗi thông tin chuyển khoản trả về client |
 
@@ -256,13 +256,13 @@ Xóa bị chặn khi còn quan hệ (brand←product, category←con/sản phẩ
 
 1. `src/controllers/otp.controller.ts` — 5 handler, không route nào import.
 2. Model chết (không service/controller nào import): `OtpCode`, `Announcement`, `AnnouncementTarget`, `AnnouncementRead`, `Notification`, `Conversation`, `Message`; `ProductReview` chỉ đọc ở statistics. → 7 collection rỗng vẫn được tạo lúc start (`server.ts` tạo collection cho mọi model trong barrel).
-3. `src/config/openai.ts` + dependency `openai` — không còn code gọi (đã thay bằng Gemini).
+3. ~~`src/config/openai.ts` + dependency `openai`~~ **→ ĐÃ DỌN 2026-10-24:** xóa file config, bỏ dependency khỏi `package.json`, dọn code comment trong `aiProductSearch.service.ts`. `.env.example` cập nhật: bỏ OPENAI, thêm `GEMINI_*`/`CLOUDINARY_*` + ghi chú biến auth/SMTP.
 4. `ADMIN/src/routes/routeConfig.tsx` — file 0 byte.
 
 ### 7.4 API contract thiếu/không nhất quán (ảnh hưởng trực tiếp tài liệu)
 
 1. ~~**4 pattern xử lý lỗi khác nhau**~~ **→ ĐÃ GIẢI QUYẾT 2026-10-24 (phạm vi non-auth/AI-chat):** một quy tắc duy nhất — `AppError` (`src/utils/appError.ts`) + `error.middleware.ts` (kèm map ValidationError/CastError/E11000 → 400); 13 controller chuyển sang `next(error)`; guard tự viết thay bằng `roleMiddleware`. Verify 12/12 PASS. Auth + AI chat giữ pattern cũ theo giới hạn chủ dự án.
-2. Pagination không đồng nhất: `pagination` top-level (brand/category/product) vs nhúng trong `data` (order/payment/coupon/admin-customer); limit mặc định loạn: 5 (AI), 8 (featured), 4 (related), 10, 20, 50. **→ Còn mở (chưa xử lý theo phạm vi yêu cầu).**
+2. ~~Pagination không đồng nhất~~ **→ ĐÃ GIẢI QUYẾT 2026-10-24:** chuẩn hóa toàn bộ list endpoint — `data` là mảng, `pagination` `{page, limit, total, totalPages}` top-level, `summary` (nếu có) top-level. Đã cập nhật 4 service + 7 controller + 5 test script. `tsc --noEmit` pass 0 lỗi.
 3. `getAdminProducts` trả thêm `stats`; `getOrderByIdAdmin` trả `itemCount`; `getCouponByIdAdmin` trả `totalDiscountAmountGiven` — các "trường bonus" này dễ bị bỏ sót khi viết doc.
 4. ~~Một số endpoint không qua validator~~ **→ ĐÃ GIẢI QUYẾT một phần 2026-10-24:** thêm validator `limit` cho `GET /api/products/featured` (1–50). Các GET còn lại (`/categories/tree`, `/attributes`, `/cart`, `/wishlist`...) không có input nên không cần validator.
 5. `.env.example` thiếu `JWT_SECRET`, `JWT_EXPIRES_IN`, `MAIL_*`, `CLOUDINARY_*`, `GEMINI_*`, `ADMIN_NAME/EMAIL/PASSWORD` (create-admin); dòng `OPENAI_API_KEY=OPENAI_API_KEY=...` viết sai đôi key.

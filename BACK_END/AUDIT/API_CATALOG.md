@@ -287,6 +287,7 @@ Router: `authMiddleware` + guard `requireAdmin`. ⚠️ Mount 2 lần trong `app
 | 1 | GET | `/my-orders` | User | `getMyOrders` | `getMyOrders` (page 1/limit 10) | `myOrdersQueryValidator` | Order | V/T |
 | 2 | GET | `/:id` | User | `getOrderDetail` | `getOrderDetailForUser` (ownership) | `orderIdParamValidator` | Order | V/T |
 | 3 | PUT | `/:id/cancel` | User | `cancelMyOrder` | `cancelMyOrder` (chỉ pending/confirmed và chưa paid; hoàn kho + rollback coupon) | `orderIdParamValidator` | Order, ProductVariant, Coupon, CouponUsage | V/T |
+| 4 | PUT | `/:id/confirm-delivery` | User (owner) | `confirmDeliveryOrder` | `confirmDeliveryByCustomer` (chỉ `delivered` → `completed`; COD đã ghi tiền tại delivered) | `orderIdParamValidator` | Order | V (mới 2026-10-24, kèm test) |
 
 ## 19. Order Item — mount `/api/orders` (`src/routes/order-item.routes.ts`) — toàn router cần JWT
 
@@ -342,7 +343,8 @@ Router: `authMiddleware` + guard `requireAdmin`. ⚠️ Mount 2 lần trong `app
 
 > **2026-10-24 — quy tắc lỗi duy nhất:** mọi lỗi của API non-auth/AI-chat đều đi qua `src/middlewares/error.middleware.ts`. Service ném `AppError(statusCode, message)`; các lỗi Mongoose (ValidationError / CastError / E11000) tự map về 400; lỗi không xác định → 500 với message chung. Controller không tự gán status lỗi nữa.
 
-- Thành công: `{ "success": true, "message": "...", "data": ... }` · một số list thêm `pagination` ở top-level (brand/category/product) hoặc nhúng trong `data` (order/payment/coupon/customer-admin).
+- Thành công: `{ "success": true, "message": "...", "data": ... }`.
+- **Danh sách phân trang (chuẩn hóa 2026-10-24):** `data` = **mảng** kết quả; `pagination` = `{ page, limit, total, totalPages }` đặt **top-level** cạnh `success`; các endpoint có tổng hợp kèm `summary` top-level (`GET /api/admin/payments`, `GET /api/admin/order-items`). Áp dụng cho: brand, category, product (đã đúng sẵn) và order (my-orders, admin), payment admin, coupon admin + usages, order-item admin, admin customers. Danh sách KHÔNG phân trang (`data` là mảng, không có `pagination`): `my-payments`, cart, wishlist, coupons public, user-addresses, order items theo đơn. Ngoại lệ: AI search trả pagination bên trong `data` (giữ nguyên theo phạm vi loại trừ AI).
 - Lỗi validation (400 từ express-validator): `{ "success": false, "message": "Dữ liệu không hợp lệ", "errors": [{field, message}] }` (`src/middlewares/validate.middleware.ts`).
 - Lỗi khác: `{ "success": false, "message": "..." }`; lỗi 500 che message gốc (`src/middlewares/error.middleware.ts`).
 - Giá trị `id` trả về là bản sao của `_id` (plugin `toJSON`), không có `__v`, không lộ `password`.

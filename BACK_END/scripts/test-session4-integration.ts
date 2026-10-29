@@ -253,9 +253,9 @@ const main = async (): Promise<void> => {
   const wishlistOfAAfter = await call("GET", "/api/wishlist", undefined, userAToken);
   expect(
     "Kịch bản 3.2 - User B bị chặn sửa/xóa dữ liệu của User A",
-    bUpdateACart.status === 400 &&
-      bDeleteACart.status === 400 &&
-      bDeleteAWishlist.status === 400 &&
+    bUpdateACart.status === 404 &&
+      bDeleteACart.status === 404 &&
+      bDeleteAWishlist.status === 404 &&
       cartOfAAfter.json.data?.items?.length === 1 &&
       wishlistOfAAfter.json.data?.length === 1,
     `put=${bUpdateACart.status}, delCart=${bDeleteACart.status}, delWish=${bDeleteAWishlist.status}, cartA=${cartOfAAfter.json.data?.items?.length}, wishA=${wishlistOfAAfter.json.data?.length}`

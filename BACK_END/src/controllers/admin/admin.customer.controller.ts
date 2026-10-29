@@ -61,7 +61,8 @@ export const getAdminCustomers = async (
     res.status(200).json({
       success: true,
       message: "Lấy danh sách khách hàng thành công.",
-      data,
+      data: data.customers,
+      pagination: data.pagination,
     });
   } catch (error) {
     next(error);

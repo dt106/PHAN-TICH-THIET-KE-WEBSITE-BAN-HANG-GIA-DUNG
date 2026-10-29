@@ -12,9 +12,6 @@
  */
 
 // import {
-//   openai,
-//   OPENAI_MODEL,
-// } from "../config/openai";
 import {
   gemini,
   GEMINI_MODEL,
@@ -205,11 +202,7 @@ const normalizeFilters = (
 // const parseSearchQuery = async (
 //   query: string,
 // ): Promise<AIProductFilters> => {
-//   const response = await openai.chat.completions.create({
-//     model: OPENAI_MODEL,
 //     temperature: 0,
-//     response_format: {
-//       type: "json_object",
 //     },
 //     messages: [
 //       {
@@ -246,7 +239,6 @@ const normalizeFilters = (
 
 //   if (!content) {
 //     throw new Error(
-//       "OpenAI không trả về dữ liệu phân tích tìm kiếm.",
 //     );
 //   }
 
@@ -256,7 +248,6 @@ const normalizeFilters = (
 //     parsed = JSON.parse(content);
 //   } catch {
 //     throw new Error(
-//       "Không thể đọc dữ liệu phân tích từ OpenAI.",
 //     );
 //   }
 

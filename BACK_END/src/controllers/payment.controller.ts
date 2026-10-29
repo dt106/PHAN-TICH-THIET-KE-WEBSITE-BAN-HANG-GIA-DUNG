@@ -190,7 +190,9 @@ export const getAllPaymentsAdmin = async (req: Request, res: Response, next: Nex
     return res.status(200).json({
       success: true,
       message: "Lấy danh sách thanh toán thành công.",
-      data: result,
+      data: result.payments,
+      pagination: result.pagination,
+      summary: result.summary,
     });
   } catch (error) {
     next(error);

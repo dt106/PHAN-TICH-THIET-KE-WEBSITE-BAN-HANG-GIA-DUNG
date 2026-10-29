@@ -18,7 +18,8 @@ export const getMyOrders = async (req: Request, res: Response, next: NextFunctio
     return res.status(200).json({
       success: true,
       message: "Lấy danh sách đơn hàng của bạn thành công.",
-      data: result,
+      data: result.orders,
+      pagination: result.pagination,
     });
   } catch (error) {
     next(error);
@@ -32,6 +33,20 @@ export const getOrderDetail = async (req: Request, res: Response, next: NextFunc
     return res.status(200).json({
       success: true,
       message: "Lấy chi tiết đơn hàng thành công.",
+      data: order,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const confirmDeliveryOrder = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const userId = req.user!.userId;
+    const order = await orderService.confirmDeliveryByCustomer(userId, String(req.params.id));
+    return res.status(200).json({
+      success: true,
+      message: "Xác nhận đã nhận hàng thành công. Đơn hàng đã hoàn tất.",
       data: order,
     });
   } catch (error) {
@@ -69,7 +84,8 @@ export const getAllOrdersAdmin = async (req: Request, res: Response, next: NextF
     return res.status(200).json({
       success: true,
       message: "Lấy danh sách đơn hàng thành công.",
-      data: result,
+      data: result.orders,
+      pagination: result.pagination,
     });
   } catch (error) {
     next(error);

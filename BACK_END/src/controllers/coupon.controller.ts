@@ -43,7 +43,8 @@ export const getAllCouponsAdmin = async (req: Request, res: Response, next: Next
     return res.status(200).json({
       success: true,
       message: "Lấy danh sách quản trị mã giảm giá thành công.",
-      data,
+      data: data.items,
+      pagination: data.pagination,
     });
   } catch (error) {
     next(error);
@@ -120,7 +121,8 @@ export const getCouponUsages = async (req: Request, res: Response, next: NextFun
     return res.status(200).json({
       success: true,
       message: "Lấy lịch sử sử dụng mã thành công.",
-      data,
+      data: data.items,
+      pagination: data.pagination,
     });
   } catch (error) {
     next(error);

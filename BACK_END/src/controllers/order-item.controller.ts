@@ -37,7 +37,9 @@ export const getAllOrderItemsAdmin = async (req: Request, res: Response, next: N
     return res.status(200).json({
       success: true,
       message: "Lấy danh sách chi tiết đơn hàng thành công.",
-      data: result,
+      data: result.items,
+      pagination: result.pagination,
+      summary: result.summary,
     });
   } catch (error) {
     next(error);

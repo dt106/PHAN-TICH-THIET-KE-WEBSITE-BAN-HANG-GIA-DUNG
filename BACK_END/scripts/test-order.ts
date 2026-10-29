@@ -168,11 +168,11 @@ const main = async (): Promise<void> => {
   expect(
     "Danh sach don cua toi",
     myOrders.status === 200 &&
-      myOrders.json.data.orders.length === 2 &&
-      myOrders.json.data.orders.every(
+      (myOrders.json.data ?? []).length === 2 &&
+      (myOrders.json.data ?? []).every(
         (order: any) => order.userId === userIdA
       ),
-    `HTTP ${myOrders.status} | total=${myOrders.json.data?.meta?.total}`
+    `HTTP ${myOrders.status} | total=${myOrders.json.pagination?.total}`
   );
 
   const filterCompleted = await call(
@@ -184,8 +184,8 @@ const main = async (): Promise<void> => {
   expect(
     "Loc theo trang thai",
     filterCompleted.status === 200 &&
-      filterCompleted.json.data.orders.length === 1 &&
-      filterCompleted.json.data.orders[0].status === "completed",
+      (filterCompleted.json.data ?? []).length === 1 &&
+      (filterCompleted.json.data ?? [])[0]?.status === "completed",
     `HTTP ${filterCompleted.status}`
   );
 
@@ -281,8 +281,8 @@ const main = async (): Promise<void> => {
   expect(
     "Admin loc theo userId",
     adminList.status === 200 &&
-      adminList.json.data.orders.length === 1 &&
-      adminList.json.data.orders[0].userId === userIdB,
+      (adminList.json.data ?? []).length === 1 &&
+      adminList.json.data[0]?.userId === userIdB,
     `HTTP ${adminList.status}`
   );
 
@@ -294,8 +294,8 @@ const main = async (): Promise<void> => {
   );
   expect(
     "Admin tim kiem theo ma don",
-    adminSearch.status === 200 && adminSearch.json.data.meta.total === 1,
-    `HTTP ${adminSearch.status} | total=${adminSearch.json.data?.meta?.total}`
+    adminSearch.status === 200 && adminSearch.json.pagination.total === 1,
+    `HTTP ${adminSearch.status} | total=${adminSearch.json.pagination?.total}`
   );
 
   const invalidTransition = await call(
@@ -460,6 +460,50 @@ const main = async (): Promise<void> => {
       Boolean(paidCancelPayment) &&
       paidCancelPayment?.refundAmount === 500000,
     `HTTP ${paidCancel.status} | orderPaymentStatus=${paidCancel.json.data?.paymentStatus} | paymentRefunded=${Boolean(paidCancelPayment)} | refundAmount=${paidCancelPayment?.refundAmount}`
+  );
+
+  // Khách xác nhận đã nhận hàng: delivered -> completed (API riêng của khách).
+  const seededF = await seedOrder(userIdA, variant._id, {
+    status: "delivered",
+    paymentStatus: "paid",
+    paymentMethod: "COD",
+    deliveredAt: new Date(),
+  });
+  await Payment.create({
+    orderId: seededF.order._id,
+    paymentMethod: "COD",
+    transactionCode: `COD-${seededF.order.orderNumber}`,
+    amount: 500000,
+    status: "paid",
+    paidAt: new Date(),
+  });
+  const confirmWrongUser = await call(
+    "PUT",
+    `/api/orders/${seededF.order._id}/confirm-delivery`,
+    undefined,
+    tokenB
+  );
+  const confirmOk = await call(
+    "PUT",
+    `/api/orders/${seededF.order._id}/confirm-delivery`,
+    undefined,
+    tokenA
+  );
+  const confirmAgain = await call(
+    "PUT",
+    `/api/orders/${seededF.order._id}/confirm-delivery`,
+    undefined,
+    tokenA
+  );
+  expect(
+    "Khach xac nhan da nhan hang: delivered -> completed",
+    confirmWrongUser.status === 404 &&
+      confirmOk.status === 200 &&
+      confirmOk.json.data.status === "completed" &&
+      Boolean(confirmOk.json.data.completedAt) &&
+      confirmOk.json.data.paymentStatus === "paid" &&
+      confirmAgain.status === 400,
+    `crossUser=${confirmWrongUser.status} | confirm=${confirmOk.status} | status=${confirmOk.json.data?.status} | completedAt=${Boolean(confirmOk.json.data?.completedAt)} | again=${confirmAgain.status}`
   );
 
   const terminalTransition = await call(
