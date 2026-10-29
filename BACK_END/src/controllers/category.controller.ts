@@ -1,23 +1,6 @@
-import { Request, Response } from "express";
+import { Request, Response, NextFunction } from "express";
 
 import * as categoryService from "../services/category.service";
-import { HttpError } from "../services/brand.service";
-
-const getErrorMessage = (error: unknown): string => {
-  if (error instanceof Error) {
-    return error.message;
-  }
-
-  return "Đã xảy ra lỗi không xác định.";
-};
-
-const getErrorStatusCode = (error: unknown, fallback: number): number => {
-  if (error instanceof HttpError) {
-    return error.statusCode;
-  }
-
-  return fallback;
-};
 
 const getQueryParam = (value: unknown): string | undefined => {
   if (typeof value === "string") {
@@ -36,7 +19,7 @@ const getPathParam = (value: unknown): string => {
   return typeof value === "string" ? value : "";
 };
 
-export const getPublicCategories = async (req: Request, res: Response) => {
+export const getPublicCategories = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const result = await categoryService.getPublicCategories({
       page: getQueryParam(req.query.page)
@@ -58,13 +41,11 @@ export const getPublicCategories = async (req: Request, res: Response) => {
       pagination: result.pagination,
     });
   } catch (error) {
-    return res
-      .status(getErrorStatusCode(error, 500))
-      .json({ success: false, message: getErrorMessage(error) });
+    next(error);
   }
 };
 
-export const getPublicCategoryTree = async (_req: Request, res: Response) => {
+export const getPublicCategoryTree = async (_req: Request, res: Response, next: NextFunction) => {
   try {
     const tree = await categoryService.getPublicCategoryTree();
 
@@ -74,13 +55,11 @@ export const getPublicCategoryTree = async (_req: Request, res: Response) => {
       data: tree,
     });
   } catch (error) {
-    return res
-      .status(getErrorStatusCode(error, 500))
-      .json({ success: false, message: getErrorMessage(error) });
+    next(error);
   }
 };
 
-export const getPublicCategoryById = async (req: Request, res: Response) => {
+export const getPublicCategoryById = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const category = await categoryService.getPublicCategoryById(
       getPathParam(req.params.id)
@@ -92,13 +71,11 @@ export const getPublicCategoryById = async (req: Request, res: Response) => {
       data: category,
     });
   } catch (error) {
-    return res
-      .status(getErrorStatusCode(error, 404))
-      .json({ success: false, message: getErrorMessage(error) });
+    next(error);
   }
 };
 
-export const getPublicCategoryBySlug = async (req: Request, res: Response) => {
+export const getPublicCategoryBySlug = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const category = await categoryService.getPublicCategoryBySlug(
       getPathParam(req.params.slug)
@@ -110,13 +87,11 @@ export const getPublicCategoryBySlug = async (req: Request, res: Response) => {
       data: category,
     });
   } catch (error) {
-    return res
-      .status(getErrorStatusCode(error, 404))
-      .json({ success: false, message: getErrorMessage(error) });
+    next(error);
   }
 };
 
-export const getAdminCategories = async (req: Request, res: Response) => {
+export const getAdminCategories = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const result = await categoryService.getAdminCategories({
       page: getQueryParam(req.query.page)
@@ -139,13 +114,11 @@ export const getAdminCategories = async (req: Request, res: Response) => {
       pagination: result.pagination,
     });
   } catch (error) {
-    return res
-      .status(getErrorStatusCode(error, 500))
-      .json({ success: false, message: getErrorMessage(error) });
+    next(error);
   }
 };
 
-export const getAdminCategoryById = async (req: Request, res: Response) => {
+export const getAdminCategoryById = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const category = await categoryService.getAdminCategoryById(
       getPathParam(req.params.id)
@@ -157,13 +130,11 @@ export const getAdminCategoryById = async (req: Request, res: Response) => {
       data: category,
     });
   } catch (error) {
-    return res
-      .status(getErrorStatusCode(error, 404))
-      .json({ success: false, message: getErrorMessage(error) });
+    next(error);
   }
 };
 
-export const createCategory = async (req: Request, res: Response) => {
+export const createCategory = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const category = await categoryService.createCategory(req.body);
 
@@ -173,13 +144,11 @@ export const createCategory = async (req: Request, res: Response) => {
       data: category,
     });
   } catch (error) {
-    return res
-      .status(getErrorStatusCode(error, 500))
-      .json({ success: false, message: getErrorMessage(error) });
+    next(error);
   }
 };
 
-export const updateCategory = async (req: Request, res: Response) => {
+export const updateCategory = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const category = await categoryService.updateCategory(
       getPathParam(req.params.id),
@@ -192,13 +161,11 @@ export const updateCategory = async (req: Request, res: Response) => {
       data: category,
     });
   } catch (error) {
-    return res
-      .status(getErrorStatusCode(error, 500))
-      .json({ success: false, message: getErrorMessage(error) });
+    next(error);
   }
 };
 
-export const toggleCategoryStatus = async (req: Request, res: Response) => {
+export const toggleCategoryStatus = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const category = await categoryService.toggleCategoryStatus(
       getPathParam(req.params.id),
@@ -211,13 +178,11 @@ export const toggleCategoryStatus = async (req: Request, res: Response) => {
       data: category,
     });
   } catch (error) {
-    return res
-      .status(getErrorStatusCode(error, 500))
-      .json({ success: false, message: getErrorMessage(error) });
+    next(error);
   }
 };
 
-export const updateSortOrder = async (req: Request, res: Response) => {
+export const updateSortOrder = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const result = await categoryService.updateSortOrder(req.body.items);
 
@@ -226,13 +191,11 @@ export const updateSortOrder = async (req: Request, res: Response) => {
       message: result.message,
     });
   } catch (error) {
-    return res
-      .status(getErrorStatusCode(error, 500))
-      .json({ success: false, message: getErrorMessage(error) });
+    next(error);
   }
 };
 
-export const deleteCategory = async (req: Request, res: Response) => {
+export const deleteCategory = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const result = await categoryService.deleteCategory(getPathParam(req.params.id));
 
@@ -241,8 +204,6 @@ export const deleteCategory = async (req: Request, res: Response) => {
       message: result.message,
     });
   } catch (error) {
-    return res
-      .status(getErrorStatusCode(error, 500))
-      .json({ success: false, message: getErrorMessage(error) });
+    next(error);
   }
 };

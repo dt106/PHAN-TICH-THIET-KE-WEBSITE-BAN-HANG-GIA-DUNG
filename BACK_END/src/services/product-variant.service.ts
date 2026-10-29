@@ -3,7 +3,7 @@ import VariantAttribute from "../models/VariantAttribute.model";
 import Product from "../models/Product.model";
 import AttributeValue from "../models/AttributeValue.model";
 import OrderItem from "../models/OrderItem.model";
-import { HttpError } from "./brand.service";
+import { AppError } from "../utils/appError";
 
 interface VariantAttributePayload {
   attributeId: string;
@@ -93,7 +93,7 @@ export const getPublicVariantById = async (id: string) => {
   }).lean()) as Record<string, any> | null;
 
   if (!variant) {
-    throw new HttpError(404, "Biến thể không tồn tại hoặc đã ngừng kinh doanh.");
+    throw new AppError(404, "Biến thể không tồn tại hoặc đã ngừng kinh doanh.");
   }
 
   const attrs = (await VariantAttribute.find({ variantId: id })
@@ -122,12 +122,12 @@ export const createVariant = async (
   payload: CreateVariantPayload
 ) => {
   const product = await Product.findById(productId);
-  if (!product) throw new HttpError(404, "Sản phẩm cha không tồn tại.");
+  if (!product) throw new AppError(404, "Sản phẩm cha không tồn tại.");
 
   const sku = payload.sku.toUpperCase().trim();
   const existingSku = await ProductVariant.findOne({ sku });
   if (existingSku) {
-    throw new HttpError(400, `Mã SKU biến thể '${sku}' đã tồn tại.`);
+    throw new AppError(400, `Mã SKU biến thể '${sku}' đã tồn tại.`);
   }
 
   if (payload.attributes && payload.attributes.length > 0) {
@@ -137,7 +137,7 @@ export const createVariant = async (
         attributeId: attr.attributeId,
       });
       if (!validValue) {
-        throw new HttpError(
+        throw new AppError(
           400,
           `Giá trị thuộc tính ${attr.attributeValueId} không thuộc về thuộc tính ${attr.attributeId}.`
         );
@@ -176,13 +176,13 @@ export const updateVariant = async (
   payload: UpdateVariantPayload
 ) => {
   const variant = await ProductVariant.findById(id);
-  if (!variant) throw new HttpError(404, "Biến thể không tồn tại.");
+  if (!variant) throw new AppError(404, "Biến thể không tồn tại.");
 
   if (payload.sku && payload.sku.toUpperCase().trim() !== variant.sku) {
     const sku = payload.sku.toUpperCase().trim();
     const existing = await ProductVariant.findOne({ sku, _id: { $ne: id } });
     if (existing) {
-      throw new HttpError(400, `Mã SKU biến thể '${sku}' đã tồn tại.`);
+      throw new AppError(400, `Mã SKU biến thể '${sku}' đã tồn tại.`);
     }
     variant.sku = sku;
   }
@@ -223,7 +223,7 @@ export const updateVariantStock = async (
   stockQuantity: number
 ) => {
   const variant = await ProductVariant.findById(id);
-  if (!variant) throw new HttpError(404, "Biến thể không tồn tại.");
+  if (!variant) throw new AppError(404, "Biến thể không tồn tại.");
 
   variant.stockQuantity = stockQuantity;
   await variant.save();
@@ -233,7 +233,7 @@ export const updateVariantStock = async (
 
 export const toggleVariantStatus = async (id: string, isActive?: boolean) => {
   const variant = await ProductVariant.findById(id);
-  if (!variant) throw new HttpError(404, "Biến thể không tồn tại.");
+  if (!variant) throw new AppError(404, "Biến thể không tồn tại.");
 
   variant.isActive = isActive !== undefined ? isActive : !variant.isActive;
   await variant.save();
@@ -245,11 +245,11 @@ export const toggleVariantStatus = async (id: string, isActive?: boolean) => {
 
 export const deleteVariant = async (id: string) => {
   const variant = await ProductVariant.findById(id);
-  if (!variant) throw new HttpError(404, "Biến thể không tồn tại.");
+  if (!variant) throw new AppError(404, "Biến thể không tồn tại.");
 
   const hasOrders = await OrderItem.countDocuments({ variantId: id });
   if (hasOrders > 0) {
-    throw new HttpError(
+    throw new AppError(
       400,
       `Không thể xóa biến thể đã phát sinh trong ${hasOrders} chi tiết đơn hàng. Vui lòng chuyển trạng thái isActive sang false.`
     );

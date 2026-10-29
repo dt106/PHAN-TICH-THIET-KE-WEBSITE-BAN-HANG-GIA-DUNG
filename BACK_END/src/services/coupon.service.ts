@@ -1,4 +1,5 @@
 import { Types } from "mongoose";
+import { AppError } from "../utils/appError";
 import Coupon, { ICoupon, DiscountType } from "../models/Coupon.model";
 import CouponUsage from "../models/CouponUsage.model";
 
@@ -53,26 +54,26 @@ export const validateAndCalculateCoupon = async (
   const coupon = await Coupon.findOne({ code: formattedCode });
 
   if (!coupon) {
-    throw new Error("Mã giảm giá không tồn tại.");
+    throw new AppError(404, "Mã giảm giá không tồn tại.");
   }
 
   if (!coupon.isActive) {
-    throw new Error("Mã giảm giá hiện đang bị tạm khóa.");
+    throw new AppError(400, "Mã giảm giá hiện đang bị tạm khóa.");
   }
 
   const now = new Date();
 
   if (coupon.startsAt && now < coupon.startsAt) {
-    throw new Error("Mã giảm giá chưa đến thời gian áp dụng.");
+    throw new AppError(400, "Mã giảm giá chưa đến thời gian áp dụng.");
   }
 
   if (coupon.expiresAt && now > coupon.expiresAt) {
-    throw new Error("Mã giảm giá đã hết hạn sử dụng.");
+    throw new AppError(400, "Mã giảm giá đã hết hạn sử dụng.");
   }
 
   if (coupon.usageLimit !== null && coupon.usageLimit !== undefined) {
     if (coupon.usedCount >= coupon.usageLimit) {
-      throw new Error("Mã giảm giá đã hết lượt sử dụng.");
+      throw new AppError(400, "Mã giảm giá đã hết lượt sử dụng.");
     }
   }
 
@@ -83,14 +84,14 @@ export const validateAndCalculateCoupon = async (
     });
 
     if (userUsedCount >= coupon.perUserLimit) {
-      throw new Error(
+      throw new AppError(400, 
         `Bạn đã sử dụng hết số lần cho phép (${coupon.perUserLimit} lần) của mã này.`
       );
     }
   }
 
   if (orderAmount < coupon.minimumOrderAmount) {
-    throw new Error(
+    throw new AppError(400, 
       `Đơn hàng chưa đạt giá trị tối thiểu ${coupon.minimumOrderAmount.toLocaleString("vi-VN")}đ để sử dụng mã này.`
     );
   }
@@ -139,7 +140,7 @@ export const getAllCouponsAdmin = async (query: {
   const filter: any = {};
 
   if (query.search) {
-    const searchRegex = new RegExp(query.search.trim(), "i");
+    const searchRegex = new RegExp(query.search.trim().replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "i");
     filter.$or = [{ code: searchRegex }, { name: searchRegex }];
   }
 
@@ -166,7 +167,7 @@ export const getAllCouponsAdmin = async (query: {
 export const getCouponByIdAdmin = async (id: string) => {
   const coupon = await Coupon.findById(id).lean();
   if (!coupon) {
-    throw new Error("Mã giảm giá không tồn tại.");
+    throw new AppError(404, "Mã giảm giá không tồn tại.");
   }
 
   const totalDiscountUsed = await CouponUsage.aggregate([
@@ -199,7 +200,7 @@ export const createCoupon = async (payload: {
 
   const existing = await Coupon.findOne({ code });
   if (existing) {
-    throw new Error(`Mã giảm giá '${code}' đã tồn tại trong hệ thống.`);
+    throw new AppError(400, `Mã giảm giá '${code}' đã tồn tại trong hệ thống.`);
   }
 
   return Coupon.create({
@@ -228,7 +229,7 @@ export const updateCoupon = async (
 ): Promise<ICoupon> => {
   const coupon = await Coupon.findById(id);
   if (!coupon) {
-    throw new Error("Mã giảm giá không tồn tại.");
+    throw new AppError(404, "Mã giảm giá không tồn tại.");
   }
 
   if (payload.name !== undefined) coupon.name = payload.name;
@@ -254,7 +255,7 @@ export const updateCoupon = async (
 export const toggleCouponStatus = async (id: string): Promise<ICoupon> => {
   const coupon = await Coupon.findById(id);
   if (!coupon) {
-    throw new Error("Mã giảm giá không tồn tại.");
+    throw new AppError(404, "Mã giảm giá không tồn tại.");
   }
 
   coupon.isActive = !coupon.isActive;
@@ -265,12 +266,12 @@ export const toggleCouponStatus = async (id: string): Promise<ICoupon> => {
 export const deleteCoupon = async (id: string): Promise<{ message: string }> => {
   const coupon = await Coupon.findById(id);
   if (!coupon) {
-    throw new Error("Mã giảm giá không tồn tại.");
+    throw new AppError(404, "Mã giảm giá không tồn tại.");
   }
 
   const usageCount = await CouponUsage.countDocuments({ couponId: id });
   if (usageCount > 0) {
-    throw new Error(
+    throw new AppError(400, 
       `Không thể xóa mã giảm giá này vì đã có ${usageCount} đơn hàng áp dụng. Vui lòng chuyển trạng thái sang Không hoạt động.`
     );
   }

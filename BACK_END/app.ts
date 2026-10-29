@@ -37,6 +37,11 @@ import adminOrderRoutes from "./src/routes/admin/admin.order.routes";
 import adminOrderItemRoutes from "./src/routes/admin/admin.order-item.routes";
 import paymentRoutes from "./src/routes/payment.routes";
 import adminPaymentRoutes from "./src/routes/admin/admin.payment.routes";
+import adminBrandRoutes from "./src/routes/admin/admin.brand.routes";
+import adminCategoryRoutes from "./src/routes/admin/admin.category.routes";
+import adminAttributeRoutes from "./src/routes/admin/admin.attribute.routes";
+import adminProductRoutes from "./src/routes/admin/admin.product.routes";
+import adminCouponRoutes from "./src/routes/admin/admin.coupon.routes";
 import aiProductSearchRoutes from "./src/routes/aiProductSearch.routes";
 import aiChatRoutes from "./src/routes/aiChat.routes";
 
@@ -55,10 +60,19 @@ const app = express();
  * 6. GLOBAL MIDDLEWARE
  */
 
-// Cấu hình CORS.
+/**
+ * CORS: chỉ cho phép các origin được cấu hình qua CLIENT_URL
+ * (phân tách bằng dấu phẩy). Request không kèm Origin (curl, server-to-server)
+ * vẫn đi qua bình thường. Bỏ cấu hình → nới lỏng như cũ (mọi origin).
+ */
+const corsOrigins = (process.env.CLIENT_URL || "")
+  .split(",")
+  .map((origin) => origin.trim())
+  .filter(Boolean);
+
 app.use(
   cors({
-    origin: true,
+    origin: corsOrigins.length > 0 ? corsOrigins : true,
     credentials: true,
   }),
 );
@@ -185,7 +199,6 @@ app.use("/api/ai/products", aiProductSearchRoutes);
  */
 app.use("/api/user-addresses", userAddressRoutes);
 
-app.use("/api/admin/statistics", adminStatisticsRoutes);
 // API quản lý khách hàng
 app.use("/api/admin/customers", adminCustomerRoutes);
 // AI Chat tư vấn khách hàng
@@ -199,6 +212,17 @@ app.use("/api/admin/orders", adminOrderRoutes);
 app.use("/api/admin/order-items", adminOrderItemRoutes);
 app.use("/api/payments", paymentRoutes);
 app.use("/api/admin/payments", adminPaymentRoutes);
+
+// =======================================================
+// API QUẢN TRỊ CATALOG — đồng nhất quy ước /api/admin/*
+// (trước đây nằm tại /api/brands/admin, /api/categories/admin,
+//  /api/attributes/admin, /api/products/admin, /api/coupons/admin)
+// =======================================================
+app.use("/api/admin/brands", adminBrandRoutes);
+app.use("/api/admin/categories", adminCategoryRoutes);
+app.use("/api/admin/attributes", adminAttributeRoutes);
+app.use("/api/admin/products", adminProductRoutes);
+app.use("/api/admin/coupons", adminCouponRoutes);
 
 /**
  * 19. API NOT FOUND

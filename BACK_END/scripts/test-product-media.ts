@@ -122,7 +122,7 @@ const main = async (): Promise<void> => {
 
   const categoryRes = await call(
     "POST",
-    "/api/categories/admin",
+    "/api/admin/categories",
     { name: CATEGORY_NAME },
     adminToken
   );
@@ -130,7 +130,7 @@ const main = async (): Promise<void> => {
 
   const productRes = await call(
     "POST",
-    "/api/products/admin",
+    "/api/admin/products",
     {
       name: PRODUCT_NAME,
       sku: PRODUCT_SKU,

@@ -17,6 +17,7 @@
  */
 
 import { Types } from "mongoose";
+import { AppError } from "../../utils/appError";
 import { User } from "../../models";
 
 type CustomerStatus = "active" | "inactive" | "blocked";
@@ -201,7 +202,7 @@ export const updateAdminCustomerStatusService = async (
   ];
 
   if (!allowedStatuses.includes(status)) {
-    throw new Error("Trạng thái khách hàng không hợp lệ.");
+    throw new AppError(400, "Trạng thái khách hàng không hợp lệ.");
   }
 
   return User.findOneAndUpdate(

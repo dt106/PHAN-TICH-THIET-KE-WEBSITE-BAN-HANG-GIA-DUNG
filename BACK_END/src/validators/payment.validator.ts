@@ -1,7 +1,7 @@
 import { body, param, query } from "express-validator";
 
 const PAYMENT_METHODS = ["COD", "BANK", "MOMO", "VNPAY", "ZALOPAY"];
-const PAYMENT_STATUSES = ["pending", "processing", "paid", "failed", "refunded"];
+const PAYMENT_STATUSES = ["pending", "paid", "failed", "refunded"];
 
 export const createPaymentValidator = [
   body("orderId")

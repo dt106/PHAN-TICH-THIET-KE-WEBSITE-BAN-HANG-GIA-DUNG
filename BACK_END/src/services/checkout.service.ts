@@ -1,4 +1,5 @@
 import { Types } from "mongoose";
+import { AppError } from "../utils/appError";
 import Cart from "../models/Cart.model";
 import Coupon from "../models/Coupon.model";
 import CouponUsage from "../models/CouponUsage.model";
@@ -65,7 +66,7 @@ const resolveShippingInfo = async (
     }).lean();
 
     if (!address) {
-      throw new Error("Địa chỉ giao hàng không tồn tại hoặc không thuộc về bạn.");
+      throw new AppError(404, "Địa chỉ giao hàng không tồn tại hoặc không thuộc về bạn.");
     }
 
     return {
@@ -79,7 +80,7 @@ const resolveShippingInfo = async (
   }
 
   if (!payload.customerName || !payload.customerPhone || !payload.shippingAddress) {
-    throw new Error(
+    throw new AppError(400, 
       "Cần cung cấp addressId hoặc đầy đủ customerName, customerPhone và shippingAddress."
     );
   }
@@ -122,7 +123,7 @@ const buildCheckoutSummary = async (
     .lean();
 
   if (cartRecords.length === 0) {
-    throw new Error("Giỏ hàng trống hoặc không có sản phẩm hợp lệ để đặt hàng.");
+    throw new AppError(400, "Giỏ hàng trống hoặc không có sản phẩm hợp lệ để đặt hàng.");
   }
 
   const items: CheckoutLineItem[] = [];
@@ -133,7 +134,7 @@ const buildCheckoutSummary = async (
     const variant = record.variantId as any;
 
     if (!product || !product.isActive) {
-      throw new Error(
+      throw new AppError(400, 
         "Có sản phẩm trong giỏ đã ngừng kinh doanh, vui lòng kiểm tra lại giỏ hàng."
       );
     }
@@ -145,10 +146,10 @@ const buildCheckoutSummary = async (
 
     if (variant) {
       if (!variant.isActive) {
-        throw new Error(`Biến thể của sản phẩm ${product.name} đã ngừng kinh doanh.`);
+        throw new AppError(400, `Biến thể của sản phẩm ${product.name} đã ngừng kinh doanh.`);
       }
       if (variant.stockQuantity < record.quantity) {
-        throw new Error(
+        throw new AppError(400, 
           `Sản phẩm ${product.name} chỉ còn ${variant.stockQuantity} sản phẩm trong kho.`
         );
       }
@@ -237,12 +238,12 @@ export const placeOrder = async (
   payload: CheckoutPayload
 ): Promise<{ order: IOrder; items: IOrderItem[] }> => {
   if (!payload.paymentMethod) {
-    throw new Error("Phương thức thanh toán là bắt buộc.");
+    throw new AppError(400, "Phương thức thanh toán là bắt buộc.");
   }
 
   const user = await User.findById(new Types.ObjectId(userId)).select("email");
   if (!user) {
-    throw new Error("Tài khoản không tồn tại.");
+    throw new AppError(404, "Tài khoản không tồn tại.");
   }
 
   const summary = await buildCheckoutSummary(userId, payload);
@@ -287,10 +288,16 @@ export const placeOrder = async (
 
   for (const item of summary.items) {
     if (item.variantId) {
-      await ProductVariant.updateOne(
-        { _id: new Types.ObjectId(item.variantId) },
+      const decremented = await ProductVariant.updateOne(
+        { _id: new Types.ObjectId(item.variantId), stockQuantity: { $gte: item.quantity } },
         { $inc: { stockQuantity: -item.quantity } }
       );
+      if (decremented.modifiedCount === 0) {
+        throw new AppError(
+          400,
+          `Sản phẩm ${item.productName} không đủ tồn kho (yêu cầu ${item.quantity}).`
+        );
+      }
     }
   }
 

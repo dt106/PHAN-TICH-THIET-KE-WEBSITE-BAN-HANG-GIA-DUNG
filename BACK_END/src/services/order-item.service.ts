@@ -1,4 +1,5 @@
 import { Types } from "mongoose";
+import { AppError } from "../utils/appError";
 import Order from "../models/Order.model";
 import OrderItem, { IOrderItem } from "../models/OrderItem.model";
 
@@ -23,11 +24,8 @@ export interface AdminOrderItemsResult {
   summary: OrderItemsSummary;
 }
 
-const createHttpError = (statusCode: number, message: string): Error => {
-  const error = new Error(message) as Error & { statusCode: number };
-  error.statusCode = statusCode;
-  return error;
-};
+const createHttpError = (statusCode: number, message: string): Error =>
+  new AppError(statusCode, message);
 
 export const getOrderItems = async (
   requester: RequesterContext,

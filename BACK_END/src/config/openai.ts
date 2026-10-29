@@ -15,13 +15,13 @@ import OpenAI from "openai";
 const apiKey = process.env.OPENAI_API_KEY;
 
 if (!apiKey) {
-  throw new Error(
-    "Thiếu OPENAI_API_KEY trong file .env.",
+  console.warn(
+    "⚠️ Cảnh báo: Thiếu OPENAI_API_KEY trong file .env.",
   );
 }
 
 export const openai = new OpenAI({
-  apiKey,
+  apiKey: apiKey || "dummy_api_key_placeholder",
 });
 
 export const OPENAI_MODEL =

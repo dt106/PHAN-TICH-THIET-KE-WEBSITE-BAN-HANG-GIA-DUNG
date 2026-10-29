@@ -1,23 +1,6 @@
-import { Request, Response } from "express";
+import { Request, Response, NextFunction } from "express";
 
 import * as brandService from "../services/brand.service";
-import { HttpError } from "../services/brand.service";
-
-const getErrorMessage = (error: unknown): string => {
-  if (error instanceof Error) {
-    return error.message;
-  }
-
-  return "Đã xảy ra lỗi không xác định.";
-};
-
-const getErrorStatusCode = (error: unknown, fallback: number): number => {
-  if (error instanceof HttpError) {
-    return error.statusCode;
-  }
-
-  return fallback;
-};
 
 const getQueryParam = (value: unknown): string | undefined => {
   if (typeof value === "string") {
@@ -36,7 +19,7 @@ const getPathParam = (value: unknown): string => {
   return typeof value === "string" ? value : "";
 };
 
-export const getPublicBrands = async (req: Request, res: Response) => {
+export const getPublicBrands = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const result = await brandService.getPublicBrands({
       page: getQueryParam(req.query.page)
@@ -57,13 +40,11 @@ export const getPublicBrands = async (req: Request, res: Response) => {
       pagination: result.pagination,
     });
   } catch (error) {
-    return res
-      .status(getErrorStatusCode(error, 500))
-      .json({ success: false, message: getErrorMessage(error) });
+    next(error);
   }
 };
 
-export const getPublicBrandById = async (req: Request, res: Response) => {
+export const getPublicBrandById = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const brand = await brandService.getPublicBrandById(
       getPathParam(req.params.id)
@@ -75,13 +56,11 @@ export const getPublicBrandById = async (req: Request, res: Response) => {
       data: brand,
     });
   } catch (error) {
-    return res
-      .status(getErrorStatusCode(error, 404))
-      .json({ success: false, message: getErrorMessage(error) });
+    next(error);
   }
 };
 
-export const getPublicBrandBySlug = async (req: Request, res: Response) => {
+export const getPublicBrandBySlug = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const brand = await brandService.getPublicBrandBySlug(
       getPathParam(req.params.slug)
@@ -93,13 +72,11 @@ export const getPublicBrandBySlug = async (req: Request, res: Response) => {
       data: brand,
     });
   } catch (error) {
-    return res
-      .status(getErrorStatusCode(error, 404))
-      .json({ success: false, message: getErrorMessage(error) });
+    next(error);
   }
 };
 
-export const getAdminBrands = async (req: Request, res: Response) => {
+export const getAdminBrands = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const result = await brandService.getAdminBrands({
       page: getQueryParam(req.query.page)
@@ -121,13 +98,11 @@ export const getAdminBrands = async (req: Request, res: Response) => {
       pagination: result.pagination,
     });
   } catch (error) {
-    return res
-      .status(getErrorStatusCode(error, 500))
-      .json({ success: false, message: getErrorMessage(error) });
+    next(error);
   }
 };
 
-export const getAdminBrandById = async (req: Request, res: Response) => {
+export const getAdminBrandById = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const brand = await brandService.getAdminBrandById(
       getPathParam(req.params.id)
@@ -139,13 +114,11 @@ export const getAdminBrandById = async (req: Request, res: Response) => {
       data: brand,
     });
   } catch (error) {
-    return res
-      .status(getErrorStatusCode(error, 404))
-      .json({ success: false, message: getErrorMessage(error) });
+    next(error);
   }
 };
 
-export const createBrand = async (req: Request, res: Response) => {
+export const createBrand = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const brand = await brandService.createBrand(req.body);
 
@@ -155,13 +128,11 @@ export const createBrand = async (req: Request, res: Response) => {
       data: brand,
     });
   } catch (error) {
-    return res
-      .status(getErrorStatusCode(error, 500))
-      .json({ success: false, message: getErrorMessage(error) });
+    next(error);
   }
 };
 
-export const updateBrand = async (req: Request, res: Response) => {
+export const updateBrand = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const brand = await brandService.updateBrand(
       getPathParam(req.params.id),
@@ -174,13 +145,11 @@ export const updateBrand = async (req: Request, res: Response) => {
       data: brand,
     });
   } catch (error) {
-    return res
-      .status(getErrorStatusCode(error, 500))
-      .json({ success: false, message: getErrorMessage(error) });
+    next(error);
   }
 };
 
-export const toggleBrandStatus = async (req: Request, res: Response) => {
+export const toggleBrandStatus = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const brand = await brandService.toggleBrandStatus(
       getPathParam(req.params.id),
@@ -193,13 +162,11 @@ export const toggleBrandStatus = async (req: Request, res: Response) => {
       data: brand,
     });
   } catch (error) {
-    return res
-      .status(getErrorStatusCode(error, 500))
-      .json({ success: false, message: getErrorMessage(error) });
+    next(error);
   }
 };
 
-export const deleteBrand = async (req: Request, res: Response) => {
+export const deleteBrand = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const result = await brandService.deleteBrand(getPathParam(req.params.id));
 
@@ -208,8 +175,6 @@ export const deleteBrand = async (req: Request, res: Response) => {
       message: result.message,
     });
   } catch (error) {
-    return res
-      .status(getErrorStatusCode(error, 500))
-      .json({ success: false, message: getErrorMessage(error) });
+    next(error);
   }
 };

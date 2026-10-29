@@ -1,29 +1,12 @@
-import { Request, Response } from "express";
+import { Request, Response, NextFunction } from "express";
 
 import * as mediaService from "../services/product-media.service";
-import { HttpError } from "../services/brand.service";
-
-const getErrorMessage = (error: unknown): string => {
-  if (error instanceof Error) {
-    return error.message;
-  }
-
-  return "Đã xảy ra lỗi không xác định.";
-};
-
-const getErrorStatusCode = (error: unknown, fallback: number): number => {
-  if (error instanceof HttpError) {
-    return error.statusCode;
-  }
-
-  return fallback;
-};
 
 const getPathParam = (value: unknown): string => {
   return typeof value === "string" ? value : "";
 };
 
-export const getMediaByProduct = async (req: Request, res: Response) => {
+export const getMediaByProduct = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const mediaList = await mediaService.getMediaByProduct(
       getPathParam(req.params.productId)
@@ -35,13 +18,11 @@ export const getMediaByProduct = async (req: Request, res: Response) => {
       data: mediaList,
     });
   } catch (error) {
-    return res
-      .status(getErrorStatusCode(error, 500))
-      .json({ success: false, message: getErrorMessage(error) });
+    next(error);
   }
 };
 
-export const createMedia = async (req: Request, res: Response) => {
+export const createMedia = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const media = await mediaService.createMedia(
       getPathParam(req.params.productId),
@@ -54,13 +35,11 @@ export const createMedia = async (req: Request, res: Response) => {
       data: media,
     });
   } catch (error) {
-    return res
-      .status(getErrorStatusCode(error, 400))
-      .json({ success: false, message: getErrorMessage(error) });
+    next(error);
   }
 };
 
-export const createBatchMedia = async (req: Request, res: Response) => {
+export const createBatchMedia = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const mediaList = await mediaService.createBatchMedia(
       getPathParam(req.params.productId),
@@ -73,13 +52,11 @@ export const createBatchMedia = async (req: Request, res: Response) => {
       data: mediaList,
     });
   } catch (error) {
-    return res
-      .status(getErrorStatusCode(error, 400))
-      .json({ success: false, message: getErrorMessage(error) });
+    next(error);
   }
 };
 
-export const updateMedia = async (req: Request, res: Response) => {
+export const updateMedia = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const media = await mediaService.updateMedia(
       getPathParam(req.params.id),
@@ -92,13 +69,11 @@ export const updateMedia = async (req: Request, res: Response) => {
       data: media,
     });
   } catch (error) {
-    return res
-      .status(getErrorStatusCode(error, 400))
-      .json({ success: false, message: getErrorMessage(error) });
+    next(error);
   }
 };
 
-export const setPrimaryMedia = async (req: Request, res: Response) => {
+export const setPrimaryMedia = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const media = await mediaService.setPrimaryMedia(
       getPathParam(req.params.id)
@@ -110,13 +85,11 @@ export const setPrimaryMedia = async (req: Request, res: Response) => {
       data: media,
     });
   } catch (error) {
-    return res
-      .status(getErrorStatusCode(error, 400))
-      .json({ success: false, message: getErrorMessage(error) });
+    next(error);
   }
 };
 
-export const updateMediaSortOrder = async (req: Request, res: Response) => {
+export const updateMediaSortOrder = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const result = await mediaService.updateMediaSortOrder(
       getPathParam(req.params.productId),
@@ -125,13 +98,11 @@ export const updateMediaSortOrder = async (req: Request, res: Response) => {
 
     return res.status(200).json({ success: true, message: result.message });
   } catch (error) {
-    return res
-      .status(getErrorStatusCode(error, 400))
-      .json({ success: false, message: getErrorMessage(error) });
+    next(error);
   }
 };
 
-export const deleteMedia = async (req: Request, res: Response) => {
+export const deleteMedia = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const result = await mediaService.deleteMedia(
       getPathParam(req.params.id)
@@ -139,13 +110,11 @@ export const deleteMedia = async (req: Request, res: Response) => {
 
     return res.status(200).json({ success: true, message: result.message });
   } catch (error) {
-    return res
-      .status(getErrorStatusCode(error, 400))
-      .json({ success: false, message: getErrorMessage(error) });
+    next(error);
   }
 };
 
-export const deleteBatchMedia = async (req: Request, res: Response) => {
+export const deleteBatchMedia = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const result = await mediaService.deleteBatchMedia(
       getPathParam(req.params.productId),
@@ -154,8 +123,6 @@ export const deleteBatchMedia = async (req: Request, res: Response) => {
 
     return res.status(200).json({ success: true, message: result.message });
   } catch (error) {
-    return res
-      .status(getErrorStatusCode(error, 400))
-      .json({ success: false, message: getErrorMessage(error) });
+    next(error);
   }
 };

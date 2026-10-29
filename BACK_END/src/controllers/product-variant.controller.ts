@@ -1,23 +1,6 @@
-import { Request, Response } from "express";
+import { Request, Response, NextFunction } from "express";
 
 import * as variantService from "../services/product-variant.service";
-import { HttpError } from "../services/brand.service";
-
-const getErrorMessage = (error: unknown): string => {
-  if (error instanceof Error) {
-    return error.message;
-  }
-
-  return "Đã xảy ra lỗi không xác định.";
-};
-
-const getErrorStatusCode = (error: unknown, fallback: number): number => {
-  if (error instanceof HttpError) {
-    return error.statusCode;
-  }
-
-  return fallback;
-};
 
 const getPathParam = (value: unknown): string => {
   return typeof value === "string" ? value : "";
@@ -25,7 +8,8 @@ const getPathParam = (value: unknown): string => {
 
 export const getPublicVariantsByProduct = async (
   req: Request,
-  res: Response
+  res: Response,
+  next: NextFunction
 ) => {
   try {
     const variants = await variantService.getPublicVariantsByProduct(
@@ -38,13 +22,11 @@ export const getPublicVariantsByProduct = async (
       data: variants,
     });
   } catch (error) {
-    return res
-      .status(getErrorStatusCode(error, 500))
-      .json({ success: false, message: getErrorMessage(error) });
+    next(error);
   }
 };
 
-export const getPublicVariantById = async (req: Request, res: Response) => {
+export const getPublicVariantById = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const variant = await variantService.getPublicVariantById(
       getPathParam(req.params.id)
@@ -56,15 +38,14 @@ export const getPublicVariantById = async (req: Request, res: Response) => {
       data: variant,
     });
   } catch (error) {
-    return res
-      .status(getErrorStatusCode(error, 404))
-      .json({ success: false, message: getErrorMessage(error) });
+    next(error);
   }
 };
 
 export const getAdminVariantsByProduct = async (
   req: Request,
-  res: Response
+  res: Response,
+  next: NextFunction
 ) => {
   try {
     const variants = await variantService.getAdminVariantsByProduct(
@@ -77,13 +58,11 @@ export const getAdminVariantsByProduct = async (
       data: variants,
     });
   } catch (error) {
-    return res
-      .status(getErrorStatusCode(error, 500))
-      .json({ success: false, message: getErrorMessage(error) });
+    next(error);
   }
 };
 
-export const createVariant = async (req: Request, res: Response) => {
+export const createVariant = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const variant = await variantService.createVariant(
       getPathParam(req.params.productId),
@@ -96,13 +75,11 @@ export const createVariant = async (req: Request, res: Response) => {
       data: variant,
     });
   } catch (error) {
-    return res
-      .status(getErrorStatusCode(error, 400))
-      .json({ success: false, message: getErrorMessage(error) });
+    next(error);
   }
 };
 
-export const updateVariant = async (req: Request, res: Response) => {
+export const updateVariant = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const variant = await variantService.updateVariant(
       getPathParam(req.params.id),
@@ -115,13 +92,11 @@ export const updateVariant = async (req: Request, res: Response) => {
       data: variant,
     });
   } catch (error) {
-    return res
-      .status(getErrorStatusCode(error, 400))
-      .json({ success: false, message: getErrorMessage(error) });
+    next(error);
   }
 };
 
-export const updateVariantStock = async (req: Request, res: Response) => {
+export const updateVariantStock = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const variant = await variantService.updateVariantStock(
       getPathParam(req.params.id),
@@ -134,13 +109,11 @@ export const updateVariantStock = async (req: Request, res: Response) => {
       data: variant,
     });
   } catch (error) {
-    return res
-      .status(getErrorStatusCode(error, 400))
-      .json({ success: false, message: getErrorMessage(error) });
+    next(error);
   }
 };
 
-export const toggleVariantStatus = async (req: Request, res: Response) => {
+export const toggleVariantStatus = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const variant = await variantService.toggleVariantStatus(
       getPathParam(req.params.id),
@@ -153,13 +126,11 @@ export const toggleVariantStatus = async (req: Request, res: Response) => {
       data: variant,
     });
   } catch (error) {
-    return res
-      .status(getErrorStatusCode(error, 400))
-      .json({ success: false, message: getErrorMessage(error) });
+    next(error);
   }
 };
 
-export const deleteVariant = async (req: Request, res: Response) => {
+export const deleteVariant = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const result = await variantService.deleteVariant(
       getPathParam(req.params.id)
@@ -167,8 +138,6 @@ export const deleteVariant = async (req: Request, res: Response) => {
 
     return res.status(200).json({ success: true, message: result.message });
   } catch (error) {
-    return res
-      .status(getErrorStatusCode(error, 400))
-      .json({ success: false, message: getErrorMessage(error) });
+    next(error);
   }
 };

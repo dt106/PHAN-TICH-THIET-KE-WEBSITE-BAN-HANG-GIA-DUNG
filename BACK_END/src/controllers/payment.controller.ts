@@ -1,22 +1,17 @@
-import { Request, Response } from "express";
+import { Request, Response, NextFunction } from "express";
 import * as paymentService from "../services/payment.service";
 import { PAYMENT_ENV } from "../config/payment";
 
-const getErrorStatusCode = (error: unknown): number => {
-  const withCode = error as { statusCode?: number };
-  return withCode?.statusCode && withCode.statusCode >= 400 ? withCode.statusCode : 400;
-};
-
-const getErrorMessage = (error: unknown): string => {
-  return error instanceof Error ? error.message : "Đã xảy ra lỗi không xác định.";
-};
+// Trích message lỗi; chỉ dùng cho body giao thức gateway (vnpay/momo/zalopay luôn trả HTTP 200).
+const getErrorMessage = (error: unknown): string =>
+  error instanceof Error ? error.message : "Lỗi không xác định.";
 
 const toPositiveInt = (value: unknown): number | undefined => {
   const parsed = Number(value);
   return Number.isInteger(parsed) && parsed > 0 ? parsed : undefined;
 };
 
-export const createPayment = async (req: Request, res: Response) => {
+export const createPayment = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const userId = req.user!.userId;
     const result = await paymentService.createPayment(userId, req.body.orderId);
@@ -26,13 +21,11 @@ export const createPayment = async (req: Request, res: Response) => {
       data: result,
     });
   } catch (error) {
-    return res
-      .status(getErrorStatusCode(error))
-      .json({ success: false, message: getErrorMessage(error) });
+    next(error);
   }
 };
 
-export const getMyPayments = async (req: Request, res: Response) => {
+export const getMyPayments = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const payments = await paymentService.getMyPayments(req.user!.userId);
     return res.status(200).json({
@@ -41,13 +34,11 @@ export const getMyPayments = async (req: Request, res: Response) => {
       data: payments,
     });
   } catch (error) {
-    return res
-      .status(getErrorStatusCode(error))
-      .json({ success: false, message: getErrorMessage(error) });
+    next(error);
   }
 };
 
-export const vnpayReturn = async (req: Request, res: Response) => {
+export const vnpayReturn = async (req: Request, res: Response, next: NextFunction) => {
   const query = req.query as Record<string, string>;
 
   if (!paymentService.verifyVnpayCallback(query)) {
@@ -75,7 +66,7 @@ export const vnpayReturn = async (req: Request, res: Response) => {
   );
 };
 
-export const vnpayIpn = async (req: Request, res: Response) => {
+export const vnpayIpn = async (req: Request, res: Response, next: NextFunction) => {
   const query = req.query as Record<string, string>;
 
   if (!paymentService.verifyVnpayCallback(query)) {
@@ -103,7 +94,7 @@ export const vnpayIpn = async (req: Request, res: Response) => {
   }
 };
 
-export const momoIpn = async (req: Request, res: Response) => {
+export const momoIpn = async (req: Request, res: Response, next: NextFunction) => {
   const body = req.body as Record<string, string>;
 
   if (!paymentService.verifyMomoCallback(body)) {
@@ -128,7 +119,7 @@ export const momoIpn = async (req: Request, res: Response) => {
   }
 };
 
-export const zalopayCallback = async (req: Request, res: Response) => {
+export const zalopayCallback = async (req: Request, res: Response, next: NextFunction) => {
   const { data, mac } = req.body as { data?: string; mac?: string };
 
   if (!paymentService.verifyZalopayCallback(data ?? "", mac ?? "")) {
@@ -159,7 +150,7 @@ export const zalopayCallback = async (req: Request, res: Response) => {
   }
 };
 
-export const mockComplete = async (req: Request, res: Response) => {
+export const mockComplete = async (req: Request, res: Response, next: NextFunction) => {
   if (PAYMENT_ENV !== "mock") {
     return res.status(404).json({ success: false, message: "API không tồn tại" });
   }
@@ -181,13 +172,11 @@ export const mockComplete = async (req: Request, res: Response) => {
       data: result,
     });
   } catch (error) {
-    return res
-      .status(getErrorStatusCode(error))
-      .json({ success: false, message: getErrorMessage(error) });
+    next(error);
   }
 };
 
-export const getAllPaymentsAdmin = async (req: Request, res: Response) => {
+export const getAllPaymentsAdmin = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const result = await paymentService.getAllPaymentsAdmin({
       paymentMethod: req.query.paymentMethod as string | undefined,
@@ -204,13 +193,11 @@ export const getAllPaymentsAdmin = async (req: Request, res: Response) => {
       data: result,
     });
   } catch (error) {
-    return res
-      .status(getErrorStatusCode(error))
-      .json({ success: false, message: getErrorMessage(error) });
+    next(error);
   }
 };
 
-export const refundPaymentAdmin = async (req: Request, res: Response) => {
+export const refundPaymentAdmin = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const payment = await paymentService.refundPaymentAdmin(
       String(req.params.id),
@@ -223,8 +210,6 @@ export const refundPaymentAdmin = async (req: Request, res: Response) => {
       data: payment,
     });
   } catch (error) {
-    return res
-      .status(getErrorStatusCode(error))
-      .json({ success: false, message: getErrorMessage(error) });
+    next(error);
   }
 };

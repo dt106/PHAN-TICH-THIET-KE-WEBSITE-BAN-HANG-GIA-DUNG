@@ -1,4 +1,5 @@
 import crypto from "crypto";
+import { AppError } from "../utils/appError";
 import { Types } from "mongoose";
 import Order, { IOrder, PaymentMethod } from "../models/Order.model";
 import Payment, { IPayment } from "../models/Payment.model";
@@ -14,11 +15,8 @@ import {
 
 const SESSION_DURATION_MS = 15 * 60 * 1000;
 
-const createHttpError = (statusCode: number, message: string): Error => {
-  const error = new Error(message) as Error & { statusCode: number };
-  error.statusCode = statusCode;
-  return error;
-};
+const createHttpError = (statusCode: number, message: string): Error =>
+  new AppError(statusCode, message);
 
 const formatVnpDate = (date: Date): string => {
   const pad = (value: number): string => String(value).padStart(2, "0");
@@ -172,7 +170,7 @@ export const createPayment = async (
 
   const activePayment = await Payment.findOne({
     orderId: order._id,
-    status: { $in: ["pending", "processing"] },
+    status: { $in: ["pending"] },
   }).sort({ createdAt: -1 });
 
   if (
@@ -272,7 +270,7 @@ export const applyGatewayResult = async (
     existingByTransaction ??
     (await Payment.findOne({
       orderId: order._id,
-      status: { $in: ["pending", "processing"] },
+      status: { $in: ["pending"] },
     }).sort({ createdAt: -1 }));
 
   if (!payment) {
@@ -445,6 +443,31 @@ export const getAllPaymentsAdmin = async (query: {
   };
 };
 
+/**
+ * Đánh dấu một giao dịch là đã hoàn tiền và đồng bộ Order liên quan.
+ * Dùng chung cho: hoàn tiền thủ công của admin, hủy đơn đã paid, hoàn trả hàng.
+ */
+const markPaymentRefunded = async (
+  payment: IPayment,
+  refundAmount: number,
+  reason?: string
+): Promise<void> => {
+  payment.status = "refunded";
+  payment.refundAmount = refundAmount;
+  payment.refundedAt = new Date();
+  payment.refundTransactionCode = `RF-${payment.transactionCode ?? payment._id.toString()}`;
+  if (reason) {
+    payment.failedReason = reason;
+  }
+  await payment.save();
+
+  const order = await Order.findById(payment.orderId);
+  if (order && order.paymentStatus === "paid") {
+    order.paymentStatus = "refunded";
+    await order.save();
+  }
+};
+
 export const refundPaymentAdmin = async (
   paymentId: string,
   refundAmountInput?: number,
@@ -465,22 +488,28 @@ export const refundPaymentAdmin = async (
       ? Math.round(refundAmountInput)
       : payment.amount;
 
-  payment.status = "refunded";
-  payment.refundAmount = refundAmount;
-  payment.refundedAt = new Date();
-  payment.refundTransactionCode = `RF-${payment.transactionCode ?? payment._id.toString()}`;
-  if (reason) {
-    payment.failedReason = reason;
-  }
-  await payment.save();
-
-  const order = await Order.findById(payment.orderId);
-  if (order && order.paymentStatus === "paid") {
-    order.paymentStatus = "refunded";
-    await order.save();
-  }
+  await markPaymentRefunded(payment, refundAmount, reason);
 
   return payment;
+};
+
+/**
+ * Tự động hoàn tiền toàn bộ cho giao dịch "paid" mới nhất của một đơn hàng.
+ * Không lỗi khi đơn chưa có giao dịch nào đã thanh toán (bỏ qua im lặng).
+ */
+export const refundPaidPaymentForOrder = async (
+  orderId: Types.ObjectId,
+  reason?: string
+): Promise<void> => {
+  const payment = await Payment.findOne({ orderId, status: "paid" }).sort({
+    createdAt: -1,
+  });
+
+  if (!payment) {
+    return;
+  }
+
+  await markPaymentRefunded(payment, payment.amount, reason);
 };
 
 export const buildPaymentResultRedirect = (

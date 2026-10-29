@@ -106,7 +106,7 @@ const main = async (): Promise<void> => {
     { expiresIn: "1h" }
   );
 
-  const noAuth = await call("POST", "/api/products/admin", { name: "Test" });
+  const noAuth = await call("POST", "/api/admin/products", { name: "Test" });
   expect(
     "RBAC: tạo sản phẩm không có token bị chặn",
     noAuth.status === 401,
@@ -115,7 +115,7 @@ const main = async (): Promise<void> => {
 
   const customer = await call(
     "POST",
-    "/api/products/admin",
+    "/api/admin/products",
     { name: "Test" },
     customerToken
   );
@@ -125,7 +125,7 @@ const main = async (): Promise<void> => {
     `status=${customer.status}`
   );
 
-  const adminListNoAuth = await call("GET", "/api/products/admin/all");
+  const adminListNoAuth = await call("GET", "/api/admin/products/all");
   expect(
     "RBAC: admin list không có token bị chặn",
     adminListNoAuth.status === 401,
@@ -134,7 +134,7 @@ const main = async (): Promise<void> => {
 
   const categoryRes = await call(
     "POST",
-    "/api/categories/admin",
+    "/api/admin/categories",
     { name: CATEGORY_NAME },
     adminToken
   );
@@ -142,13 +142,13 @@ const main = async (): Promise<void> => {
 
   const brandRes = await call(
     "POST",
-    "/api/brands/admin",
+    "/api/admin/brands",
     { name: BRAND_NAME },
     adminToken
   );
   const brandId = brandRes.json.data?.id as string;
 
-  const invalidBody = await call("POST", "/api/products/admin", {}, adminToken);
+  const invalidBody = await call("POST", "/api/admin/products", {}, adminToken);
   expect(
     "Validate: tạo sản phẩm thiếu dữ liệu bắt buộc trả 400",
     invalidBody.status === 400,
@@ -157,7 +157,7 @@ const main = async (): Promise<void> => {
 
   const createP1 = await call(
     "POST",
-    "/api/products/admin",
+    "/api/admin/products",
     {
       name: "Nồi Cơm Điện Sunhouse TSP1",
       sku: P1_SKU,
@@ -181,7 +181,7 @@ const main = async (): Promise<void> => {
 
   const createP2 = await call(
     "POST",
-    "/api/products/admin",
+    "/api/admin/products",
     {
       name: "Nồi Chiên Không Dầu TestSP2",
       sku: P2_SKU,
@@ -201,7 +201,7 @@ const main = async (): Promise<void> => {
 
   const createP3 = await call(
     "POST",
-    "/api/products/admin",
+    "/api/admin/products",
     {
       name: "Máy Xay Sinh Tố TestSP3",
       sku: P3_SKU,
@@ -219,7 +219,7 @@ const main = async (): Promise<void> => {
 
   const salePriceTooHigh = await call(
     "POST",
-    "/api/products/admin",
+    "/api/admin/products",
     {
       name: "Sản Phẩm Giá Lỗi",
       sku: "TSP-BAD-1",
@@ -237,7 +237,7 @@ const main = async (): Promise<void> => {
 
   const duplicateSku = await call(
     "POST",
-    "/api/products/admin",
+    "/api/admin/products",
     {
       name: "Sản Phẩm Trùng SKU",
       sku: "tsp-001",
@@ -382,7 +382,7 @@ const main = async (): Promise<void> => {
 
   const featuredOn = await call(
     "PATCH",
-    `/api/products/admin/${p1Id}/featured`,
+    `/api/admin/products/${p1Id}/featured`,
     { isFeatured: true },
     adminToken
   );
@@ -404,7 +404,7 @@ const main = async (): Promise<void> => {
 
   const toggleOff = await call(
     "PATCH",
-    `/api/products/admin/${p2Id}/status`,
+    `/api/admin/products/${p2Id}/status`,
     { isActive: false },
     adminToken
   );
@@ -417,7 +417,7 @@ const main = async (): Promise<void> => {
 
   const adminInactiveList = await call(
     "GET",
-    "/api/products/admin/all?isActive=false",
+    "/api/admin/products/all?isActive=false",
     undefined,
     adminToken
   );
@@ -432,7 +432,7 @@ const main = async (): Promise<void> => {
 
   const toggleOn = await call(
     "PATCH",
-    `/api/products/admin/${p2Id}/status`,
+    `/api/admin/products/${p2Id}/status`,
     { isActive: true },
     adminToken
   );
@@ -444,7 +444,7 @@ const main = async (): Promise<void> => {
 
   const adminSearchList = await call(
     "GET",
-    "/api/products/admin/all?search=TSP",
+    "/api/admin/products/all?search=TSP",
     undefined,
     adminToken
   );
@@ -461,7 +461,7 @@ const main = async (): Promise<void> => {
 
   const adminPaged = await call(
     "GET",
-    "/api/products/admin/all?page=1&limit=2",
+    "/api/admin/products/all?page=1&limit=2",
     undefined,
     adminToken
   );
@@ -478,7 +478,7 @@ const main = async (): Promise<void> => {
 
   const adminDetail = await call(
     "GET",
-    `/api/products/admin/${p1Id}`,
+    `/api/admin/products/${p1Id}`,
     undefined,
     adminToken
   );
@@ -503,7 +503,7 @@ const main = async (): Promise<void> => {
 
   const updateDescription = await call(
     "PUT",
-    `/api/products/admin/${p1Id}`,
+    `/api/admin/products/${p1Id}`,
     { description: "Nồi cơm điện thông minh" },
     adminToken
   );
@@ -516,7 +516,7 @@ const main = async (): Promise<void> => {
 
   const basePriceBelowSale = await call(
     "PUT",
-    `/api/products/admin/${p1Id}`,
+    `/api/admin/products/${p1Id}`,
     { basePrice: 500000 },
     adminToken
   );
@@ -528,7 +528,7 @@ const main = async (): Promise<void> => {
 
   const salePriceAboveBase = await call(
     "PUT",
-    `/api/products/admin/${p1Id}`,
+    `/api/admin/products/${p1Id}`,
     { basePrice: 2000000, salePrice: 3000000 },
     adminToken
   );
@@ -540,7 +540,7 @@ const main = async (): Promise<void> => {
 
   const validPriceUpdate = await call(
     "PUT",
-    `/api/products/admin/${p1Id}`,
+    `/api/admin/products/${p1Id}`,
     { basePrice: 2000000, salePrice: 1900000 },
     adminToken
   );
@@ -565,7 +565,7 @@ const main = async (): Promise<void> => {
 
   const deleteWithOrder = await call(
     "DELETE",
-    `/api/products/admin/${p2Id}`,
+    `/api/admin/products/${p2Id}`,
     undefined,
     adminToken
   );
@@ -577,7 +577,7 @@ const main = async (): Promise<void> => {
 
   const deleteP3 = await call(
     "DELETE",
-    `/api/products/admin/${p3Id}`,
+    `/api/admin/products/${p3Id}`,
     undefined,
     adminToken
   );

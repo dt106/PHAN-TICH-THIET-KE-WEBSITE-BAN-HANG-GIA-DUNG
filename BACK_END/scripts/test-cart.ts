@@ -245,9 +245,9 @@ const main = async (): Promise<void> => {
   const crossDelete = await call("DELETE", `/api/cart/${cartItemId}`, undefined, userBToken);
   const ownerStillHas = await call("GET", "/api/cart", undefined, userAToken);
   expect(
-    "User B không thể sửa/xóa item của User A (400) và dữ liệu nguyên vẹn",
-    crossUpdate.status === 400 &&
-      crossDelete.status === 400 &&
+    "User B không thể sửa/xóa item của User A (404) và dữ liệu nguyên vẹn",
+    crossUpdate.status === 404 &&
+      crossDelete.status === 404 &&
       ownerStillHas.json.data?.totalUniqueItems === 2,
     `put=${crossUpdate.status}, delete=${crossDelete.status}, unique=${ownerStillHas.json.data?.totalUniqueItems}`
   );

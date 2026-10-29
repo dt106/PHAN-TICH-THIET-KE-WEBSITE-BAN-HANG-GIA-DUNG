@@ -1,4 +1,5 @@
 import { Types } from "mongoose";
+import { AppError } from "../utils/appError";
 import Wishlist, { IWishlist } from "../models/Wishlist.model";
 import Product from "../models/Product.model";
 import ProductMedia from "../models/ProductMedia.model";
@@ -76,7 +77,7 @@ export const addToWishlist = async (
 ): Promise<IWishlist> => {
   const product = await Product.findById(productId);
   if (!product || !product.isActive) {
-    throw new Error("Sản phẩm không tồn tại hoặc đã ngừng kinh doanh.");
+    throw new AppError(404, "Sản phẩm không tồn tại hoặc đã ngừng kinh doanh.");
   }
 
   const existing = await Wishlist.findOne({
@@ -104,7 +105,7 @@ export const removeFromWishlist = async (
   });
 
   if (!result) {
-    throw new Error("Mục yêu thích không tồn tại hoặc bạn không có quyền xóa.");
+    throw new AppError(404, "Mục yêu thích không tồn tại hoặc bạn không có quyền xóa.");
   }
 
   return { message: "Đã xóa sản phẩm khỏi danh sách yêu thích thành công." };
@@ -120,7 +121,7 @@ export const removeByProductId = async (
   });
 
   if (!result) {
-    throw new Error("Sản phẩm không có trong danh sách yêu thích của bạn.");
+    throw new AppError(404, "Sản phẩm không có trong danh sách yêu thích của bạn.");
   }
 
   return { message: "Đã xóa sản phẩm khỏi danh sách yêu thích thành công." };
@@ -152,7 +153,7 @@ export const moveWishlistItemToCart = async (
   });
 
   if (!wishlistItem) {
-    throw new Error("Mục yêu thích không tồn tại hoặc bạn không có quyền thao tác.");
+    throw new AppError(404, "Mục yêu thích không tồn tại hoặc bạn không có quyền thao tác.");
   }
 
   const cartItem = await addToCart(userId, {

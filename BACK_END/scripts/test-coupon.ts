@@ -91,7 +91,7 @@ const main = async (): Promise<void> => {
 
   const createSale10 = await call(
     "POST",
-    "/api/coupons/admin",
+    "/api/admin/coupons",
     {
       code: "SALE10",
       name: "Giảm 10% đơn từ 100k tối đa 50k",
@@ -111,7 +111,7 @@ const main = async (): Promise<void> => {
 
   const createFix50k = await call(
     "POST",
-    "/api/coupons/admin",
+    "/api/admin/coupons",
     {
       code: "FIX50K",
       name: "Giảm thẳng 50.000đ",
@@ -128,7 +128,7 @@ const main = async (): Promise<void> => {
 
   const duplicateCode = await call(
     "POST",
-    "/api/coupons/admin",
+    "/api/admin/coupons",
     {
       code: "sale10",
       name: "Trùng mã thường",
@@ -146,7 +146,7 @@ const main = async (): Promise<void> => {
 
   const invalidPercentage = await call(
     "POST",
-    "/api/coupons/admin",
+    "/api/admin/coupons",
     {
       code: "BADPCT",
       name: "Phần trăm sai",
@@ -163,7 +163,7 @@ const main = async (): Promise<void> => {
 
   const badCodeChars = await call(
     "POST",
-    "/api/coupons/admin",
+    "/api/admin/coupons",
     {
       code: "BAD CODE!!",
       name: "Mã chứa ký tự lạ",
@@ -365,19 +365,19 @@ const main = async (): Promise<void> => {
   );
   expect(
     "Check mã không tồn tại bị chặn 400",
-    checkUnknown.status === 400 &&
+    checkUnknown.status === 404 &&
       String(checkUnknown.json.message).includes("không tồn tại"),
     `status=${checkUnknown.status}`
   );
 
   const customerCreate = await call(
     "POST",
-    "/api/coupons/admin",
+    "/api/admin/coupons",
     { code: "HACK01", name: "User thường tạo mã", discountType: "fixed", discountValue: 1000 },
     customerToken
   );
-  const customerList = await call("GET", "/api/coupons/admin", undefined, customerToken);
-  const noAuthList = await call("GET", "/api/coupons/admin");
+  const customerList = await call("GET", "/api/admin/coupons", undefined, customerToken);
+  const noAuthList = await call("GET", "/api/admin/coupons");
   expect(
     "User thường bị chặn 403 và không đăng nhập bị chặn 401 trên admin routes",
     customerCreate.status === 403 && customerList.status === 403 && noAuthList.status === 401,
@@ -386,7 +386,7 @@ const main = async (): Promise<void> => {
 
   const adminListSearch = await call(
     "GET",
-    "/api/coupons/admin?search=SALE10&page=1&limit=10",
+    "/api/admin/coupons?search=SALE10&page=1&limit=10",
     undefined,
     adminToken
   );
@@ -398,7 +398,7 @@ const main = async (): Promise<void> => {
     `status=${adminListSearch.status}, total=${adminListSearch.json.data?.pagination?.total}`
   );
 
-  const adminDetail = await call("GET", `/api/coupons/admin/${sale10Id}`, undefined, adminToken);
+  const adminDetail = await call("GET", `/api/admin/coupons/${sale10Id}`, undefined, adminToken);
   expect(
     "Admin chi tiết coupon SALE10 kèm tổng tiền đã giảm = 0",
     adminDetail.status === 200 &&
@@ -409,7 +409,7 @@ const main = async (): Promise<void> => {
 
   const adminUsages = await call(
     "GET",
-    `/api/coupons/admin/${used10._id.toString()}/usages`,
+    `/api/admin/coupons/${used10._id.toString()}/usages`,
     undefined,
     adminToken
   );
@@ -424,7 +424,7 @@ const main = async (): Promise<void> => {
   const temp05 = await Coupon.findOne({ code: "TEMP05" });
   const updateCoupon = await call(
     "PUT",
-    `/api/coupons/admin/${temp05?._id.toString()}`,
+    `/api/admin/coupons/${temp05?._id.toString()}`,
     { name: "Mã tạm đã cập nhật", minimumOrderAmount: 50000 },
     adminToken
   );
@@ -438,7 +438,7 @@ const main = async (): Promise<void> => {
 
   const toggleStatus = await call(
     "PATCH",
-    `/api/coupons/admin/${temp05?._id.toString()}/status`,
+    `/api/admin/coupons/${temp05?._id.toString()}/status`,
     undefined,
     adminToken
   );
@@ -450,7 +450,7 @@ const main = async (): Promise<void> => {
 
   const adminListInactive = await call(
     "GET",
-    "/api/coupons/admin?isActive=false&limit=100",
+    "/api/admin/coupons?isActive=false&limit=100",
     undefined,
     adminToken
   );
@@ -463,7 +463,7 @@ const main = async (): Promise<void> => {
 
   const deleteUsed = await call(
     "DELETE",
-    `/api/coupons/admin/${used10._id.toString()}`,
+    `/api/admin/coupons/${used10._id.toString()}`,
     undefined,
     adminToken
   );
@@ -476,7 +476,7 @@ const main = async (): Promise<void> => {
 
   const deleteUnused = await call(
     "DELETE",
-    `/api/coupons/admin/${temp05?._id.toString()}`,
+    `/api/admin/coupons/${temp05?._id.toString()}`,
     undefined,
     adminToken
   );

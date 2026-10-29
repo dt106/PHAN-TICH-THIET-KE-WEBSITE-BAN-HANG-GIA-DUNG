@@ -1,6 +1,6 @@
 import ProductMedia from "../models/ProductMedia.model";
 import Product from "../models/Product.model";
-import { HttpError } from "./brand.service";
+import { AppError } from "../utils/appError";
 
 interface MediaPayload {
   mediaType: "image" | "video";
@@ -20,7 +20,7 @@ export const getMediaByProduct = async (productId: string) => {
 
 export const createMedia = async (productId: string, payload: MediaPayload) => {
   const product = await Product.findById(productId);
-  if (!product) throw new HttpError(404, "Sản phẩm không tồn tại.");
+  if (!product) throw new AppError(404, "Sản phẩm không tồn tại.");
 
   const currentCount = await ProductMedia.countDocuments({ productId });
 
@@ -48,7 +48,7 @@ export const createBatchMedia = async (
   mediaList: MediaPayload[]
 ) => {
   const product = await Product.findById(productId);
-  if (!product) throw new HttpError(404, "Sản phẩm không tồn tại.");
+  if (!product) throw new AppError(404, "Sản phẩm không tồn tại.");
 
   const currentCount = await ProductMedia.countDocuments({ productId });
   const hasPrimaryInBatch = mediaList.some((media) => media.isPrimary);
@@ -80,7 +80,7 @@ export const updateMedia = async (
   }
 ) => {
   const media = await ProductMedia.findById(id);
-  if (!media) throw new HttpError(404, "Media không tồn tại.");
+  if (!media) throw new AppError(404, "Media không tồn tại.");
 
   if (payload.isPrimary === true && !media.isPrimary) {
     await ProductMedia.updateMany(
@@ -102,10 +102,10 @@ export const updateMedia = async (
 
 export const setPrimaryMedia = async (id: string) => {
   const media = await ProductMedia.findById(id);
-  if (!media) throw new HttpError(404, "Media không tồn tại.");
+  if (!media) throw new AppError(404, "Media không tồn tại.");
 
   if (media.mediaType !== "image") {
-    throw new HttpError(400, "Chỉ có thể đặt hình ảnh làm ảnh chính (Primary).");
+    throw new AppError(400, "Chỉ có thể đặt hình ảnh làm ảnh chính (Primary).");
   }
 
   await ProductMedia.updateMany(
@@ -137,7 +137,7 @@ export const updateMediaSortOrder = async (
 
 export const deleteMedia = async (id: string) => {
   const media = await ProductMedia.findById(id);
-  if (!media) throw new HttpError(404, "Media không tồn tại.");
+  if (!media) throw new AppError(404, "Media không tồn tại.");
 
   const { productId, isPrimary } = media;
   await ProductMedia.findByIdAndDelete(id);

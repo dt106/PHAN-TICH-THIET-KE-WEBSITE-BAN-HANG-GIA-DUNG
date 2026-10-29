@@ -1,15 +1,11 @@
-import { Request, Response } from "express";
+import { Request, Response, NextFunction } from "express";
 import * as cartService from "../services/cart.service";
-
-const getErrorMessage = (error: unknown): string => {
-  return error instanceof Error ? error.message : "Đã xảy ra lỗi không xác định.";
-};
 
 const getPathParam = (value: unknown): string => {
   return typeof value === "string" ? value : "";
 };
 
-export const getCart = async (req: Request, res: Response) => {
+export const getCart = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const userId = req.user!.userId;
     const cart = await cartService.getUserCart(userId);
@@ -19,11 +15,11 @@ export const getCart = async (req: Request, res: Response) => {
       data: cart,
     });
   } catch (error) {
-    return res.status(500).json({ success: false, message: getErrorMessage(error) });
+    next(error);
   }
 };
 
-export const addToCart = async (req: Request, res: Response) => {
+export const addToCart = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const userId = req.user!.userId;
     const cartItem = await cartService.addToCart(userId, req.body);
@@ -33,11 +29,11 @@ export const addToCart = async (req: Request, res: Response) => {
       data: cartItem,
     });
   } catch (error) {
-    return res.status(400).json({ success: false, message: getErrorMessage(error) });
+    next(error);
   }
 };
 
-export const updateCartItem = async (req: Request, res: Response) => {
+export const updateCartItem = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const userId = req.user!.userId;
     const updated = await cartService.updateCartItemQuantity(
@@ -51,26 +47,26 @@ export const updateCartItem = async (req: Request, res: Response) => {
       data: updated,
     });
   } catch (error) {
-    return res.status(400).json({ success: false, message: getErrorMessage(error) });
+    next(error);
   }
 };
 
-export const removeCartItem = async (req: Request, res: Response) => {
+export const removeCartItem = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const userId = req.user!.userId;
     const result = await cartService.removeCartItem(userId, getPathParam(req.params.id));
     return res.status(200).json({ success: true, message: result.message });
   } catch (error) {
-    return res.status(400).json({ success: false, message: getErrorMessage(error) });
+    next(error);
   }
 };
 
-export const clearCart = async (req: Request, res: Response) => {
+export const clearCart = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const userId = req.user!.userId;
     const result = await cartService.clearUserCart(userId);
     return res.status(200).json({ success: true, message: result.message });
   } catch (error) {
-    return res.status(500).json({ success: false, message: getErrorMessage(error) });
+    next(error);
   }
 };

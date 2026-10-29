@@ -2,7 +2,7 @@
   "name": "back_end",
   "version": "1.0.0",
   "description": "",
-  "main": "index.js",
+  "main": "server.ts",
   "scripts": {
     "dev": "tsx server.ts",
     "start": "tsx server.ts",
@@ -24,7 +24,7 @@
     "test:order": "tsx scripts/test-order.ts",
     "test:order-item": "tsx scripts/test-order-item.ts",
     "test:payment": "tsx scripts/test-payment.ts",
-    "test": "npm run test:category && npm run test:attribute && npm run test:product && npm run test:product-variant && npm run test:product-media && npm run test:session3 && npm run test:cart && npm run test:wishlist && npm run test:coupon && npm run test:session4 && npm run test:checkout && npm run test:order && npm run test:order-item"
+    "test": "npm run test:category && npm run test:attribute && npm run test:product && npm run test:product-variant && npm run test:product-media && npm run test:session3 && npm run test:cart && npm run test:wishlist && npm run test:coupon && npm run test:session4 && npm run test:checkout && npm run test:order && npm run test:order-item && npm run test:payment"
   },
   "keywords": [],
   "author": "",

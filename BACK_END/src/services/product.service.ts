@@ -5,7 +5,8 @@ import ProductMedia from "../models/ProductMedia.model";
 import ProductVariant from "../models/ProductVariant.model";
 import VariantAttribute from "../models/VariantAttribute.model";
 import OrderItem from "../models/OrderItem.model";
-import { HttpError, generateSlug } from "./brand.service";
+import { generateSlug } from "./brand.service";
+import { AppError } from "../utils/appError";
 
 const escapeRegex = (str: string): string => {
   return str.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -126,7 +127,7 @@ const assertSalePriceNotGreaterThanBasePrice = (
   salePrice: number | null | undefined
 ): void => {
   if (salePrice !== null && salePrice !== undefined && salePrice > basePrice) {
-    throw new HttpError(400, "Giá khuyến mãi không được lớn hơn giá gốc.");
+    throw new AppError(400, "Giá khuyến mãi không được lớn hơn giá gốc.");
   }
 };
 
@@ -183,7 +184,7 @@ export const getPublicProductDetail = async (identifier: {
     .populate("brandId", "name slug logo");
 
   if (!product) {
-    throw new HttpError(404, "Sản phẩm không tồn tại hoặc đã ngừng kinh doanh.");
+    throw new AppError(404, "Sản phẩm không tồn tại hoặc đã ngừng kinh doanh.");
   }
 
   const [mediaList, variants] = await Promise.all([
@@ -223,7 +224,7 @@ export const getRelatedProducts = async (
 ): Promise<ProductQueryResult> => {
   const product = await Product.findById(productId);
   if (!product) {
-    throw new HttpError(404, "Sản phẩm không tồn tại.");
+    throw new AppError(404, "Sản phẩm không tồn tại.");
   }
 
   const relatedConditions: Record<string, any>[] = [
@@ -302,7 +303,7 @@ export const getAdminProductById = async (
     .populate("brandId", "name slug logo");
 
   if (!product) {
-    throw new HttpError(404, "Sản phẩm không tồn tại.");
+    throw new AppError(404, "Sản phẩm không tồn tại.");
   }
 
   return toPlainProduct(product);
@@ -313,26 +314,26 @@ export const createProduct = async (
 ): Promise<IProduct> => {
   const category = await Category.findById(payload.categoryId);
   if (!category) {
-    throw new HttpError(400, "Danh mục không tồn tại.");
+    throw new AppError(400, "Danh mục không tồn tại.");
   }
 
   if (payload.brandId) {
     const brand = await Brand.findById(payload.brandId);
     if (!brand) {
-      throw new HttpError(400, "Thương hiệu không tồn tại.");
+      throw new AppError(400, "Thương hiệu không tồn tại.");
     }
   }
 
   const sku = payload.sku.toUpperCase().trim();
   const existingSku = await Product.findOne({ sku });
   if (existingSku) {
-    throw new HttpError(400, `Mã SKU '${sku}' đã tồn tại.`);
+    throw new AppError(400, `Mã SKU '${sku}' đã tồn tại.`);
   }
 
   const slug = payload.slug || generateSlug(payload.name);
   const existingSlug = await Product.findOne({ slug });
   if (existingSlug) {
-    throw new HttpError(400, `Slug '${slug}' đã tồn tại.`);
+    throw new AppError(400, `Slug '${slug}' đã tồn tại.`);
   }
 
   assertSalePriceNotGreaterThanBasePrice(payload.basePrice, payload.salePrice);
@@ -359,7 +360,7 @@ export const updateProduct = async (
 ): Promise<IProduct> => {
   const product = await Product.findById(id);
   if (!product) {
-    throw new HttpError(404, "Sản phẩm không tồn tại.");
+    throw new AppError(404, "Sản phẩm không tồn tại.");
   }
 
   if (payload.sku !== undefined) {
@@ -367,7 +368,7 @@ export const updateProduct = async (
     if (sku !== product.sku) {
       const existingSku = await Product.findOne({ sku, _id: { $ne: id } });
       if (existingSku) {
-        throw new HttpError(400, `Mã SKU '${sku}' đã tồn tại.`);
+        throw new AppError(400, `Mã SKU '${sku}' đã tồn tại.`);
       }
       product.sku = sku;
     }
@@ -379,7 +380,7 @@ export const updateProduct = async (
       _id: { $ne: id },
     });
     if (existingSlug) {
-      throw new HttpError(400, `Slug '${payload.slug}' đã tồn tại.`);
+      throw new AppError(400, `Slug '${payload.slug}' đã tồn tại.`);
     }
     product.slug = payload.slug;
   }
@@ -387,7 +388,7 @@ export const updateProduct = async (
   if (payload.categoryId !== undefined) {
     const category = await Category.findById(payload.categoryId);
     if (!category) {
-      throw new HttpError(400, "Danh mục không tồn tại.");
+      throw new AppError(400, "Danh mục không tồn tại.");
     }
     product.categoryId = payload.categoryId as any;
   }
@@ -396,7 +397,7 @@ export const updateProduct = async (
     if (payload.brandId !== null) {
       const brand = await Brand.findById(payload.brandId);
       if (!brand) {
-        throw new HttpError(400, "Thương hiệu không tồn tại.");
+        throw new AppError(400, "Thương hiệu không tồn tại.");
       }
     }
     product.brandId = payload.brandId as any;
@@ -430,7 +431,7 @@ export const toggleProductStatus = async (
 ): Promise<IProduct> => {
   const product = await Product.findById(id);
   if (!product) {
-    throw new HttpError(404, "Sản phẩm không tồn tại.");
+    throw new AppError(404, "Sản phẩm không tồn tại.");
   }
 
   product.isActive = isActive !== undefined ? isActive : !product.isActive;
@@ -444,7 +445,7 @@ export const toggleProductFeatured = async (
 ): Promise<IProduct> => {
   const product = await Product.findById(id);
   if (!product) {
-    throw new HttpError(404, "Sản phẩm không tồn tại.");
+    throw new AppError(404, "Sản phẩm không tồn tại.");
   }
 
   product.isFeatured =
@@ -458,12 +459,12 @@ export const deleteProduct = async (
 ): Promise<{ message: string }> => {
   const product = await Product.findById(id);
   if (!product) {
-    throw new HttpError(404, "Sản phẩm không tồn tại.");
+    throw new AppError(404, "Sản phẩm không tồn tại.");
   }
 
   const orderItemCount = await OrderItem.countDocuments({ productId: id });
   if (orderItemCount > 0) {
-    throw new HttpError(
+    throw new AppError(
       400,
       `Không thể xóa sản phẩm đã có ${orderItemCount} giao dịch đơn hàng. Hãy chuyển trạng thái isActive sang false.`
     );

@@ -69,7 +69,7 @@ const main = async (): Promise<void> => {
     { expiresIn: "1h" }
   );
 
-  const noAuth = await call("POST", "/api/categories/admin", { name: "Test" });
+  const noAuth = await call("POST", "/api/admin/categories", { name: "Test" });
   expect(
     "RBAC: tạo danh mục không có token bị chặn",
     noAuth.status === 401,
@@ -78,7 +78,7 @@ const main = async (): Promise<void> => {
 
   const customer = await call(
     "POST",
-    "/api/categories/admin",
+    "/api/admin/categories",
     { name: "Test" },
     customerToken
   );
@@ -88,7 +88,7 @@ const main = async (): Promise<void> => {
     `status=${customer.status}`
   );
 
-  const invalidBody = await call("POST", "/api/categories/admin", {}, adminToken);
+  const invalidBody = await call("POST", "/api/admin/categories", {}, adminToken);
   expect(
     "Validate: tạo thiếu tên danh mục trả 400",
     invalidBody.status === 400,
@@ -97,7 +97,7 @@ const main = async (): Promise<void> => {
 
   const createParent = await call(
     "POST",
-    "/api/categories/admin",
+    "/api/admin/categories",
     { name: "Đồ Gia Dụng Bếp", description: "Danh mục gốc" },
     adminToken
   );
@@ -112,7 +112,7 @@ const main = async (): Promise<void> => {
 
   const duplicateSlug = await call(
     "POST",
-    "/api/categories/admin",
+    "/api/admin/categories",
     { name: "Đồ Gia Dụng Bếp" },
     adminToken
   );
@@ -124,7 +124,7 @@ const main = async (): Promise<void> => {
 
   const createChild = await call(
     "POST",
-    "/api/categories/admin",
+    "/api/admin/categories",
     { name: "Nồi Cơm Điện", parentId, sortOrder: 2 },
     adminToken
   );
@@ -137,7 +137,7 @@ const main = async (): Promise<void> => {
 
   const createGrandchild = await call(
     "POST",
-    "/api/categories/admin",
+    "/api/admin/categories",
     { name: "Nồi Chiên Không Dầu", parentId: childId },
     adminToken
   );
@@ -188,7 +188,7 @@ const main = async (): Promise<void> => {
     `status=${byId.status}`
   );
 
-  const adminListNoAuth = await call("GET", "/api/categories/admin/all");
+  const adminListNoAuth = await call("GET", "/api/admin/categories/all");
   expect(
     "RBAC: admin list không có token bị chặn",
     adminListNoAuth.status === 401,
@@ -197,7 +197,7 @@ const main = async (): Promise<void> => {
 
   const adminList = await call(
     "GET",
-    "/api/categories/admin/all?page=1&limit=10",
+    "/api/admin/categories/all?page=1&limit=10",
     undefined,
     adminToken
   );
@@ -209,7 +209,7 @@ const main = async (): Promise<void> => {
 
   const selfParent = await call(
     "PUT",
-    `/api/categories/admin/${parentId}`,
+    `/api/admin/categories/${parentId}`,
     { parentId },
     adminToken
   );
@@ -221,7 +221,7 @@ const main = async (): Promise<void> => {
 
   const cycleUpdate = await call(
     "PUT",
-    `/api/categories/admin/${childId}`,
+    `/api/admin/categories/${childId}`,
     { parentId: grandchildId },
     adminToken
   );
@@ -233,7 +233,7 @@ const main = async (): Promise<void> => {
 
   const updateCategory = await call(
     "PUT",
-    `/api/categories/admin/${childId}`,
+    `/api/admin/categories/${childId}`,
     { description: "Nồi cơm điện thông minh" },
     adminToken
   );
@@ -246,7 +246,7 @@ const main = async (): Promise<void> => {
 
   const toggleOff = await call(
     "PATCH",
-    `/api/categories/admin/${childId}/status`,
+    `/api/admin/categories/${childId}/status`,
     { isActive: false },
     adminToken
   );
@@ -259,7 +259,7 @@ const main = async (): Promise<void> => {
 
   const toggleOn = await call(
     "PATCH",
-    `/api/categories/admin/${childId}/status`,
+    `/api/admin/categories/${childId}/status`,
     { isActive: true },
     adminToken
   );
@@ -271,7 +271,7 @@ const main = async (): Promise<void> => {
 
   const sortUpdate = await call(
     "PUT",
-    "/api/categories/admin/sort-order",
+    "/api/admin/categories/sort-order",
     { items: [{ id: childId, sortOrder: 7 }] },
     adminToken
   );
@@ -284,7 +284,7 @@ const main = async (): Promise<void> => {
 
   const deleteParentWithChildren = await call(
     "DELETE",
-    `/api/categories/admin/${parentId}`,
+    `/api/admin/categories/${parentId}`,
     undefined,
     adminToken
   );
@@ -296,19 +296,19 @@ const main = async (): Promise<void> => {
 
   const deleteGrandchild = await call(
     "DELETE",
-    `/api/categories/admin/${grandchildId}`,
+    `/api/admin/categories/${grandchildId}`,
     undefined,
     adminToken
   );
   const deleteChild = await call(
     "DELETE",
-    `/api/categories/admin/${childId}`,
+    `/api/admin/categories/${childId}`,
     undefined,
     adminToken
   );
   const deleteParent = await call(
     "DELETE",
-    `/api/categories/admin/${parentId}`,
+    `/api/admin/categories/${parentId}`,
     undefined,
     adminToken
   );

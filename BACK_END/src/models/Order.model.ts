@@ -8,6 +8,7 @@ export type OrderStatus =
   | "confirmed"
   | "processing"
   | "shipping"
+  | "delivered"
   | "completed"
   | "cancelled"
   | "returned";
@@ -41,6 +42,7 @@ export interface IOrder extends Document {
 
   confirmedAt?: Date | null;
   shippedAt?: Date | null;
+  deliveredAt?: Date | null;
   completedAt?: Date | null;
   cancelledAt?: Date | null;
 
@@ -103,6 +105,7 @@ const orderSchema = new Schema<IOrder>(
         "confirmed",
         "processing",
         "shipping",
+        "delivered",
         "completed",
         "cancelled",
         "returned",
@@ -115,6 +118,7 @@ const orderSchema = new Schema<IOrder>(
 
     confirmedAt: { type: Date, default: null },
     shippedAt: { type: Date, default: null },
+    deliveredAt: { type: Date, default: null },
     completedAt: { type: Date, default: null },
     cancelledAt: { type: Date, default: null },
   },

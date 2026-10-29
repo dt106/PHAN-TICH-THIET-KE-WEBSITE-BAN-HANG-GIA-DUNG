@@ -1,11 +1,7 @@
-import { Request, Response } from "express";
+import { Request, Response, NextFunction } from "express";
 import * as checkoutService from "../services/checkout.service";
 
-const getErrorMessage = (error: unknown): string => {
-  return error instanceof Error ? error.message : "Đã xảy ra lỗi không xác định.";
-};
-
-export const previewCheckout = async (req: Request, res: Response) => {
+export const previewCheckout = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const userId = req.user!.userId;
     const summary = await checkoutService.reviewCheckout(userId, req.body);
@@ -15,11 +11,11 @@ export const previewCheckout = async (req: Request, res: Response) => {
       data: summary,
     });
   } catch (error) {
-    return res.status(400).json({ success: false, message: getErrorMessage(error) });
+    next(error);
   }
 };
 
-export const submitCheckout = async (req: Request, res: Response) => {
+export const submitCheckout = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const userId = req.user!.userId;
     const result = await checkoutService.placeOrder(userId, req.body);
@@ -29,6 +25,6 @@ export const submitCheckout = async (req: Request, res: Response) => {
       data: { order: result.order, items: result.items },
     });
   } catch (error) {
-    return res.status(400).json({ success: false, message: getErrorMessage(error) });
+    next(error);
   }
 };

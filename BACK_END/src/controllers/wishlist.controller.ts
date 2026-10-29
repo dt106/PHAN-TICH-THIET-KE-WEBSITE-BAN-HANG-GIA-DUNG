@@ -1,15 +1,11 @@
-import { Request, Response } from "express";
+import { Request, Response, NextFunction } from "express";
 import * as wishlistService from "../services/wishlist.service";
-
-const getErrorMessage = (error: unknown): string => {
-  return error instanceof Error ? error.message : "Đã xảy ra lỗi không xác định.";
-};
 
 const getPathParam = (value: unknown): string => {
   return typeof value === "string" ? value : "";
 };
 
-export const getWishlist = async (req: Request, res: Response) => {
+export const getWishlist = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const userId = req.user!.userId;
     const items = await wishlistService.getUserWishlist(userId);
@@ -19,11 +15,11 @@ export const getWishlist = async (req: Request, res: Response) => {
       data: items,
     });
   } catch (error) {
-    return res.status(500).json({ success: false, message: getErrorMessage(error) });
+    next(error);
   }
 };
 
-export const addToWishlist = async (req: Request, res: Response) => {
+export const addToWishlist = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const userId = req.user!.userId;
     const item = await wishlistService.addToWishlist(userId, req.body.productId);
@@ -33,11 +29,11 @@ export const addToWishlist = async (req: Request, res: Response) => {
       data: item,
     });
   } catch (error) {
-    return res.status(400).json({ success: false, message: getErrorMessage(error) });
+    next(error);
   }
 };
 
-export const checkWishlistStatus = async (req: Request, res: Response) => {
+export const checkWishlistStatus = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const userId = req.user!.userId;
     const result = await wishlistService.checkProductInWishlist(
@@ -50,11 +46,11 @@ export const checkWishlistStatus = async (req: Request, res: Response) => {
       data: result,
     });
   } catch (error) {
-    return res.status(400).json({ success: false, message: getErrorMessage(error) });
+    next(error);
   }
 };
 
-export const removeFromWishlist = async (req: Request, res: Response) => {
+export const removeFromWishlist = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const userId = req.user!.userId;
     const result = await wishlistService.removeFromWishlist(
@@ -63,11 +59,11 @@ export const removeFromWishlist = async (req: Request, res: Response) => {
     );
     return res.status(200).json({ success: true, message: result.message });
   } catch (error) {
-    return res.status(400).json({ success: false, message: getErrorMessage(error) });
+    next(error);
   }
 };
 
-export const removeByProductId = async (req: Request, res: Response) => {
+export const removeByProductId = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const userId = req.user!.userId;
     const result = await wishlistService.removeByProductId(
@@ -76,11 +72,11 @@ export const removeByProductId = async (req: Request, res: Response) => {
     );
     return res.status(200).json({ success: true, message: result.message });
   } catch (error) {
-    return res.status(400).json({ success: false, message: getErrorMessage(error) });
+    next(error);
   }
 };
 
-export const moveToCart = async (req: Request, res: Response) => {
+export const moveToCart = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const userId = req.user!.userId;
     const result = await wishlistService.moveWishlistItemToCart(
@@ -94,16 +90,16 @@ export const moveToCart = async (req: Request, res: Response) => {
       data: result.cartItem,
     });
   } catch (error) {
-    return res.status(400).json({ success: false, message: getErrorMessage(error) });
+    next(error);
   }
 };
 
-export const clearWishlist = async (req: Request, res: Response) => {
+export const clearWishlist = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const userId = req.user!.userId;
     const result = await wishlistService.clearUserWishlist(userId);
     return res.status(200).json({ success: true, message: result.message });
   } catch (error) {
-    return res.status(500).json({ success: false, message: getErrorMessage(error) });
+    next(error);
   }
 };

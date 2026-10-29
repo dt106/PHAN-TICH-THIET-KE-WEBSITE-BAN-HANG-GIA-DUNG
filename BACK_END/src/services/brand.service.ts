@@ -1,14 +1,6 @@
 import Brand, { IBrand } from "../models/Brand.model";
+import { AppError } from "../utils/appError";
 import Product from "../models/Product.model";
-
-export class HttpError extends Error {
-  statusCode: number;
-
-  constructor(statusCode: number, message: string) {
-    super(message);
-    this.statusCode = statusCode;
-  }
-}
 
 const escapeRegex = (str: string): string => {
   return str.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -83,7 +75,7 @@ export const getPublicBrands = async (options: ListBrandOptions) => {
 export const getPublicBrandById = async (id: string): Promise<IBrand> => {
   const brand = await Brand.findOne({ _id: id, isActive: true });
   if (!brand) {
-    throw new HttpError(404, "Thương hiệu không tồn tại hoặc đã bị ẩn.");
+    throw new AppError(404, "Thương hiệu không tồn tại hoặc đã bị ẩn.");
   }
   return brand;
 };
@@ -91,7 +83,7 @@ export const getPublicBrandById = async (id: string): Promise<IBrand> => {
 export const getPublicBrandBySlug = async (slug: string): Promise<IBrand> => {
   const brand = await Brand.findOne({ slug, isActive: true });
   if (!brand) {
-    throw new HttpError(404, "Thương hiệu không tồn tại hoặc đã bị ẩn.");
+    throw new AppError(404, "Thương hiệu không tồn tại hoặc đã bị ẩn.");
   }
   return brand;
 };
@@ -131,7 +123,7 @@ export const getAdminBrands = async (options: ListBrandOptions) => {
 export const getAdminBrandById = async (id: string): Promise<IBrand> => {
   const brand = await Brand.findById(id);
   if (!brand) {
-    throw new HttpError(404, "Thương hiệu không tồn tại.");
+    throw new AppError(404, "Thương hiệu không tồn tại.");
   }
   return brand;
 };
@@ -143,7 +135,7 @@ export const createBrand = async (
 
   const existing = await Brand.findOne({ slug });
   if (existing) {
-    throw new HttpError(400, `Slug thương hiệu '${slug}' đã tồn tại.`);
+    throw new AppError(400, `Slug thương hiệu '${slug}' đã tồn tại.`);
   }
 
   const brand = await Brand.create({
@@ -163,13 +155,13 @@ export const updateBrand = async (
 ): Promise<IBrand> => {
   const brand = await Brand.findById(id);
   if (!brand) {
-    throw new HttpError(404, "Thương hiệu không tồn tại.");
+    throw new AppError(404, "Thương hiệu không tồn tại.");
   }
 
   if (payload.slug && payload.slug !== brand.slug) {
     const existing = await Brand.findOne({ slug: payload.slug });
     if (existing) {
-      throw new HttpError(400, `Slug thương hiệu '${payload.slug}' đã tồn tại.`);
+      throw new AppError(400, `Slug thương hiệu '${payload.slug}' đã tồn tại.`);
     }
     brand.slug = payload.slug;
   }
@@ -189,7 +181,7 @@ export const toggleBrandStatus = async (
 ): Promise<IBrand> => {
   const brand = await Brand.findById(id);
   if (!brand) {
-    throw new HttpError(404, "Thương hiệu không tồn tại.");
+    throw new AppError(404, "Thương hiệu không tồn tại.");
   }
 
   brand.isActive = isActive !== undefined ? isActive : !brand.isActive;
@@ -202,12 +194,12 @@ export const deleteBrand = async (
 ): Promise<{ message: string }> => {
   const brand = await Brand.findById(id);
   if (!brand) {
-    throw new HttpError(404, "Thương hiệu không tồn tại.");
+    throw new AppError(404, "Thương hiệu không tồn tại.");
   }
 
   const productCount = await Product.countDocuments({ brandId: id });
   if (productCount > 0) {
-    throw new HttpError(
+    throw new AppError(
       400,
       `Không thể xóa thương hiệu vì đang có ${productCount} sản phẩm liên kết.`
     );

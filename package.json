@@ -1,8 +1,4 @@
 {
-  "dependencies": {
-    "@google/genai": "^2.31.0",
-    "mongoose": "^9.11.0"
-  },
   "name": "phan-tich-thiet-ke-website-ban-hang-gia-dung",
   "version": "1.0.0",
   "description": "* ReactJS\r * TypeScript\r * Vite\r * Tailwind CSS\r * React Router\r * Axios\r * ESLint",

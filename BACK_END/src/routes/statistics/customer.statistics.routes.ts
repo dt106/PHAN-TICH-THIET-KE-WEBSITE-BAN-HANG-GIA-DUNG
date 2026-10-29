@@ -9,9 +9,10 @@
  * =========================================================
  */
 
-import { Router, RequestHandler } from "express";
+import { Router } from "express";
 
 import authMiddleware from "../../middlewares/auth.middleware";
+import roleMiddleware from "../../middlewares/role.middleware";
 
 import {
   getCustomerStatistics,
@@ -22,37 +23,11 @@ import {
 const router = Router();
 
 /**
- * Chặn tài khoản không phải customer.
- */
-const requireCustomer: RequestHandler = (req, res, next) => {
-  const user = (req as any).user;
-
-  if (!user) {
-    res.status(401).json({
-      success: false,
-      message: "Vui lòng đăng nhập.",
-    });
-    return;
-  }
-
-  if (user.role !== "customer") {
-    res.status(403).json({
-      success: false,
-      message: "Bạn không có quyền truy cập thống kê khách hàng.",
-    });
-    return;
-  }
-
-  next();
-};
-
-/**
  * Tất cả API trong router đều yêu cầu:
  * 1. JWT hợp lệ.
- * 2. Role customer.
+ * 2. Role customer (roleMiddleware dùng chung toàn hệ thống).
  */
-router.use(authMiddleware);
-router.use(requireCustomer);
+router.use(authMiddleware, roleMiddleware("customer"));
 
 router.get("/overview", getCustomerStatistics);
 router.get("/orders", getCustomerOrderStatistics);

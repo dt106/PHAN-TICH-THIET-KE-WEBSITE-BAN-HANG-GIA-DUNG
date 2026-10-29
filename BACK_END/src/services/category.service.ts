@@ -2,7 +2,8 @@ import { Types } from "mongoose";
 
 import Category, { ICategory } from "../models/Category.model";
 import Product from "../models/Product.model";
-import { HttpError, generateSlug } from "./brand.service";
+import { generateSlug } from "./brand.service";
+import { AppError } from "../utils/appError";
 
 const escapeRegex = (str: string): string => {
   return str.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -129,7 +130,7 @@ export const getPublicCategoryById = async (id: string) => {
     "name slug"
   );
   if (!category) {
-    throw new HttpError(404, "Danh mục không tồn tại hoặc đã bị ẩn.");
+    throw new AppError(404, "Danh mục không tồn tại hoặc đã bị ẩn.");
   }
 
   const subCategories = await Category.find({ parentId: id, isActive: true }).sort({
@@ -146,7 +147,7 @@ export const getPublicCategoryBySlug = async (slug: string) => {
     "name slug"
   );
   if (!category) {
-    throw new HttpError(404, "Danh mục không tồn tại hoặc đã bị ẩn.");
+    throw new AppError(404, "Danh mục không tồn tại hoặc đã bị ẩn.");
   }
 
   const subCategories = await Category.find({ parentId: category._id, isActive: true }).sort({
@@ -197,7 +198,7 @@ export const getAdminCategories = async (options: ListCategoryOptions) => {
 export const getAdminCategoryById = async (id: string): Promise<ICategory> => {
   const category = await Category.findById(id).populate("parentId", "name slug");
   if (!category) {
-    throw new HttpError(404, "Danh mục không tồn tại.");
+    throw new AppError(404, "Danh mục không tồn tại.");
   }
   return category;
 };
@@ -210,12 +211,12 @@ const ensureAncestorChainIsClean = async (
 
   while (currentParentId) {
     if (currentParentId === categoryId) {
-      throw new HttpError(400, "Không thể gán danh mục cha vì sẽ tạo vòng lặp danh mục.");
+      throw new AppError(400, "Không thể gán danh mục cha vì sẽ tạo vòng lặp danh mục.");
     }
 
     const parent: ICategory | null = await Category.findById(currentParentId);
     if (!parent) {
-      throw new HttpError(400, "Danh mục cha không tồn tại.");
+      throw new AppError(400, "Danh mục cha không tồn tại.");
     }
 
     currentParentId = parent.parentId ? parent.parentId.toString() : null;
@@ -228,7 +229,7 @@ export const createCategory = async (
   if (payload.parentId) {
     const parent = await Category.findById(payload.parentId);
     if (!parent) {
-      throw new HttpError(400, "Danh mục cha không tồn tại.");
+      throw new AppError(400, "Danh mục cha không tồn tại.");
     }
   }
 
@@ -236,7 +237,7 @@ export const createCategory = async (
 
   const existing = await Category.findOne({ slug });
   if (existing) {
-    throw new HttpError(400, `Slug danh mục '${slug}' đã tồn tại.`);
+    throw new AppError(400, `Slug danh mục '${slug}' đã tồn tại.`);
   }
 
   const category = await Category.create({
@@ -260,7 +261,7 @@ export const updateCategory = async (
 ): Promise<ICategory> => {
   const category = await Category.findById(id);
   if (!category) {
-    throw new HttpError(404, "Danh mục không tồn tại.");
+    throw new AppError(404, "Danh mục không tồn tại.");
   }
 
   if (payload.parentId !== undefined && payload.parentId !== null) {
@@ -273,7 +274,7 @@ export const updateCategory = async (
   if (payload.slug && payload.slug !== category.slug) {
     const existing = await Category.findOne({ slug: payload.slug, _id: { $ne: id } });
     if (existing) {
-      throw new HttpError(400, `Slug danh mục '${payload.slug}' đã tồn tại.`);
+      throw new AppError(400, `Slug danh mục '${payload.slug}' đã tồn tại.`);
     }
     category.slug = payload.slug;
   }
@@ -296,7 +297,7 @@ export const toggleCategoryStatus = async (
 ): Promise<ICategory> => {
   const category = await Category.findById(id);
   if (!category) {
-    throw new HttpError(404, "Danh mục không tồn tại.");
+    throw new AppError(404, "Danh mục không tồn tại.");
   }
 
   category.isActive = isActive !== undefined ? isActive : !category.isActive;
@@ -321,12 +322,12 @@ export const updateSortOrder = async (
 export const deleteCategory = async (id: string): Promise<{ message: string }> => {
   const category = await Category.findById(id);
   if (!category) {
-    throw new HttpError(404, "Danh mục không tồn tại.");
+    throw new AppError(404, "Danh mục không tồn tại.");
   }
 
   const childrenCount = await Category.countDocuments({ parentId: id });
   if (childrenCount > 0) {
-    throw new HttpError(
+    throw new AppError(
       400,
       `Không thể xóa danh mục này vì có ${childrenCount} danh mục con trực thuộc. Vui lòng di chuyển hoặc xóa danh mục con trước.`
     );
@@ -334,7 +335,7 @@ export const deleteCategory = async (id: string): Promise<{ message: string }> =
 
   const productCount = await Product.countDocuments({ categoryId: id });
   if (productCount > 0) {
-    throw new HttpError(
+    throw new AppError(
       400,
       `Không thể xóa danh mục này vì đang có ${productCount} sản phẩm liên kết.`
     );

@@ -7,6 +7,7 @@ import Coupon from "../src/models/Coupon.model";
 import CouponUsage from "../src/models/CouponUsage.model";
 import Order from "../src/models/Order.model";
 import OrderItem from "../src/models/OrderItem.model";
+import Payment from "../src/models/Payment.model";
 import ProductVariant from "../src/models/ProductVariant.model";
 
 dotenv.config();
@@ -77,6 +78,7 @@ const cleanup = async (): Promise<void> => {
   const orderIds = orders.map((order) => order._id);
   await OrderItem.deleteMany({ orderId: { $in: orderIds } });
   await CouponUsage.deleteMany({ orderId: { $in: orderIds } });
+  await Payment.deleteMany({ orderId: { $in: orderIds } });
   await Order.deleteMany({ _id: { $in: orderIds } });
   await Coupon.deleteMany({ code: "TESTOD10" });
   await ProductVariant.deleteMany({ sku: /^OD-VAR-/ });
@@ -147,6 +149,15 @@ const main = async (): Promise<void> => {
     paymentStatus: "paid",
     paymentMethod: "BANK",
     completedAt: new Date(),
+  });
+  // Đơn paid cần có bản ghi Payment "paid" (như luồng thật: gateway/COD đã ghi).
+  await Payment.create({
+    orderId: seededACompleted.order._id,
+    paymentMethod: "BANK",
+    transactionCode: `TESTPAY-RET-${Date.now()}`,
+    amount: 500000,
+    status: "paid",
+    paidAt: new Date(),
   });
   const seededB = await seedOrder(userIdB, variant._id);
 
@@ -335,16 +346,120 @@ const main = async (): Promise<void> => {
     `confirmed=${confirmed.status} | processing=${processing.status} | shipping=${shipping.status} | completed=${completed.status}`
   );
 
+  const seededD = await seedOrder(userIdB, variant._id);
+  const dConfirmed = await call(
+    "PUT",
+    `/api/admin/orders/${seededD.order._id}/status`,
+    { status: "confirmed" },
+    adminToken
+  );
+  const dProcessing = await call(
+    "PUT",
+    `/api/admin/orders/${seededD.order._id}/status`,
+    { status: "processing" },
+    adminToken
+  );
+  const dShipping = await call(
+    "PUT",
+    `/api/admin/orders/${seededD.order._id}/status`,
+    { status: "shipping" },
+    adminToken
+  );
+  const dDelivered = await call(
+    "PUT",
+    `/api/admin/orders/${seededD.order._id}/status`,
+    { status: "delivered" },
+    adminToken
+  );
+  expect(
+    "shipping -> delivered (da giao, COD ghi nhan tien tai day)",
+    dConfirmed.status === 200 &&
+      dProcessing.status === 200 &&
+      dShipping.status === 200 &&
+      dDelivered.status === 200 &&
+      dDelivered.json.data.status === "delivered" &&
+      Boolean(dDelivered.json.data.deliveredAt) &&
+      dDelivered.json.data.paymentStatus === "paid",
+    `confirmed=${dConfirmed.status} | processing=${dProcessing.status} | shipping=${dShipping.status} | delivered=${dDelivered.status} | deliveredAt=${Boolean(dDelivered.json.data?.deliveredAt)} | paymentStatus=${dDelivered.json.data?.paymentStatus}`
+  );
+
+  const dCancelFromDelivered = await call(
+    "PUT",
+    `/api/admin/orders/${seededD.order._id}/status`,
+    { status: "cancelled" },
+    adminToken
+  );
+  expect(
+    "Chan huy don da delivered (tu choi khach phai dung returned)",
+    dCancelFromDelivered.status === 400,
+    `HTTP ${dCancelFromDelivered.status} | ${dCancelFromDelivered.json.message}`
+  );
+
+  const dCompleted = await call(
+    "PUT",
+    `/api/admin/orders/${seededD.order._id}/status`,
+    { status: "completed" },
+    adminToken
+  );
+  expect(
+    "delivered -> completed (khach xac nhan), payment giu la paid",
+    dCompleted.status === 200 &&
+      dCompleted.json.data.status === "completed" &&
+      dCompleted.json.data.paymentStatus === "paid",
+    `HTTP ${dCompleted.status} | status=${dCompleted.json.data?.status} | paymentStatus=${dCompleted.json.data?.paymentStatus}`
+  );
+
   const returned = await call(
     "PUT",
     `/api/admin/orders/${seededACompleted.order._id}/status`,
     { status: "returned" },
     adminToken
   );
+  const returnedPayment = await Payment.findOne({
+    orderId: seededACompleted.order._id,
+    status: "refunded",
+  });
   expect(
-    "Hoan tra don paid -> refunded",
-    returned.status === 200 && returned.json.data.paymentStatus === "refunded",
-    `HTTP ${returned.status} | paymentStatus=${returned.json.data?.paymentStatus}`
+    "Hoan tra don paid -> refunded (ca Order va Payment)",
+    returned.status === 200 &&
+      returned.json.data.paymentStatus === "refunded" &&
+      Boolean(returnedPayment) &&
+      returnedPayment?.refundAmount === 500000 &&
+      Boolean(returnedPayment?.refundTransactionCode?.startsWith("RF-")),
+    `HTTP ${returned.status} | orderPaymentStatus=${returned.json.data?.paymentStatus} | paymentRefunded=${Boolean(returnedPayment)} | refundAmount=${returnedPayment?.refundAmount} | code=${returnedPayment?.refundTransactionCode}`
+  );
+
+  // Admin hủy đơn đã thanh toán → tự động hoàn tiền (phương án c).
+  const seededEPaidCancel = await seedOrder(userIdB, null, {
+    status: "confirmed",
+    paymentStatus: "paid",
+    paymentMethod: "BANK",
+  });
+  await Payment.create({
+    orderId: seededEPaidCancel.order._id,
+    paymentMethod: "BANK",
+    transactionCode: `TESTPAY-CXL-${Date.now()}`,
+    amount: 500000,
+    status: "paid",
+    paidAt: new Date(),
+  });
+  const paidCancel = await call(
+    "PUT",
+    `/api/admin/orders/${seededEPaidCancel.order._id}/status`,
+    { status: "cancelled" },
+    adminToken
+  );
+  const paidCancelPayment = await Payment.findOne({
+    orderId: seededEPaidCancel.order._id,
+    status: "refunded",
+  });
+  expect(
+    "Admin huy don da paid -> tu dong refund (Order + Payment)",
+    paidCancel.status === 200 &&
+      paidCancel.json.data.paymentStatus === "refunded" &&
+      Boolean(paidCancelPayment) &&
+      paidCancelPayment?.refundAmount === 500000,
+    `HTTP ${paidCancel.status} | orderPaymentStatus=${paidCancel.json.data?.paymentStatus} | paymentRefunded=${Boolean(paidCancelPayment)} | refundAmount=${paidCancelPayment?.refundAmount}`
   );
 
   const terminalTransition = await call(
@@ -361,11 +476,13 @@ const main = async (): Promise<void> => {
 
   await cleanup();
   console.log(`\nTỔNG KẾT: PASS=${passed} | FAIL=${failed}`);
+  await mongoose.disconnect();
   process.exit(failed > 0 ? 1 : 0);
 };
 
 main().catch(async (error) => {
   console.error("Lỗi chạy test order:", error);
   await cleanup();
+  await mongoose.disconnect();
   process.exit(1);
 });

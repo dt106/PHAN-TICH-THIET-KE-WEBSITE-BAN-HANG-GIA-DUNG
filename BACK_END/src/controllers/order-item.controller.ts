@@ -1,21 +1,12 @@
-import { Request, Response } from "express";
+import { Request, Response, NextFunction } from "express";
 import * as orderItemService from "../services/order-item.service";
-
-const getErrorStatusCode = (error: unknown): number => {
-  const withCode = error as { statusCode?: number };
-  return withCode?.statusCode && withCode.statusCode >= 400 ? withCode.statusCode : 400;
-};
-
-const getErrorMessage = (error: unknown): string => {
-  return error instanceof Error ? error.message : "Đã xảy ra lỗi không xác định.";
-};
 
 const toPositiveInt = (value: unknown): number | undefined => {
   const parsed = Number(value);
   return Number.isInteger(parsed) && parsed > 0 ? parsed : undefined;
 };
 
-export const getOrderItems = async (req: Request, res: Response) => {
+export const getOrderItems = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const requester = {
       userId: req.user!.userId,
@@ -28,13 +19,11 @@ export const getOrderItems = async (req: Request, res: Response) => {
       data: items,
     });
   } catch (error) {
-    return res
-      .status(getErrorStatusCode(error))
-      .json({ success: false, message: getErrorMessage(error) });
+    next(error);
   }
 };
 
-export const getAllOrderItemsAdmin = async (req: Request, res: Response) => {
+export const getAllOrderItemsAdmin = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const result = await orderItemService.getAllOrderItemsAdmin({
       orderId: req.query.orderId as string | undefined,
@@ -51,8 +40,6 @@ export const getAllOrderItemsAdmin = async (req: Request, res: Response) => {
       data: result,
     });
   } catch (error) {
-    return res
-      .status(getErrorStatusCode(error))
-      .json({ success: false, message: getErrorMessage(error) });
+    next(error);
   }
 };

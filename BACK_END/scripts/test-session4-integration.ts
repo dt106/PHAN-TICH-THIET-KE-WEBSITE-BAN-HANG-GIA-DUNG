@@ -261,40 +261,40 @@ const main = async (): Promise<void> => {
     `put=${bUpdateACart.status}, delCart=${bDeleteACart.status}, delWish=${bDeleteAWishlist.status}, cartA=${cartOfAAfter.json.data?.items?.length}, wishA=${wishlistOfAAfter.json.data?.length}`
   );
 
-  const customerAdminList = await call("GET", "/api/coupons/admin", undefined, customerToken);
+  const customerAdminList = await call("GET", "/api/admin/coupons", undefined, customerToken);
   const customerAdminCreate = await call(
     "POST",
-    "/api/coupons/admin",
+    "/api/admin/coupons",
     { code: "NOPE01", name: "Không được", discountType: "fixed", discountValue: 1000 },
     customerToken
   );
   const anyCoupon = await Coupon.findOne({ code: COUPON_CODE });
   const customerAdminDetail = await call(
     "GET",
-    `/api/coupons/admin/${anyCoupon?._id.toString()}`,
+    `/api/admin/coupons/${anyCoupon?._id.toString()}`,
     undefined,
     customerToken
   );
   const customerAdminUsages = await call(
     "GET",
-    `/api/coupons/admin/${anyCoupon?._id.toString()}/usages`,
+    `/api/admin/coupons/${anyCoupon?._id.toString()}/usages`,
     undefined,
     customerToken
   );
   const customerAdminToggle = await call(
     "PATCH",
-    `/api/coupons/admin/${anyCoupon?._id.toString()}/status`,
+    `/api/admin/coupons/${anyCoupon?._id.toString()}/status`,
     undefined,
     customerToken
   );
   const customerAdminDelete = await call(
     "DELETE",
-    `/api/coupons/admin/${anyCoupon?._id.toString()}`,
+    `/api/admin/coupons/${anyCoupon?._id.toString()}`,
     undefined,
     customerToken
   );
   expect(
-    "Kịch bản 3.3 - User thường bị chặn 403 toàn bộ endpoint /api/coupons/admin*",
+    "Kịch bản 3.3 - User thường bị chặn 403 toàn bộ endpoint /api/admin/coupons*",
     customerAdminList.status === 403 &&
       customerAdminCreate.status === 403 &&
       customerAdminDetail.status === 403 &&

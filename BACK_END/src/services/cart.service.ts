@@ -1,4 +1,5 @@
 import { Types } from "mongoose";
+import { AppError } from "../utils/appError";
 import Cart, { ICart } from "../models/Cart.model";
 import Product from "../models/Product.model";
 import ProductVariant from "../models/ProductVariant.model";
@@ -103,7 +104,7 @@ export const addToCart = async (
 
   const product = await Product.findById(payload.productId);
   if (!product || !product.isActive) {
-    throw new Error("Sản phẩm không tồn tại hoặc đã ngừng kinh doanh.");
+    throw new AppError(404, "Sản phẩm không tồn tại hoặc đã ngừng kinh doanh.");
   }
 
   let targetVariantId: Types.ObjectId | null = null;
@@ -115,7 +116,7 @@ export const addToCart = async (
       productId: payload.productId,
     });
     if (!variant || !variant.isActive) {
-      throw new Error("Biến thể sản phẩm không tồn tại hoặc đã ngừng kinh doanh.");
+      throw new AppError(404, "Biến thể sản phẩm không tồn tại hoặc đã ngừng kinh doanh.");
     }
     targetVariantId = variant._id;
     availableStock = variant.stockQuantity;
@@ -132,7 +133,7 @@ export const addToCart = async (
     : quantityToAdd;
 
   if (targetVariantId && nextQuantity > availableStock) {
-    throw new Error(
+    throw new AppError(400, 
       `Số lượng yêu cầu (${nextQuantity}) vượt quá tồn kho khả dụng (${availableStock}).`
     );
   }
@@ -162,16 +163,16 @@ export const updateCartItemQuantity = async (
   });
 
   if (!cartItem) {
-    throw new Error("Mục giỏ hàng không tồn tại hoặc bạn không có quyền thao tác.");
+    throw new AppError(404, "Mục giỏ hàng không tồn tại hoặc bạn không có quyền thao tác.");
   }
 
   if (cartItem.variantId) {
     const variant = await ProductVariant.findById(cartItem.variantId);
     if (!variant || !variant.isActive) {
-      throw new Error("Biến thể sản phẩm không khả dụng.");
+      throw new AppError(400, "Biến thể sản phẩm không khả dụng.");
     }
     if (quantity > variant.stockQuantity) {
-      throw new Error(
+      throw new AppError(400, 
         `Số lượng yêu cầu (${quantity}) vượt quá tồn kho khả dụng (${variant.stockQuantity}).`
       );
     }
@@ -192,7 +193,7 @@ export const removeCartItem = async (
   });
 
   if (!result) {
-    throw new Error("Mục giỏ hàng không tồn tại hoặc bạn không có quyền thao tác.");
+    throw new AppError(404, "Mục giỏ hàng không tồn tại hoặc bạn không có quyền thao tác.");
   }
 
   return { message: "Đã xóa sản phẩm khỏi giỏ hàng thành công." };

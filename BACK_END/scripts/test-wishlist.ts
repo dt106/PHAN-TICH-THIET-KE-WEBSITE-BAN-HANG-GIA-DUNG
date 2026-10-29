@@ -165,8 +165,8 @@ const main = async (): Promise<void> => {
     userAToken
   );
   expect(
-    "POST /api/wishlist sản phẩm inactive bị chặn 400",
-    addInactive.status === 400,
+    "POST /api/wishlist sản phẩm inactive bị chặn 404",
+    addInactive.status === 404,
     `status=${addInactive.status}`
   );
 
@@ -212,9 +212,9 @@ const main = async (): Promise<void> => {
   );
   const stillExists = await Wishlist.findById(wishlistItemId);
   expect(
-    "User B không thể xóa/move-to-cart item của User A (400)",
-    crossDelete.status === 400 &&
-      crossMove.status === 400 &&
+    "User B không thể xóa/move-to-cart item của User A (404)",
+    crossDelete.status === 404 &&
+      crossMove.status === 404 &&
       Boolean(stillExists),
     `delete=${crossDelete.status}, move=${crossMove.status}`
   );

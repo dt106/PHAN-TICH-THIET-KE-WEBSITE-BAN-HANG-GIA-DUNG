@@ -124,7 +124,7 @@ const main = async (): Promise<void> => {
 
   const categoryRes = await call(
     "POST",
-    "/api/categories/admin",
+    "/api/admin/categories",
     { name: CATEGORY_NAME },
     adminToken
   );
@@ -132,7 +132,7 @@ const main = async (): Promise<void> => {
 
   const brandRes = await call(
     "POST",
-    "/api/brands/admin",
+    "/api/admin/brands",
     { name: BRAND_NAME },
     adminToken
   );
@@ -140,7 +140,7 @@ const main = async (): Promise<void> => {
 
   const colorAttrRes = await call(
     "POST",
-    "/api/attributes/admin",
+    "/api/admin/attributes",
     { name: "Màu Sắc", slug: COLOR_ATTRIBUTE_SLUG },
     adminToken
   );
@@ -148,7 +148,7 @@ const main = async (): Promise<void> => {
 
   const redValueRes = await call(
     "POST",
-    `/api/attributes/admin/${colorAttributeId}/values`,
+    `/api/admin/attributes/${colorAttributeId}/values`,
     { value: "Đỏ", slug: RED_VALUE_SLUG },
     adminToken
   );
@@ -156,7 +156,7 @@ const main = async (): Promise<void> => {
 
   const blackValueRes = await call(
     "POST",
-    `/api/attributes/admin/${colorAttributeId}/values`,
+    `/api/admin/attributes/${colorAttributeId}/values`,
     { value: "Đen", slug: BLACK_VALUE_SLUG },
     adminToken
   );
@@ -164,7 +164,7 @@ const main = async (): Promise<void> => {
 
   const volumeAttrRes = await call(
     "POST",
-    "/api/attributes/admin",
+    "/api/admin/attributes",
     { name: "Dung Tích", slug: VOLUME_ATTRIBUTE_SLUG },
     adminToken
   );
@@ -172,7 +172,7 @@ const main = async (): Promise<void> => {
 
   const volume18LRes = await call(
     "POST",
-    `/api/attributes/admin/${volumeAttributeId}/values`,
+    `/api/admin/attributes/${volumeAttributeId}/values`,
     { value: "1.8L", slug: VOLUME_18L_VALUE_SLUG },
     adminToken
   );
@@ -194,7 +194,7 @@ const main = async (): Promise<void> => {
 
   const createP1 = await call(
     "POST",
-    "/api/products/admin",
+    "/api/admin/products",
     {
       name: "Nồi Cơm Điện Test Variant TPV1",
       sku: P1_SKU,

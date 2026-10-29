@@ -1,7 +1,8 @@
 import Attribute, { IAttribute } from "../models/Attribute.model";
 import AttributeValue, { IAttributeValue } from "../models/AttributeValue.model";
 import VariantAttribute from "../models/VariantAttribute.model";
-import { HttpError, generateSlug } from "./brand.service";
+import { generateSlug } from "./brand.service";
+import { AppError } from "../utils/appError";
 
 interface CreateAttributePayload {
   name: string;
@@ -44,7 +45,7 @@ export const getAllAttributesWithValues = async () => {
 export const getAttributeById = async (id: string) => {
   const attribute = await Attribute.findById(id);
   if (!attribute) {
-    throw new HttpError(404, "Thuộc tính không tồn tại.");
+    throw new AppError(404, "Thuộc tính không tồn tại.");
   }
 
   const values = await AttributeValue.find({ attributeId: id }).sort({ value: 1 });
@@ -59,7 +60,7 @@ export const createAttribute = async (
 
   const existing = await Attribute.findOne({ slug });
   if (existing) {
-    throw new HttpError(400, `Slug thuộc tính '${slug}' đã tồn tại.`);
+    throw new AppError(400, `Slug thuộc tính '${slug}' đã tồn tại.`);
   }
 
   return Attribute.create({ name: payload.name, slug });
@@ -71,13 +72,13 @@ export const updateAttribute = async (
 ): Promise<IAttribute> => {
   const attribute = await Attribute.findById(id);
   if (!attribute) {
-    throw new HttpError(404, "Thuộc tính không tồn tại.");
+    throw new AppError(404, "Thuộc tính không tồn tại.");
   }
 
   if (payload.slug && payload.slug !== attribute.slug) {
     const existing = await Attribute.findOne({ slug: payload.slug });
     if (existing) {
-      throw new HttpError(400, `Slug thuộc tính '${payload.slug}' đã tồn tại.`);
+      throw new AppError(400, `Slug thuộc tính '${payload.slug}' đã tồn tại.`);
     }
     attribute.slug = payload.slug;
   }
@@ -93,12 +94,12 @@ export const deleteAttribute = async (
 ): Promise<{ message: string }> => {
   const attribute = await Attribute.findById(id);
   if (!attribute) {
-    throw new HttpError(404, "Thuộc tính không tồn tại.");
+    throw new AppError(404, "Thuộc tính không tồn tại.");
   }
 
   const inUse = await VariantAttribute.countDocuments({ attributeId: id });
   if (inUse > 0) {
-    throw new HttpError(
+    throw new AppError(
       400,
       `Không thể xóa thuộc tính này vì đang có ${inUse} biến thể sản phẩm sử dụng.`
     );
@@ -116,7 +117,7 @@ export const createAttributeValue = async (
 ): Promise<IAttributeValue> => {
   const attribute = await Attribute.findById(attributeId);
   if (!attribute) {
-    throw new HttpError(404, "Thuộc tính cha không tồn tại.");
+    throw new AppError(404, "Thuộc tính cha không tồn tại.");
   }
 
   const slug = payload.slug || generateSlug(payload.value);
@@ -126,7 +127,7 @@ export const createAttributeValue = async (
     value: payload.value,
   });
   if (existing) {
-    throw new HttpError(
+    throw new AppError(
       400,
       `Giá trị '${payload.value}' đã tồn tại trong thuộc tính này.`
     );
@@ -145,7 +146,7 @@ export const updateAttributeValue = async (
 ): Promise<IAttributeValue> => {
   const attributeValue = await AttributeValue.findById(valueId);
   if (!attributeValue) {
-    throw new HttpError(404, "Giá trị thuộc tính không tồn tại.");
+    throw new AppError(404, "Giá trị thuộc tính không tồn tại.");
   }
 
   if (payload.value && payload.value !== attributeValue.value) {
@@ -155,7 +156,7 @@ export const updateAttributeValue = async (
       _id: { $ne: valueId },
     });
     if (existing) {
-      throw new HttpError(
+      throw new AppError(
         400,
         `Giá trị '${payload.value}' đã tồn tại trong thuộc tính này.`
       );
@@ -178,12 +179,12 @@ export const deleteAttributeValue = async (
 ): Promise<{ message: string }> => {
   const attributeValue = await AttributeValue.findById(valueId);
   if (!attributeValue) {
-    throw new HttpError(404, "Giá trị thuộc tính không tồn tại.");
+    throw new AppError(404, "Giá trị thuộc tính không tồn tại.");
   }
 
   const inUse = await VariantAttribute.countDocuments({ attributeValueId: valueId });
   if (inUse > 0) {
-    throw new HttpError(
+    throw new AppError(
       400,
       `Không thể xóa giá trị này vì đang có ${inUse} biến thể sản phẩm sử dụng.`
     );

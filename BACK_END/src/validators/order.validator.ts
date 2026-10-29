@@ -5,6 +5,7 @@ const ORDER_STATUSES = [
   "confirmed",
   "processing",
   "shipping",
+  "delivered",
   "completed",
   "cancelled",
   "returned",

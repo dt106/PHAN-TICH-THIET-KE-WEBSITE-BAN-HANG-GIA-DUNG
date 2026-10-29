@@ -13,6 +13,13 @@ export const productSlugParamValidator = [
     .withMessage("Slug sản phẩm không được để trống"),
 ];
 
+export const featuredProductsQueryValidator = [
+  query("limit")
+    .optional()
+    .isInt({ min: 1, max: 50 })
+    .withMessage("limit từ 1 đến 50"),
+];
+
 const validateSalePriceNotGreaterThanBasePrice = (
   value: any,
   { req }: { req: any }

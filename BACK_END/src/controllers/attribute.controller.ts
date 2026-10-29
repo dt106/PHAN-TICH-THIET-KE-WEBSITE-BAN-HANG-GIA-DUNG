@@ -1,29 +1,12 @@
-import { Request, Response } from "express";
+import { Request, Response, NextFunction } from "express";
 
 import * as attributeService from "../services/attribute.service";
-import { HttpError } from "../services/brand.service";
-
-const getErrorMessage = (error: unknown): string => {
-  if (error instanceof Error) {
-    return error.message;
-  }
-
-  return "Đã xảy ra lỗi không xác định.";
-};
-
-const getErrorStatusCode = (error: unknown, fallback: number): number => {
-  if (error instanceof HttpError) {
-    return error.statusCode;
-  }
-
-  return fallback;
-};
 
 const getPathParam = (value: unknown): string => {
   return typeof value === "string" ? value : "";
 };
 
-export const getAllAttributes = async (_req: Request, res: Response) => {
+export const getAllAttributes = async (_req: Request, res: Response, next: NextFunction) => {
   try {
     const attributes = await attributeService.getAllAttributesWithValues();
 
@@ -33,13 +16,11 @@ export const getAllAttributes = async (_req: Request, res: Response) => {
       data: attributes,
     });
   } catch (error) {
-    return res
-      .status(getErrorStatusCode(error, 500))
-      .json({ success: false, message: getErrorMessage(error) });
+    next(error);
   }
 };
 
-export const getAttributeById = async (req: Request, res: Response) => {
+export const getAttributeById = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const attribute = await attributeService.getAttributeById(
       getPathParam(req.params.id)
@@ -51,13 +32,11 @@ export const getAttributeById = async (req: Request, res: Response) => {
       data: attribute,
     });
   } catch (error) {
-    return res
-      .status(getErrorStatusCode(error, 404))
-      .json({ success: false, message: getErrorMessage(error) });
+    next(error);
   }
 };
 
-export const createAttribute = async (req: Request, res: Response) => {
+export const createAttribute = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const attribute = await attributeService.createAttribute(req.body);
 
@@ -67,13 +46,11 @@ export const createAttribute = async (req: Request, res: Response) => {
       data: attribute,
     });
   } catch (error) {
-    return res
-      .status(getErrorStatusCode(error, 500))
-      .json({ success: false, message: getErrorMessage(error) });
+    next(error);
   }
 };
 
-export const updateAttribute = async (req: Request, res: Response) => {
+export const updateAttribute = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const attribute = await attributeService.updateAttribute(
       getPathParam(req.params.id),
@@ -86,13 +63,11 @@ export const updateAttribute = async (req: Request, res: Response) => {
       data: attribute,
     });
   } catch (error) {
-    return res
-      .status(getErrorStatusCode(error, 500))
-      .json({ success: false, message: getErrorMessage(error) });
+    next(error);
   }
 };
 
-export const deleteAttribute = async (req: Request, res: Response) => {
+export const deleteAttribute = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const result = await attributeService.deleteAttribute(getPathParam(req.params.id));
 
@@ -101,13 +76,11 @@ export const deleteAttribute = async (req: Request, res: Response) => {
       message: result.message,
     });
   } catch (error) {
-    return res
-      .status(getErrorStatusCode(error, 500))
-      .json({ success: false, message: getErrorMessage(error) });
+    next(error);
   }
 };
 
-export const createAttributeValue = async (req: Request, res: Response) => {
+export const createAttributeValue = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const value = await attributeService.createAttributeValue(
       getPathParam(req.params.id),
@@ -120,13 +93,11 @@ export const createAttributeValue = async (req: Request, res: Response) => {
       data: value,
     });
   } catch (error) {
-    return res
-      .status(getErrorStatusCode(error, 500))
-      .json({ success: false, message: getErrorMessage(error) });
+    next(error);
   }
 };
 
-export const updateAttributeValue = async (req: Request, res: Response) => {
+export const updateAttributeValue = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const value = await attributeService.updateAttributeValue(
       getPathParam(req.params.valueId),
@@ -139,13 +110,11 @@ export const updateAttributeValue = async (req: Request, res: Response) => {
       data: value,
     });
   } catch (error) {
-    return res
-      .status(getErrorStatusCode(error, 500))
-      .json({ success: false, message: getErrorMessage(error) });
+    next(error);
   }
 };
 
-export const deleteAttributeValue = async (req: Request, res: Response) => {
+export const deleteAttributeValue = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const result = await attributeService.deleteAttributeValue(
       getPathParam(req.params.valueId)
@@ -156,8 +125,6 @@ export const deleteAttributeValue = async (req: Request, res: Response) => {
       message: result.message,
     });
   } catch (error) {
-    return res
-      .status(getErrorStatusCode(error, 500))
-      .json({ success: false, message: getErrorMessage(error) });
+    next(error);
   }
 };

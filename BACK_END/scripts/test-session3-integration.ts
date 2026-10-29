@@ -110,7 +110,7 @@ const main = async (): Promise<void> => {
 
   const createProduct = await call(
     "POST",
-    "/api/products/admin",
+    "/api/admin/products",
     {
       name: "Nồi Cơm Điện Ses3",
       sku: PRODUCT_SKU,

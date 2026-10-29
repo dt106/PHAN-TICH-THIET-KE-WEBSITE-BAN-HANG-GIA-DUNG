@@ -3,19 +3,17 @@ import { Router } from "express";
 import {
   categoryIdParamValidator,
   categorySlugParamValidator,
-  createCategoryValidator,
-  updateCategoryValidator,
-  toggleCategoryStatusValidator,
-  updateSortOrderValidator,
   queryCategoryValidator,
 } from "../validators/category.validator";
 
 import validate from "../middlewares/validate.middleware";
-import authMiddleware from "../middlewares/auth.middleware";
-import roleMiddleware from "../middlewares/role.middleware";
 
 import * as categoryController from "../controllers/category.controller";
 
+/**
+ * PUBLIC ROUTES — mount tại: /api/categories
+ * Các API quản trị nằm tại: /api/admin/categories (admin.category.routes.ts)
+ */
 const router = Router();
 
 router.get(
@@ -32,69 +30,6 @@ router.get(
   categorySlugParamValidator,
   validate,
   categoryController.getPublicCategoryBySlug,
-);
-
-router.get(
-  "/admin/all",
-  authMiddleware,
-  roleMiddleware("admin"),
-  queryCategoryValidator,
-  validate,
-  categoryController.getAdminCategories,
-);
-
-router.post(
-  "/admin",
-  authMiddleware,
-  roleMiddleware("admin"),
-  createCategoryValidator,
-  validate,
-  categoryController.createCategory,
-);
-
-router.put(
-  "/admin/sort-order",
-  authMiddleware,
-  roleMiddleware("admin"),
-  updateSortOrderValidator,
-  validate,
-  categoryController.updateSortOrder,
-);
-
-router.get(
-  "/admin/:id",
-  authMiddleware,
-  roleMiddleware("admin"),
-  categoryIdParamValidator,
-  validate,
-  categoryController.getAdminCategoryById,
-);
-
-router.put(
-  "/admin/:id",
-  authMiddleware,
-  roleMiddleware("admin"),
-  updateCategoryValidator,
-  validate,
-  categoryController.updateCategory,
-);
-
-router.patch(
-  "/admin/:id/status",
-  authMiddleware,
-  roleMiddleware("admin"),
-  toggleCategoryStatusValidator,
-  validate,
-  categoryController.toggleCategoryStatus,
-);
-
-router.delete(
-  "/admin/:id",
-  authMiddleware,
-  roleMiddleware("admin"),
-  categoryIdParamValidator,
-  validate,
-  categoryController.deleteCategory,
 );
 
 router.get(

@@ -17,6 +17,7 @@
  */
 
 import { Types } from "mongoose";
+import { AppError } from "../utils/appError";
 
 import UserAddress, {
   type IUserAddress,
@@ -48,13 +49,7 @@ const throwError = (
   message: string,
   statusCode: number
 ): never => {
-  const error = new Error(message) as Error & {
-    statusCode: number;
-  };
-
-  error.statusCode = statusCode;
-
-  throw error;
+  throw new AppError(statusCode, message);
 };
 
 /**

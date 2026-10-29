@@ -288,11 +288,13 @@ const main = async (): Promise<void> => {
 
   await cleanup();
   console.log(`\nTỔNG KẾT: PASS=${passed} | FAIL=${failed}`);
+  await mongoose.disconnect();
   process.exit(failed > 0 ? 1 : 0);
 };
 
 main().catch(async (error) => {
   console.error("Lỗi chạy test payment:", error);
   await cleanup();
+  await mongoose.disconnect();
   process.exit(1);
 });

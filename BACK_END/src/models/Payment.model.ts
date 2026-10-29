@@ -4,7 +4,6 @@ import { toJSON } from "./plugins/toJSON.plugin";
 export type PaymentMethod = "COD" | "BANK" | "MOMO" | "VNPAY" | "ZALOPAY";
 export type PaymentStatus =
   | "pending"
-  | "processing"
   | "paid"
   | "failed"
   | "refunded";
@@ -59,7 +58,7 @@ const paymentSchema = new Schema<IPayment>(
     expiredAt: { type: Date, default: null },
     status: {
       type: String,
-      enum: ["pending", "processing", "paid", "failed", "refunded"],
+      enum: ["pending", "paid", "failed", "refunded"],
       default: "pending",
       index: true,
     },

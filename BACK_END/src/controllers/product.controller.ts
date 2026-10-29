@@ -1,24 +1,7 @@
-import { Request, Response } from "express";
+import { Request, Response, NextFunction } from "express";
 
 import * as productService from "../services/product.service";
-import { HttpError } from "../services/brand.service";
 import type { IProductQueryOptions } from "../services/product.service";
-
-const getErrorMessage = (error: unknown): string => {
-  if (error instanceof Error) {
-    return error.message;
-  }
-
-  return "Đã xảy ra lỗi không xác định.";
-};
-
-const getErrorStatusCode = (error: unknown, fallback: number): number => {
-  if (error instanceof HttpError) {
-    return error.statusCode;
-  }
-
-  return fallback;
-};
 
 const getQueryParam = (value: unknown): string | undefined => {
   if (typeof value === "string") {
@@ -77,7 +60,7 @@ const buildQueryOptions = (req: Request): IProductQueryOptions => {
   };
 };
 
-export const getPublicProducts = async (req: Request, res: Response) => {
+export const getPublicProducts = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const result = await productService.getPublicProducts(buildQueryOptions(req));
 
@@ -88,13 +71,11 @@ export const getPublicProducts = async (req: Request, res: Response) => {
       pagination: result.pagination,
     });
   } catch (error) {
-    return res
-      .status(getErrorStatusCode(error, 500))
-      .json({ success: false, message: getErrorMessage(error) });
+    next(error);
   }
 };
 
-export const getPublicProductDetail = async (req: Request, res: Response) => {
+export const getPublicProductDetail = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const product = await productService.getPublicProductDetail({
       id: getPathParam(req.params.id),
@@ -106,13 +87,11 @@ export const getPublicProductDetail = async (req: Request, res: Response) => {
       data: product,
     });
   } catch (error) {
-    return res
-      .status(getErrorStatusCode(error, 404))
-      .json({ success: false, message: getErrorMessage(error) });
+    next(error);
   }
 };
 
-export const getPublicProductBySlug = async (req: Request, res: Response) => {
+export const getPublicProductBySlug = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const product = await productService.getPublicProductDetail({
       slug: getPathParam(req.params.slug),
@@ -124,13 +103,11 @@ export const getPublicProductBySlug = async (req: Request, res: Response) => {
       data: product,
     });
   } catch (error) {
-    return res
-      .status(getErrorStatusCode(error, 404))
-      .json({ success: false, message: getErrorMessage(error) });
+    next(error);
   }
 };
 
-export const getFeaturedProducts = async (req: Request, res: Response) => {
+export const getFeaturedProducts = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const limit = getNumberParam(req.query.limit) ?? 8;
     const result = await productService.getFeaturedProducts(limit);
@@ -142,13 +119,11 @@ export const getFeaturedProducts = async (req: Request, res: Response) => {
       pagination: result.pagination,
     });
   } catch (error) {
-    return res
-      .status(getErrorStatusCode(error, 500))
-      .json({ success: false, message: getErrorMessage(error) });
+    next(error);
   }
 };
 
-export const getRelatedProducts = async (req: Request, res: Response) => {
+export const getRelatedProducts = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const limit = getNumberParam(req.query.limit) ?? 4;
     const result = await productService.getRelatedProducts(
@@ -162,13 +137,11 @@ export const getRelatedProducts = async (req: Request, res: Response) => {
       data: result.products,
     });
   } catch (error) {
-    return res
-      .status(getErrorStatusCode(error, 404))
-      .json({ success: false, message: getErrorMessage(error) });
+    next(error);
   }
 };
 
-export const getAdminProducts = async (req: Request, res: Response) => {
+export const getAdminProducts = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const result = await productService.getAdminProducts(buildQueryOptions(req));
 
@@ -180,13 +153,11 @@ export const getAdminProducts = async (req: Request, res: Response) => {
       stats: result.stats,
     });
   } catch (error) {
-    return res
-      .status(getErrorStatusCode(error, 500))
-      .json({ success: false, message: getErrorMessage(error) });
+    next(error);
   }
 };
 
-export const getAdminProductById = async (req: Request, res: Response) => {
+export const getAdminProductById = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const product = await productService.getAdminProductById(
       getPathParam(req.params.id)
@@ -198,13 +169,11 @@ export const getAdminProductById = async (req: Request, res: Response) => {
       data: product,
     });
   } catch (error) {
-    return res
-      .status(getErrorStatusCode(error, 404))
-      .json({ success: false, message: getErrorMessage(error) });
+    next(error);
   }
 };
 
-export const createProduct = async (req: Request, res: Response) => {
+export const createProduct = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const product = await productService.createProduct(req.body);
 
@@ -214,13 +183,11 @@ export const createProduct = async (req: Request, res: Response) => {
       data: product,
     });
   } catch (error) {
-    return res
-      .status(getErrorStatusCode(error, 500))
-      .json({ success: false, message: getErrorMessage(error) });
+    next(error);
   }
 };
 
-export const updateProduct = async (req: Request, res: Response) => {
+export const updateProduct = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const product = await productService.updateProduct(
       getPathParam(req.params.id),
@@ -233,13 +200,11 @@ export const updateProduct = async (req: Request, res: Response) => {
       data: product,
     });
   } catch (error) {
-    return res
-      .status(getErrorStatusCode(error, 500))
-      .json({ success: false, message: getErrorMessage(error) });
+    next(error);
   }
 };
 
-export const toggleProductStatus = async (req: Request, res: Response) => {
+export const toggleProductStatus = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const product = await productService.toggleProductStatus(
       getPathParam(req.params.id),
@@ -252,13 +217,11 @@ export const toggleProductStatus = async (req: Request, res: Response) => {
       data: product,
     });
   } catch (error) {
-    return res
-      .status(getErrorStatusCode(error, 500))
-      .json({ success: false, message: getErrorMessage(error) });
+    next(error);
   }
 };
 
-export const toggleProductFeatured = async (req: Request, res: Response) => {
+export const toggleProductFeatured = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const product = await productService.toggleProductFeatured(
       getPathParam(req.params.id),
@@ -271,13 +234,11 @@ export const toggleProductFeatured = async (req: Request, res: Response) => {
       data: product,
     });
   } catch (error) {
-    return res
-      .status(getErrorStatusCode(error, 500))
-      .json({ success: false, message: getErrorMessage(error) });
+    next(error);
   }
 };
 
-export const deleteProduct = async (req: Request, res: Response) => {
+export const deleteProduct = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const result = await productService.deleteProduct(
       getPathParam(req.params.id)
@@ -288,8 +249,6 @@ export const deleteProduct = async (req: Request, res: Response) => {
       message: result.message,
     });
   } catch (error) {
-    return res
-      .status(getErrorStatusCode(error, 500))
-      .json({ success: false, message: getErrorMessage(error) });
+    next(error);
   }
 };

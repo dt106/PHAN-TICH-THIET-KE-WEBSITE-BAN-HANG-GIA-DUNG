@@ -77,7 +77,7 @@ const main = async (): Promise<void> => {
     { expiresIn: "1h" }
   );
 
-  const noAuth = await call("POST", "/api/attributes/admin", { name: "Test" });
+  const noAuth = await call("POST", "/api/admin/attributes", { name: "Test" });
   expect(
     "RBAC: tạo thuộc tính không có token bị chặn",
     noAuth.status === 401,
@@ -86,7 +86,7 @@ const main = async (): Promise<void> => {
 
   const customer = await call(
     "POST",
-    "/api/attributes/admin",
+    "/api/admin/attributes",
     { name: "Test" },
     customerToken
   );
@@ -98,7 +98,7 @@ const main = async (): Promise<void> => {
 
   const createAttribute = await call(
     "POST",
-    "/api/attributes/admin",
+    "/api/admin/attributes",
     { name: ATTRIBUTE_NAME },
     adminToken
   );
@@ -111,7 +111,7 @@ const main = async (): Promise<void> => {
 
   const duplicateAttribute = await call(
     "POST",
-    "/api/attributes/admin",
+    "/api/admin/attributes",
     { name: ATTRIBUTE_NAME },
     adminToken
   );
@@ -123,7 +123,7 @@ const main = async (): Promise<void> => {
 
   const invalidValue = await call(
     "POST",
-    `/api/attributes/admin/${attributeId}/values`,
+    `/api/admin/attributes/${attributeId}/values`,
     { value: "" },
     adminToken
   );
@@ -135,7 +135,7 @@ const main = async (): Promise<void> => {
 
   const createRed = await call(
     "POST",
-    `/api/attributes/admin/${attributeId}/values`,
+    `/api/admin/attributes/${attributeId}/values`,
     { value: VALUE_RED },
     adminToken
   );
@@ -148,7 +148,7 @@ const main = async (): Promise<void> => {
 
   const duplicateRed = await call(
     "POST",
-    `/api/attributes/admin/${attributeId}/values`,
+    `/api/admin/attributes/${attributeId}/values`,
     { value: VALUE_RED },
     adminToken
   );
@@ -160,7 +160,7 @@ const main = async (): Promise<void> => {
 
   const createBlue = await call(
     "POST",
-    `/api/attributes/admin/${attributeId}/values`,
+    `/api/admin/attributes/${attributeId}/values`,
     { value: VALUE_BLUE },
     adminToken
   );
@@ -191,7 +191,7 @@ const main = async (): Promise<void> => {
 
   const updateAttribute = await call(
     "PUT",
-    `/api/attributes/admin/${attributeId}`,
+    `/api/admin/attributes/${attributeId}`,
     { name: "Màu Sắc Đã Sửa" },
     adminToken
   );
@@ -203,7 +203,7 @@ const main = async (): Promise<void> => {
 
   const updateRed = await call(
     "PUT",
-    `/api/attributes/admin/values/${redValueId}`,
+    `/api/admin/attributes/values/${redValueId}`,
     { value: "Đỏ Đậm Test" },
     adminToken
   );
@@ -222,7 +222,7 @@ const main = async (): Promise<void> => {
 
   const deleteLinkedValue = await call(
     "DELETE",
-    `/api/attributes/admin/values/${redValueId}`,
+    `/api/admin/attributes/values/${redValueId}`,
     undefined,
     adminToken
   );
@@ -234,7 +234,7 @@ const main = async (): Promise<void> => {
 
   const deleteLinkedAttribute = await call(
     "DELETE",
-    `/api/attributes/admin/${attributeId}`,
+    `/api/admin/attributes/${attributeId}`,
     undefined,
     adminToken
   );
@@ -248,7 +248,7 @@ const main = async (): Promise<void> => {
 
   const deleteBlue = await call(
     "DELETE",
-    `/api/attributes/admin/values/${createBlue.json.data?.id}`,
+    `/api/admin/attributes/values/${createBlue.json.data?.id}`,
     undefined,
     adminToken
   );
@@ -260,7 +260,7 @@ const main = async (): Promise<void> => {
 
   const deleteAttribute = await call(
     "DELETE",
-    `/api/attributes/admin/${attributeId}`,
+    `/api/admin/attributes/${attributeId}`,
     undefined,
     adminToken
   );
