@@ -1,68 +1,60 @@
 import { createPortal } from "react-dom";
 import { Link } from "react-router-dom";
 import { useCart } from "../../contexts/useCart.ts";
-import { formatPrice, getProduct } from "../../data/catalog.ts";
+import { formatPrice } from "../../utils/money.ts";
 import styles from "./CartDrawer.module.css";
 
-export function CartDrawer({
-  open,
-  onClose,
-}: {
-  open: boolean;
-  onClose: () => void;
-}) {
-  const { lines, remove } = useCart();
-  const detailed = lines
-    .map((line) => {
-      const product = getProduct(line.slug);
-      return product ? { ...line, product } : null;
-    })
-    .filter((line) => line !== null);
-  const subtotal = detailed.reduce(
-    (sum, line) => sum + line.product.price * line.quantity,
-    0,
-  );
+export function CartDrawer({ open, onClose }: { open: boolean; onClose: () => void }) {
+  const { lines, remove, subtotal, loading, error } = useCart();
 
   if (!open) return null;
 
   return createPortal(
     <div className={styles.open}>
-      <button type="button" className={styles.backdrop} aria-label="Close cart" onClick={onClose} />
-      <aside className={styles.panel} role="dialog" aria-label="Shopping cart">
+      <button type="button" className={styles.backdrop} aria-label="Đóng giỏ hàng" onClick={onClose} />
+      <aside className={styles.panel} role="dialog" aria-label="Giỏ hàng">
         <header className={styles.head}>
-          <h2>Shopping Cart</h2>
-          <button type="button" className={styles.close} aria-label="Close" onClick={onClose}>
+          <h2>Giỏ hàng</h2>
+          <button type="button" className={styles.close} aria-label="Đóng" onClick={onClose}>
             ×
           </button>
         </header>
-        {detailed.length === 0 ? (
-          <p className={styles.empty}>Your cart is empty.</p>
-        ) : (
+        {loading ? <p className={styles.empty}>Đang tải giỏ hàng...</p> : null}
+        {error ? <p className={styles.empty}>{error}</p> : null}
+        {!loading && lines.length === 0 ? <p className={styles.empty}>Giỏ hàng đang trống.</p> : null}
+        {lines.length > 0 ? (
           <ul className={styles.list}>
-            {detailed.map((line) => (
-              <li key={line.slug}>
-                <img src={line.product.image} alt="" />
+            {lines.map((line) => (
+              <li key={line.id}>
+                {line.image ? <img src={line.image} alt="" /> : <span />}
                 <div>
-                  <p>{line.product.name}</p>
+                  <p>{line.name}</p>
                   <span>
-                    {line.quantity} x {formatPrice(line.product.price)}
+                    {line.quantity} × {formatPrice(line.unitPrice)}
+                    {line.variantSku ? ` · ${line.variantSku}` : ""}
                   </span>
                 </div>
-                <button type="button" aria-label={`Remove ${line.product.name}`} onClick={() => remove(line.slug)}>
+                <button type="button" aria-label={`Xóa ${line.name}`} onClick={() => void remove(line.id)}>
                   ×
                 </button>
               </li>
             ))}
           </ul>
-        )}
+        ) : null}
         <div className={styles.subtotal}>
-          <span>Subtotal</span>
+          <span>Tạm tính</span>
           <strong>{formatPrice(subtotal)}</strong>
         </div>
         <div className={styles.actions}>
-          <Link to="/cart" onClick={onClose}>Cart</Link>
-          <Link to="/checkout" onClick={onClose}>Checkout</Link>
-          <Link to="/shop" onClick={onClose}>Comparison</Link>
+          <Link to="/cart" onClick={onClose}>
+            Giỏ hàng
+          </Link>
+          <Link to="/checkout" onClick={onClose}>
+            Thanh toán
+          </Link>
+          <Link to="/shop" onClick={onClose}>
+            Tiếp tục mua
+          </Link>
         </div>
       </aside>
     </div>,

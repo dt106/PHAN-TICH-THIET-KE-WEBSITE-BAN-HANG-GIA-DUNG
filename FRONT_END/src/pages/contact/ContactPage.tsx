@@ -6,46 +6,46 @@ import { PageBanner } from "../../components/layout/PageBanner.tsx";
 export function ContactPage() {
   function submit(event: FormEvent) {
     event.preventDefault();
-    showToast("Message sent. We will reply by email.", "success");
-    event.currentTarget instanceof HTMLFormElement && event.currentTarget.reset();
+    showToast("Cửa hàng chưa có API liên hệ. Vui lòng gọi hotline trên trang.", "warning");
+    if (event.currentTarget instanceof HTMLFormElement) event.currentTarget.reset();
   }
 
   return (
     <>
-      <PageBanner title="Contact" />
+      <PageBanner title="Liên hệ" />
       <section className="wrap" style={{ padding: "64px 0", display: "grid", gridTemplateColumns: "0.8fr 1.2fr", gap: 48 }}>
         <div>
-          <h2>Get In Touch With Us</h2>
+          <h2>Liên hệ với chúng tôi</h2>
           <p>
-            For more information about our product and services, please feel free to drop us an email. Our staff always be there to help you out. Do not hesitate!
+            Form này chưa được nối API. Bạn có thể xem thông tin cửa hàng bên cạnh hoặc dùng khung chat AI.
           </p>
           <p>
-            <strong>Address</strong>
+            <strong>Địa chỉ</strong>
             <br />
             236 5th SE Avenue, New York NY10000, United States
           </p>
           <p>
-            <strong>Phone</strong>
+            <strong>Điện thoại</strong>
             <br />
             Mobile: +(84) 546-6789
             <br />
             Hotline: +(84) 456-6789
           </p>
           <p>
-            <strong>Working Time</strong>
+            <strong>Giờ làm việc</strong>
             <br />
-            Monday–Friday: 9:00 – 22:00
+            Thứ hai–thứ sáu: 9:00 – 22:00
             <br />
-            Saturday–Sunday: 9:00 – 21:00
+            Thứ bảy–chủ nhật: 9:00 – 21:00
           </p>
         </div>
         <form onSubmit={submit} style={{ display: "grid", gap: 16 }}>
-          <TextInput label="Your name" name="name" required fullWidth placeholder="Abc" />
-          <TextInput label="Email address" name="email" type="email" required fullWidth placeholder="Abc@def.com" />
-          <TextInput label="Subject" name="subject" fullWidth placeholder="This is an optional" />
-          <TextInput label="Message" name="message" required fullWidth placeholder="Hi! I’d like to ask about" />
+          <TextInput label="Họ tên" name="name" required fullWidth placeholder="Nguyễn Văn A" />
+          <TextInput label="Email" name="email" type="email" required fullWidth placeholder="ban@email.com" />
+          <TextInput label="Chủ đề" name="subject" fullWidth />
+          <TextInput label="Nội dung" name="message" required fullWidth />
           <Button type="submit" variant="primary">
-            Submit
+            Gửi
           </Button>
         </form>
       </section>

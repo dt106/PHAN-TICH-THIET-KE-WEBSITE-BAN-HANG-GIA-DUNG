@@ -12,10 +12,18 @@
   background: #eee;
 }
 
-.media img {
+.media img,
+.placeholder {
   width: 100%;
   height: 100%;
   object-fit: cover;
+}
+
+.placeholder {
+  display: block;
+  background:
+    linear-gradient(#f4f5f7, #f4f5f7) center / 100% 100%,
+    repeating-linear-gradient(45deg, #ececec, #ececec 8px, #f7f7f7 8px, #f7f7f7 16px);
 }
 
 .body {

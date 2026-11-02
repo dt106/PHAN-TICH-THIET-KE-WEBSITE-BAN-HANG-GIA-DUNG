@@ -10,10 +10,10 @@ export function Footer() {
   function subscribe(event: FormEvent) {
     event.preventDefault();
     if (!email.includes("@")) {
-      showToast("Enter a valid email address.", "error");
+      showToast("Nhập email hợp lệ.", "error");
       return;
     }
-    showToast("You are subscribed to the newsletter.", "success");
+    showToast("Cửa hàng chưa có API đăng ký bản tin.", "warning");
     setEmail("");
   }
 
@@ -30,34 +30,34 @@ export function Footer() {
             </p>
           </div>
           <div>
-            <p className={styles.heading}>Links</p>
+            <p className={styles.heading}>Liên kết</p>
             <div className={styles.links}>
-              <Link to="/">Home</Link>
-              <Link to="/shop">Shop</Link>
-              <Link to="/about">About</Link>
-              <Link to="/contact">Contact</Link>
+              <Link to="/">Trang chủ</Link>
+              <Link to="/shop">Cửa hàng</Link>
+              <Link to="/about">Giới thiệu</Link>
+              <Link to="/contact">Liên hệ</Link>
             </div>
           </div>
           <div>
-            <p className={styles.heading}>Help</p>
+            <p className={styles.heading}>Hỗ trợ</p>
             <div className={styles.links}>
-              <Link to="/checkout">Payment Options</Link>
-              <Link to="/orders">Returns</Link>
-              <Link to="/about">Privacy Policies</Link>
+              <Link to="/checkout">Thanh toán</Link>
+              <Link to="/orders">Đơn hàng</Link>
+              <Link to="/account">Tài khoản</Link>
             </div>
           </div>
           <div>
-            <p className={styles.heading}>Newsletter</p>
+            <p className={styles.heading}>Bản tin</p>
             <form className={styles.newsletter} onSubmit={subscribe}>
               <input
                 type="email"
                 required
-                placeholder="Enter Your Email Address"
-                aria-label="Email address"
+                placeholder="Email của bạn"
+                aria-label="Email"
                 value={email}
                 onChange={(event) => setEmail(event.target.value)}
               />
-              <button type="submit">SUBSCRIBE</button>
+              <button type="submit">GỬI</button>
             </form>
           </div>
         </div>

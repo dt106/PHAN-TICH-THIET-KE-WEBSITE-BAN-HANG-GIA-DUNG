@@ -9,15 +9,15 @@ export function Quantity({
 }) {
   return (
     <div className={styles.stepper}>
-      <button type="button" aria-label="Decrease quantity" onClick={() => onChange(value - 1)}>
+      <button type="button" aria-label="Giảm số lượng" onClick={() => onChange(value - 1)}>
         -
       </button>
       <input
-        aria-label="Quantity"
+        aria-label="Số lượng"
         value={value}
         onChange={(event) => onChange(Number(event.target.value) || 1)}
       />
-      <button type="button" aria-label="Increase quantity" onClick={() => onChange(value + 1)}>
+      <button type="button" aria-label="Tăng số lượng" onClick={() => onChange(value + 1)}>
         +
       </button>
     </div>
