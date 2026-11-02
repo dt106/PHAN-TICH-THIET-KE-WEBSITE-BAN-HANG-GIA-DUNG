@@ -259,7 +259,10 @@ export const applyGatewayResult = async (
     return { alreadyProcessed: true, payment: existingByTransaction };
   }
 
-  if (input.amount !== order.totalAmount) {
+  // amount tùy chọn ở POST /payments/mock/complete. Number(undefined) là NaN,
+  // nên thiếu amount phải hiểu là khớp tổng đơn — nếu không luồng mock không hoàn tất được.
+  const amount = Number.isFinite(input.amount) ? input.amount : order.totalAmount;
+  if (amount !== order.totalAmount) {
     throw createHttpError(
       400,
       "Số tiền giao dịch không khớp với giá trị đơn hàng."

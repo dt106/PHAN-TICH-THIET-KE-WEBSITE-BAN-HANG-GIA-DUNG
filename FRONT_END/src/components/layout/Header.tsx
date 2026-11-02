@@ -6,14 +6,13 @@ import heartIcon from "../../assets/icons/heart.svg";
 import searchIcon from "../../assets/icons/search.svg";
 import logo from "../../assets/images/logo.png";
 import { useCart } from "../../contexts/useCart.ts";
-import { showToast } from "../common/Toast/showToast.tsx";
 import styles from "./Header.module.css";
 
 const links = [
-  { to: "/", label: "Home", end: true },
-  { to: "/shop", label: "Shop" },
-  { to: "/about", label: "About" },
-  { to: "/contact", label: "Contact" },
+  { to: "/", label: "Trang chủ", end: true },
+  { to: "/shop", label: "Cửa hàng" },
+  { to: "/about", label: "Giới thiệu" },
+  { to: "/contact", label: "Liên hệ" },
 ];
 
 export function Header({ onOpenCart }: { onOpenCart: () => void }) {
@@ -31,19 +30,15 @@ export function Header({ onOpenCart }: { onOpenCart: () => void }) {
           </span>
           <p className={styles.name}>Furniro</p>
         </Link>
-        <nav className={styles.nav} aria-label="Main">
+        <nav className={styles.nav} aria-label="Chính">
           {links.map((link) => (
-            <NavLink
-              key={link.to}
-              to={link.to}
-              end={link.end}
-            >
+            <NavLink key={link.to} to={link.to} end={link.end}>
               {link.label}
             </NavLink>
           ))}
         </nav>
         <div className={styles.tools}>
-          <Link to="/account" className={styles.iconButton} aria-label="Account">
+          <Link to="/account" className={styles.iconButton} aria-label="Tài khoản">
             <img src={accountIcon} alt="" />
           </Link>
           {searchOpen ? (
@@ -56,10 +51,10 @@ export function Header({ onOpenCart }: { onOpenCart: () => void }) {
               }}
             >
               <input
-                aria-label="Search products"
+                aria-label="Tìm sản phẩm"
                 value={query}
                 onChange={(event) => setQuery(event.target.value)}
-                placeholder="Search"
+                placeholder="Tìm sản phẩm"
                 autoFocus
               />
             </form>
@@ -67,26 +62,16 @@ export function Header({ onOpenCart }: { onOpenCart: () => void }) {
             <button
               type="button"
               className={styles.iconButton}
-              aria-label="Search"
+              aria-label="Tìm kiếm"
               onClick={() => setSearchOpen(true)}
             >
               <img src={searchIcon} alt="" />
             </button>
           )}
-          <button
-            type="button"
-            className={styles.iconButton}
-            aria-label="Wishlist"
-            onClick={() => showToast("Saved to your wishlist.", "success")}
-          >
+          <Link to="/wishlist" className={styles.iconButton} aria-label="Danh sách yêu thích">
             <img src={heartIcon} alt="" />
-          </button>
-          <button
-            type="button"
-            className={styles.iconButton}
-            aria-label="Cart"
-            onClick={onOpenCart}
-          >
+          </Link>
+          <button type="button" className={styles.iconButton} aria-label="Giỏ hàng" onClick={onOpenCart}>
             <img src={cartIcon} alt="" />
             {count > 0 ? <span className={styles.badge}>{count}</span> : null}
           </button>

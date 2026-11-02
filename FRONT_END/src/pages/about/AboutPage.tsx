@@ -5,16 +5,16 @@ import hero from "../../assets/images/hero.png";
 export function AboutPage() {
   return (
     <>
-      <PageBanner title="About" />
+      <PageBanner title="Giới thiệu" />
       <section className="wrap" style={{ display: "grid", gridTemplateColumns: "1.1fr 0.9fr", gap: 40, padding: "64px 0", alignItems: "center" }}>
         <img src={hero} alt="Furniro showroom" style={{ width: "100%", height: 420, objectFit: "cover" }} />
         <div>
           <h2>Furniro</h2>
           <p>
-            Furniro makes furniture for dining rooms, living rooms, and bedrooms. Each piece is built from solid materials, finished for everyday use, and shipped with a warranty.
+            Furniro bán nội thất cho phòng ăn, phòng khách và phòng ngủ. Sản phẩm trên website lấy từ danh mục đang kinh doanh của cửa hàng.
           </p>
           <p>
-            Visit the shop to browse the current collection, or contact the studio if you need help choosing a size.
+            Xem cửa hàng để chọn sản phẩm, hoặc nhắn trợ lý AI nếu bạn cần gợi ý.
           </p>
         </div>
       </section>

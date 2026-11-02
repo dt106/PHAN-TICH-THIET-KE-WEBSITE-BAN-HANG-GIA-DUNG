@@ -1,99 +1,106 @@
 import { Link } from "react-router-dom";
-import { Button, Quantity } from "../../components/common/index.ts";
+import { Button, Quantity, showToast } from "../../components/common/index.ts";
 import { FeatureBar } from "../../components/layout/FeatureBar.tsx";
 import { PageBanner } from "../../components/layout/PageBanner.tsx";
 import { useCart } from "../../contexts/useCart.ts";
-import { formatPrice, getProduct } from "../../data/catalog.ts";
+import { errorMessage } from "../../services/http.ts";
+import { formatPrice } from "../../utils/money.ts";
+import panels from "../../styles/panels.module.css";
 import styles from "./CartPage.module.css";
 
 export function CartPage() {
-  const { lines, setQuantity, remove } = useCart();
-  const detailed = lines
-    .map((line) => {
-      const product = getProduct(line.slug);
-      return product ? { ...line, product } : null;
-    })
-    .filter((line) => line !== null);
-  const subtotal = detailed.reduce(
-    (sum, line) => sum + line.product.price * line.quantity,
-    0,
-  );
+  const { lines, setQuantity, subtotal, loading, error, clear } = useCart();
+
+  async function change(id: string, quantity: number) {
+    try {
+      await setQuantity(id, quantity);
+    } catch (reason) {
+      showToast(errorMessage(reason), "error");
+    }
+  }
 
   return (
     <>
-      <PageBanner title="Cart" />
-      {detailed.length === 0 ? (
+      <PageBanner title="Giỏ hàng" />
+      {loading ? <p className={panels.state}>Đang tải giỏ hàng...</p> : null}
+      {error ? <p className={`wrap ${panels.alert}`}>{error}</p> : null}
+      {!loading && lines.length === 0 ? (
         <div className={`wrap ${styles.empty}`}>
-          <p>Your cart is empty.</p>
+          <p>Giỏ hàng đang trống.</p>
           <Button variant="primary" onClick={() => undefined}>
             <Link to="/shop" style={{ color: "inherit", textDecoration: "none" }}>
-              Continue shopping
+              Tiếp tục mua sắm
             </Link>
           </Button>
         </div>
-      ) : (
+      ) : null}
+      {!loading && lines.length > 0 ? (
         <div className={`wrap ${styles.layout}`}>
           <div className={styles.tableWrap}>
-          <table className={styles.table}>
-            <thead>
-              <tr>
-                <th>Product</th>
-                <th>Price</th>
-                <th>Quantity</th>
-                <th>Subtotal</th>
-                <th />
-              </tr>
-            </thead>
-            <tbody>
-              {detailed.map((line) => (
-                <tr key={line.slug}>
-                  <td>
-                    <Link to={`/shop/${line.slug}`} className={styles.product}>
-                      <img src={line.product.image} alt="" />
-                      {line.product.name}
-                    </Link>
-                  </td>
-                  <td>{formatPrice(line.product.price)}</td>
-                  <td>
-                    <Quantity
-                      value={line.quantity}
-                      onChange={(value) => setQuantity(line.slug, value)}
-                    />
-                  </td>
-                  <td>{formatPrice(line.product.price * line.quantity)}</td>
-                  <td>
-                    <button
-                      type="button"
-                      className={styles.remove}
-                      aria-label={`Remove ${line.product.name}`}
-                      onClick={() => remove(line.slug)}
-                    >
-                      ×
-                    </button>
-                  </td>
+            <table className={styles.table}>
+              <thead>
+                <tr>
+                  <th>Sản phẩm</th>
+                  <th>Giá</th>
+                  <th>Số lượng</th>
+                  <th>Tạm tính</th>
+                  <th />
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {lines.map((line) => (
+                  <tr key={line.id}>
+                    <td>
+                      <Link to={`/shop/${line.slug}`} className={styles.product}>
+                        {line.image ? <img src={line.image} alt="" /> : <span />}
+                        <span>
+                          {line.name}
+                          {line.variantSku ? <small> · {line.variantSku}</small> : null}
+                          {!line.isAvailable ? <small> · Không còn bán</small> : null}
+                        </span>
+                      </Link>
+                    </td>
+                    <td>{formatPrice(line.unitPrice)}</td>
+                    <td>
+                      <Quantity value={line.quantity} onChange={(value) => void change(line.id, value)} />
+                    </td>
+                    <td>{formatPrice(line.unitPrice * line.quantity)}</td>
+                    <td>
+                      <button
+                        type="button"
+                        className={styles.remove}
+                        aria-label={`Xóa ${line.name}`}
+                        onClick={() => void change(line.id, 0)}
+                      >
+                        ×
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
           <aside className={styles.totals}>
-            <h2>Cart Totals</h2>
+            <h2>Tổng giỏ hàng</h2>
             <div className={styles.row}>
-              <span>Subtotal</span>
+              <span>Tạm tính</span>
               <span>{formatPrice(subtotal)}</span>
             </div>
             <div className={styles.row}>
-              <span>Total</span>
+              <span>Tổng</span>
               <span className={styles.total}>{formatPrice(subtotal)}</span>
             </div>
             <Button variant="outline">
               <Link to="/checkout" style={{ color: "inherit", textDecoration: "none" }}>
-                Check Out
+                Thanh toán
               </Link>
+            </Button>
+            <Button variant="ghost" onClick={() => void clear().catch((reason) => showToast(errorMessage(reason), "error"))}>
+              Xóa giỏ hàng
             </Button>
           </aside>
         </div>
-      )}
+      ) : null}
       <FeatureBar />
     </>
   );

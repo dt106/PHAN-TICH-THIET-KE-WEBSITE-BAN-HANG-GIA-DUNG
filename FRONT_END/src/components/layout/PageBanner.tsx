@@ -15,7 +15,7 @@ export function PageBanner({
         <img src={logo} alt="" width={77} height={77} style={{ width: 48, height: 48, objectFit: "cover", objectPosition: "center" }} />
         <h1 className={styles.title}>{title}</h1>
         <p className={styles.crumbs}>
-          <Link to="/">Home</Link>
+          <Link to="/">Trang chủ</Link>
           <span aria-hidden="true">&gt;</span>
           <span className={styles.current}>{current ?? title}</span>
         </p>

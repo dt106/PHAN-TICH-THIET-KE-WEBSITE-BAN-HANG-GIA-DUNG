@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import room1 from "../../assets/images/gallery/room-1.png";
 import room2 from "../../assets/images/gallery/room-2.png";
@@ -12,82 +12,113 @@ import share6 from "../../assets/images/gallery/share-6.png";
 import share7 from "../../assets/images/gallery/share-7.png";
 import share8 from "../../assets/images/gallery/share-8.png";
 import share9 from "../../assets/images/gallery/share-9.png";
+import bedroom from "../../assets/images/bedroom.png";
+import dining from "../../assets/images/dining.png";
+import living from "../../assets/images/living.png";
 import { ProductCard } from "../../components/product/ProductCard.tsx";
-import { categories, products } from "../../data/catalog.ts";
+import { catalogApi } from "../../services/api.ts";
+import { errorMessage } from "../../services/http.ts";
+import type { Category } from "../../types/api.ts";
+import { toStoreProduct } from "../../utils/product.ts";
 import styles from "./HomePage.module.css";
+import panels from "../../styles/panels.module.css";
 
+const fallbackImages = [dining, living, bedroom];
 const rooms = [
-  { image: room1, index: "01", label: "Bed Room", title: "Inner Peace" },
-  { image: room2, index: "02", label: "Living", title: "Living Room" },
-  { image: room3, index: "03", label: "Dining", title: "Dining Room" },
+  { image: room1, index: "01", label: "Phòng ngủ", title: "Bình yên" },
+  { image: room2, index: "02", label: "Phòng khách", title: "Không gian sống" },
+  { image: room3, index: "03", label: "Phòng ăn", title: "Bàn ăn" },
 ];
-
 const gallery = [share1, share2, share3, share4, share5, share6, share7, share8, share9];
 
 export function HomePage() {
   const [roomIndex, setRoomIndex] = useState(0);
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [products, setProducts] = useState<ReturnType<typeof toStoreProduct>[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const visibleRooms = [0, 1].map((offset) => rooms[(roomIndex + offset) % rooms.length]);
+
+  useEffect(() => {
+    let active = true;
+    Promise.all([catalogApi.categories({ limit: 6 }), catalogApi.featured(8)])
+      .then(([categoryPage, featured]) => {
+        if (!active) return;
+        setCategories(categoryPage.items);
+        setProducts(featured.items.map(toStoreProduct));
+      })
+      .catch((reason) => {
+        if (active) setError(errorMessage(reason));
+      })
+      .finally(() => {
+        if (active) setLoading(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
 
   return (
     <>
       <section className={styles.hero}>
         <div className={styles.panel}>
-          <p className={styles.kicker}>New Arrival</p>
+          <p className={styles.kicker}>Hàng mới về</p>
           <h1>
-            Discover Our
+            Khám phá
             <br />
-            New Collection
+            bộ sưu tập mới
           </h1>
-          <p>
-            Lorem ipsum dolor sit amet, consectetur adipiscing elit. Ut elit
-            tellus, luctus nec ullamcorper mattis.
-          </p>
+          <p>Nội thất cho phòng ăn, phòng khách và phòng ngủ — chọn từ danh mục đang kinh doanh.</p>
           <Link to="/shop" className={styles.buy}>
-            Buy Now
+            Mua ngay
           </Link>
         </div>
       </section>
 
       <section className={`wrap ${styles.section}`}>
-        <h2>Browse The Range</h2>
-        <p className={styles.lead}>
-          Lorem ipsum dolor sit amet, consectetur adipiscing elit.
-        </p>
+        <h2>Danh mục</h2>
+        <p className={styles.lead}>Chọn không gian bạn muốn bài trí.</p>
+        {loading ? <p className={panels.state}>Đang tải danh mục...</p> : null}
+        {error ? <p className={panels.alert}>{error}</p> : null}
+        {!loading && !error && categories.length === 0 ? (
+          <p className={panels.state}>Chưa có danh mục nào.</p>
+        ) : null}
         <div className={styles.ranges}>
-          {categories.map((category) => (
+          {categories.map((category, index) => (
             <Link key={category.id} to={`/shop?category=${category.id}`}>
-              <img src={category.image} alt="" />
-              {category.label}
+              <img src={category.image || fallbackImages[index % fallbackImages.length]} alt="" />
+              {category.name}
             </Link>
           ))}
         </div>
       </section>
 
       <section className={`wrap ${styles.section}`}>
-        <h2>Our Products</h2>
+        <h2>Sản phẩm nổi bật</h2>
+        {loading ? <p className={panels.state}>Đang tải sản phẩm...</p> : null}
+        {!loading && !error && products.length === 0 ? (
+          <p className={panels.state}>Chưa có sản phẩm nổi bật.</p>
+        ) : null}
         <div className={styles.grid}>
           {products.map((product) => (
-            <ProductCard key={product.slug} product={product} />
+            <ProductCard key={product.id} product={product} />
           ))}
         </div>
         <Link to="/shop" className={styles.more}>
-          Show More
+          Xem thêm
         </Link>
       </section>
 
       <section className={styles.inspire}>
         <div className={styles.inspireCopy}>
           <h2>
-            50+ Beautiful rooms
+            Hơn 50 phòng
             <br />
-            inspiration
+            truyền cảm hứng
           </h2>
-          <p>
-            Our designer already made a lot of beautiful prototipe of rooms that
-            inspire you
-          </p>
-          <Link to="/shop?category=bedroom" className={styles.buy}>
-            Explore More
+          <p>Gợi ý bố trí từ bộ sưu tập nội thất của cửa hàng.</p>
+          <Link to="/shop" className={styles.buy}>
+            Khám phá
           </Link>
         </div>
         <div className={styles.rooms}>
@@ -105,7 +136,7 @@ export function HomePage() {
                   <button
                     type="button"
                     className={styles.nextRoom}
-                    aria-label="Next room"
+                    aria-label="Phòng tiếp theo"
                     onClick={() => setRoomIndex((current) => (current + 1) % rooms.length)}
                   >
                     →
@@ -118,7 +149,7 @@ export function HomePage() {
       </section>
 
       <section className={styles.share}>
-        <p>Share your setup with</p>
+        <p>Chia sẻ góc nhà của bạn với</p>
         <h2>#FuniroFurniture</h2>
         <div className={styles.collage}>
           {gallery.map((image) => (
