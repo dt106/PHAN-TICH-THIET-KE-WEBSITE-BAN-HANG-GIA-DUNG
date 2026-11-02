@@ -1,0 +1,2351 @@
+{
+  "info": {
+    "name": "Bán hàng gia dụng",
+    "description": "API khách hàng và admin của BACK_END. Chạy từ trên xuống trong Collection Runner cùng environment local. baseUrl đã gồm /api. Bước OTP không tự điền mã (xem mô tả thư mục 1).",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "1. Đăng ký / OTP / Đăng nhập",
+      "description": "OTP chỉ nằm trong RAM của server và được gửi qua SMTP. Không có bản ghi OTP trong MongoDB. Nếu MAIL_* chưa cấu hình, request trả 400 và service xóa mã vừa tạo. Log backend in dòng `OTP:` trước khi gửi. Khi SMTP local (MAIL_HOST=127.0.0.1, MAIL_PORT=2525) đang chạy, dán mã vào biến môi trường `otp` rồi chạy lại Verify và Register. Collection Runner vẫn đăng nhập bằng tài khoản seed để các bước sau có token.",
+      "item": [
+        {
+          "name": "Yêu cầu OTP đăng ký",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "description": "OTP chỉ nằm trong RAM của server và được gửi qua SMTP. Không có bản ghi OTP trong MongoDB. Nếu MAIL_* chưa cấu hình, request trả 400 và service xóa mã vừa tạo. Log backend in dòng `OTP:` trước khi gửi. Khi SMTP local (MAIL_HOST=127.0.0.1, MAIL_PORT=2525) đang chạy, dán mã vào biến môi trường `otp` rồi chạy lại Verify và Register. Collection Runner vẫn đăng nhập bằng tài khoản seed để các bước sau có token.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{registerEmail}}\"\n}"
+            },
+            "url": "{{baseUrl}}/customer/register/request-otp"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"OTP đăng ký: 200 khi SMTP gửi được, 400 khi mail lỗi hoặc email đã tồn tại\", function () {",
+                  "  pm.expect([200, 400]).to.include(pm.response.code);",
+                  "});",
+                  "if (pm.response.code !== 200) {",
+                  "  console.log(\"OTP chưa dùng được tự động. Gán biến otp từ log backend hoặc hộp thư SMTP rồi chạy lại Verify/Register.\");",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Xác thực OTP đăng ký",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "description": "Cần otp 6 số còn hiệu lực. Để trống biến otp thì request minh họa sẽ 400 và test không chặn Runner.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{registerEmail}}\",\n  \"otp\": \"{{otp}}\"\n}"
+            },
+            "url": "{{baseUrl}}/customer/register/verify-otp"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const otp = pm.environment.get(\"otp\");",
+                  "pm.test(otp ? \"Xác thực OTP\" : \"Bỏ qua xác thực OTP vì biến otp đang trống\", function () {",
+                  "  if (otp) {",
+                  "    pm.response.to.have.status(200);",
+                  "  } else {",
+                  "    pm.expect([200, 400]).to.include(pm.response.code);",
+                  "  }",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Đăng ký tài khoản",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "description": "Chỉ 201 sau khi email đã verify OTP. confirmPassword là bắt buộc theo validator.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{registerEmail}}\",\n  \"name\": \"Khách Đăng Ký\",\n  \"phone\": \"0912345678\",\n  \"password\": \"Register@123\",\n  \"confirmPassword\": \"Register@123\"\n}"
+            },
+            "url": "{{baseUrl}}/customer/register"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const otp = pm.environment.get(\"otp\");",
+                  "pm.test(otp ? \"Đăng ký sau OTP\" : \"Đăng ký chờ OTP (kỳ vọng 400 nếu chưa verify)\", function () {",
+                  "  if (otp) {",
+                  "    pm.expect([201, 400]).to.include(pm.response.code);",
+                  "  } else {",
+                  "    pm.expect([201, 400]).to.include(pm.response.code);",
+                  "  }",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Đăng nhập khách hàng",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "description": "Tài khoản seed: customer@example.com / Customer@123. Lưu token cho mọi request User phía sau.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{email}}\",\n  \"password\": \"{{password}}\"\n}"
+            },
+            "url": "{{baseUrl}}/customer/login"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const body = (() => { try { return pm.response.json(); } catch (error) { return {}; } })();",
+                  "pm.test(\"Đăng nhập khách hàng\", function () {",
+                  "  pm.expect([200]).to.include(pm.response.code);",
+                  "  if (pm.response.code < 400 && body && Object.prototype.hasOwnProperty.call(body, \"success\")) {",
+                  "    pm.expect(body.success).to.eql(true);",
+                  "  }",
+                  "});",
+                  "if (pm.response.code < 400) { pm.environment.set(\"token\", body.data.token); }",
+                  "if (pm.response.code < 400) { pm.environment.set(\"customerId\", body.data.user.id); }"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Quên mật khẩu",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "description": "Gửi OTP reset. Không gọi reset-password trong Runner để khỏi đổi mật khẩu seed. OTP chỉ nằm trong RAM của server và được gửi qua SMTP. Không có bản ghi OTP trong MongoDB. Nếu MAIL_* chưa cấu hình, request trả 400 và service xóa mã vừa tạo. Log backend in dòng `OTP:` trước khi gửi. Khi SMTP local (MAIL_HOST=127.0.0.1, MAIL_PORT=2525) đang chạy, dán mã vào biến môi trường `otp` rồi chạy lại Verify và Register. Collection Runner vẫn đăng nhập bằng tài khoản seed để các bước sau có token.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{email}}\"\n}"
+            },
+            "url": "{{baseUrl}}/customer/forgot-password"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Quên mật khẩu: 200 nếu gửi mail được, 400 nếu SMTP lỗi\", function () {",
+                  "  pm.expect([200, 400]).to.include(pm.response.code);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Đặt lại mật khẩu (mẫu, không chạy thành công nếu thiếu OTP)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "description": "Mẫu body đúng validator. Runner không có OTP reset nên kỳ vọng 400. Không dùng mã thật để tránh đổi mật khẩu seed.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{email}}\",\n  \"otp\": \"000000\",\n  \"newPassword\": \"Customer@123\",\n  \"confirmPassword\": \"Customer@123\"\n}"
+            },
+            "url": "{{baseUrl}}/customer/reset-password"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const body = (() => { try { return pm.response.json(); } catch (error) { return {}; } })();",
+                  "pm.test(\"Reset mật khẩu từ chối OTP mẫu\", function () {",
+                  "  pm.expect([400]).to.include(pm.response.code);",
+                  "  if (pm.response.code < 400 && body && Object.prototype.hasOwnProperty.call(body, \"success\")) {",
+                  "    pm.expect(body.success).to.eql(true);",
+                  "  }",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Phiên hiện tại",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": "{{baseUrl}}/customer/me"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const body = (() => { try { return pm.response.json(); } catch (error) { return {}; } })();",
+                  "pm.test(\"Lấy hồ sơ đang đăng nhập\", function () {",
+                  "  pm.expect([200]).to.include(pm.response.code);",
+                  "  if (pm.response.code < 400 && body && Object.prototype.hasOwnProperty.call(body, \"success\")) {",
+                  "    pm.expect(body.success).to.eql(true);",
+                  "  }",
+                  "});",
+                  "if (pm.response.code < 400) { pm.environment.set(\"customerId\", body.data.user.id); }"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Đăng xuất",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "description": "JWT là stateless. Logout chỉ trả 200; Runner đăng nhập lại ngay để giữ token.",
+            "url": "{{baseUrl}}/customer/logout"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const body = (() => { try { return pm.response.json(); } catch (error) { return {}; } })();",
+                  "pm.test(\"Đăng xuất\", function () {",
+                  "  pm.expect([200]).to.include(pm.response.code);",
+                  "  if (pm.response.code < 400 && body && Object.prototype.hasOwnProperty.call(body, \"success\")) {",
+                  "    pm.expect(body.success).to.eql(true);",
+                  "  }",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Đăng nhập lại sau logout",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{email}}\",\n  \"password\": \"{{password}}\"\n}"
+            },
+            "url": "{{baseUrl}}/customer/login"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const body = (() => { try { return pm.response.json(); } catch (error) { return {}; } })();",
+                  "pm.test(\"Đăng nhập lại\", function () {",
+                  "  pm.expect([200]).to.include(pm.response.code);",
+                  "  if (pm.response.code < 400 && body && Object.prototype.hasOwnProperty.call(body, \"success\")) {",
+                  "    pm.expect(body.success).to.eql(true);",
+                  "  }",
+                  "});",
+                  "if (pm.response.code < 400) { pm.environment.set(\"token\", body.data.token); }",
+                  "if (pm.response.code < 400) { pm.environment.set(\"customerId\", body.data.user.id); }"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "2. Hồ sơ & Địa chỉ",
+      "description": "Đổi mật khẩu rồi đổi lại Customer@123 để lần chạy sau vẫn đăng nhập được.",
+      "item": [
+        {
+          "name": "Cập nhật hồ sơ",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "description": "multipart/form-data. avatar là file tùy chọn (jpeg/png/webp/gif, tối đa 5MB).",
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "name",
+                  "value": "Khách Thử",
+                  "type": "text"
+                },
+                {
+                  "key": "phone",
+                  "value": "0901234567",
+                  "type": "text"
+                }
+              ]
+            },
+            "url": "{{baseUrl}}/customer/profile"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const body = (() => { try { return pm.response.json(); } catch (error) { return {}; } })();",
+                  "pm.test(\"Cập nhật hồ sơ\", function () {",
+                  "  pm.expect([200]).to.include(pm.response.code);",
+                  "  if (pm.response.code < 400 && body && Object.prototype.hasOwnProperty.call(body, \"success\")) {",
+                  "    pm.expect(body.success).to.eql(true);",
+                  "  }",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Đổi mật khẩu",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"currentPassword\": \"{{password}}\",\n  \"newPassword\": \"Customer@1234\",\n  \"confirmPassword\": \"Customer@1234\"\n}"
+            },
+            "url": "{{baseUrl}}/customer/change-password"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const body = (() => { try { return pm.response.json(); } catch (error) { return {}; } })();",
+                  "pm.test(\"Đổi mật khẩu\", function () {",
+                  "  pm.expect([200]).to.include(pm.response.code);",
+                  "  if (pm.response.code < 400 && body && Object.prototype.hasOwnProperty.call(body, \"success\")) {",
+                  "    pm.expect(body.success).to.eql(true);",
+                  "  }",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Đổi mật khẩu về seed",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"currentPassword\": \"Customer@1234\",\n  \"newPassword\": \"{{password}}\",\n  \"confirmPassword\": \"{{password}}\"\n}"
+            },
+            "url": "{{baseUrl}}/customer/change-password"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const body = (() => { try { return pm.response.json(); } catch (error) { return {}; } })();",
+                  "pm.test(\"Khôi phục mật khẩu seed\", function () {",
+                  "  pm.expect([200]).to.include(pm.response.code);",
+                  "  if (pm.response.code < 400 && body && Object.prototype.hasOwnProperty.call(body, \"success\")) {",
+                  "    pm.expect(body.success).to.eql(true);",
+                  "  }",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Thống kê tổng quan",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": "{{baseUrl}}/customer/statistics/overview"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const body = (() => { try { return pm.response.json(); } catch (error) { return {}; } })();",
+                  "pm.test(\"Thống kê tổng quan\", function () {",
+                  "  pm.expect([200]).to.include(pm.response.code);",
+                  "  if (pm.response.code < 400 && body && Object.prototype.hasOwnProperty.call(body, \"success\")) {",
+                  "    pm.expect(body.success).to.eql(true);",
+                  "  }",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Danh sách địa chỉ",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": "{{baseUrl}}/user-addresses"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const body = (() => { try { return pm.response.json(); } catch (error) { return {}; } })();",
+                  "pm.test(\"Danh sách địa chỉ\", function () {",
+                  "  pm.expect([200]).to.include(pm.response.code);",
+                  "  if (pm.response.code < 400 && body && Object.prototype.hasOwnProperty.call(body, \"success\")) {",
+                  "    pm.expect(body.success).to.eql(true);",
+                  "  }",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Tạo địa chỉ",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"recipientName\": \"Khách Postman\",\n  \"phone\": \"0901234567\",\n  \"addressLine\": \"12 Nguyễn Huệ\",\n  \"ward\": \"Bến Nghé\",\n  \"district\": \"Quận 1\",\n  \"province\": \"TP.HCM\",\n  \"isDefault\": true\n}"
+            },
+            "url": "{{baseUrl}}/user-addresses"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const body = (() => { try { return pm.response.json(); } catch (error) { return {}; } })();",
+                  "pm.test(\"Tạo địa chỉ\", function () {",
+                  "  pm.expect([201]).to.include(pm.response.code);",
+                  "  if (pm.response.code < 400 && body && Object.prototype.hasOwnProperty.call(body, \"success\")) {",
+                  "    pm.expect(body.success).to.eql(true);",
+                  "  }",
+                  "});",
+                  "if (pm.response.code < 400) { pm.environment.set(\"addressId\", body.data.id); }"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Chi tiết địa chỉ",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": "{{baseUrl}}/user-addresses/{{addressId}}"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const body = (() => { try { return pm.response.json(); } catch (error) { return {}; } })();",
+                  "pm.test(\"Chi tiết địa chỉ\", function () {",
+                  "  pm.expect([200]).to.include(pm.response.code);",
+                  "  if (pm.response.code < 400 && body && Object.prototype.hasOwnProperty.call(body, \"success\")) {",
+                  "    pm.expect(body.success).to.eql(true);",
+                  "  }",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Cập nhật địa chỉ",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"ward\": \"Bến Thành\"\n}"
+            },
+            "url": "{{baseUrl}}/user-addresses/{{addressId}}"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const body = (() => { try { return pm.response.json(); } catch (error) { return {}; } })();",
+                  "pm.test(\"Cập nhật địa chỉ\", function () {",
+                  "  pm.expect([200]).to.include(pm.response.code);",
+                  "  if (pm.response.code < 400 && body && Object.prototype.hasOwnProperty.call(body, \"success\")) {",
+                  "    pm.expect(body.success).to.eql(true);",
+                  "  }",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Đặt địa chỉ mặc định",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"isDefault\": true\n}"
+            },
+            "url": "{{baseUrl}}/user-addresses/{{addressId}}/default"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const body = (() => { try { return pm.response.json(); } catch (error) { return {}; } })();",
+                  "pm.test(\"Đặt địa chỉ mặc định\", function () {",
+                  "  pm.expect([200]).to.include(pm.response.code);",
+                  "  if (pm.response.code < 400 && body && Object.prototype.hasOwnProperty.call(body, \"success\")) {",
+                  "    pm.expect(body.success).to.eql(true);",
+                  "  }",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "3. Danh mục / Sản phẩm / Tìm kiếm",
+      "item": [
+        {
+          "name": "Danh mục",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/categories?page=1&limit=50"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const body = (() => { try { return pm.response.json(); } catch (error) { return {}; } })();",
+                  "pm.test(\"Danh mục\", function () {",
+                  "  pm.expect([200]).to.include(pm.response.code);",
+                  "  if (pm.response.code < 400 && body && Object.prototype.hasOwnProperty.call(body, \"success\")) {",
+                  "    pm.expect(body.success).to.eql(true);",
+                  "  }",
+                  "});",
+                  "if (pm.response.code === 200 && body.data && body.data[0]) pm.environment.set(\"categoryId\", body.data[0].id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Cây danh mục",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/categories/tree"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const body = (() => { try { return pm.response.json(); } catch (error) { return {}; } })();",
+                  "pm.test(\"Cây danh mục\", function () {",
+                  "  pm.expect([200]).to.include(pm.response.code);",
+                  "  if (pm.response.code < 400 && body && Object.prototype.hasOwnProperty.call(body, \"success\")) {",
+                  "    pm.expect(body.success).to.eql(true);",
+                  "  }",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Thương hiệu",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/brands?page=1&limit=20"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const body = (() => { try { return pm.response.json(); } catch (error) { return {}; } })();",
+                  "pm.test(\"Thương hiệu\", function () {",
+                  "  pm.expect([200]).to.include(pm.response.code);",
+                  "  if (pm.response.code < 400 && body && Object.prototype.hasOwnProperty.call(body, \"success\")) {",
+                  "    pm.expect(body.success).to.eql(true);",
+                  "  }",
+                  "});",
+                  "if (pm.response.code === 200 && body.data && body.data[0]) pm.environment.set(\"brandId\", body.data[0].id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Thuộc tính",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/attributes"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const body = (() => { try { return pm.response.json(); } catch (error) { return {}; } })();",
+                  "pm.test(\"Thuộc tính\", function () {",
+                  "  pm.expect([200]).to.include(pm.response.code);",
+                  "  if (pm.response.code < 400 && body && Object.prototype.hasOwnProperty.call(body, \"success\")) {",
+                  "    pm.expect(body.success).to.eql(true);",
+                  "  }",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Danh sách sản phẩm",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/products?page=1&limit=10&search=cafe&sort=price_asc&categoryId={{categoryId}}"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const body = (() => { try { return pm.response.json(); } catch (error) { return {}; } })();",
+                  "pm.test(\"Danh sách sản phẩm\", function () {",
+                  "  pm.expect([200]).to.include(pm.response.code);",
+                  "  if (pm.response.code < 400 && body && Object.prototype.hasOwnProperty.call(body, \"success\")) {",
+                  "    pm.expect(body.success).to.eql(true);",
+                  "  }",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Sản phẩm nổi bật",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/products/featured?limit=8"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const body = (() => { try { return pm.response.json(); } catch (error) { return {}; } })();",
+                  "pm.test(\"Sản phẩm nổi bật\", function () {",
+                  "  pm.expect([200]).to.include(pm.response.code);",
+                  "  if (pm.response.code < 400 && body && Object.prototype.hasOwnProperty.call(body, \"success\")) {",
+                  "    pm.expect(body.success).to.eql(true);",
+                  "  }",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Sản phẩm không biến thể (ghế)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/products/slug/ghe-cafe"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const body = (() => { try { return pm.response.json(); } catch (error) { return {}; } })();",
+                  "pm.test(\"Chi tiết ghế\", function () {",
+                  "  pm.expect([200]).to.include(pm.response.code);",
+                  "  if (pm.response.code < 400 && body && Object.prototype.hasOwnProperty.call(body, \"success\")) {",
+                  "    pm.expect(body.success).to.eql(true);",
+                  "  }",
+                  "});",
+                  "if (pm.response.code < 400) { pm.environment.set(\"productId\", body.data.id); }",
+                  "if (pm.response.code < 400) { pm.environment.set(\"productSlug\", body.data.slug); }"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Sản phẩm có biến thể (bàn)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/products/slug/ban-an"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const body = (() => { try { return pm.response.json(); } catch (error) { return {}; } })();",
+                  "pm.test(\"Chi tiết bàn\", function () {",
+                  "  pm.expect([200]).to.include(pm.response.code);",
+                  "  if (pm.response.code < 400 && body && Object.prototype.hasOwnProperty.call(body, \"success\")) {",
+                  "    pm.expect(body.success).to.eql(true);",
+                  "  }",
+                  "});",
+                  "if (pm.response.code < 400) { pm.environment.set(\"variantProductId\", body.data.id); }",
+                  "if (pm.response.code === 200 && body.data.variants && body.data.variants[0]) pm.environment.set(\"variantId\", body.data.variants[0].id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Sản phẩm liên quan",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/products/related/{{productId}}?limit=4"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const body = (() => { try { return pm.response.json(); } catch (error) { return {}; } })();",
+                  "pm.test(\"Sản phẩm liên quan\", function () {",
+                  "  pm.expect([200]).to.include(pm.response.code);",
+                  "  if (pm.response.code < 400 && body && Object.prototype.hasOwnProperty.call(body, \"success\")) {",
+                  "    pm.expect(body.success).to.eql(true);",
+                  "  }",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Biến thể của bàn",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/products/{{variantProductId}}/variants"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const body = (() => { try { return pm.response.json(); } catch (error) { return {}; } })();",
+                  "pm.test(\"Biến thể\", function () {",
+                  "  pm.expect([200]).to.include(pm.response.code);",
+                  "  if (pm.response.code < 400 && body && Object.prototype.hasOwnProperty.call(body, \"success\")) {",
+                  "    pm.expect(body.success).to.eql(true);",
+                  "  }",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Media của ghế",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/products/{{productId}}/media"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const body = (() => { try { return pm.response.json(); } catch (error) { return {}; } })();",
+                  "pm.test(\"Media\", function () {",
+                  "  pm.expect([200]).to.include(pm.response.code);",
+                  "  if (pm.response.code < 400 && body && Object.prototype.hasOwnProperty.call(body, \"success\")) {",
+                  "    pm.expect(body.success).to.eql(true);",
+                  "  }",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Tìm kiếm AI",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "description": "Cần GEMINI_API_KEY. Không có khóa thì 500. Test chấp nhận cả hai để Runner không dừng vì môi trường.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"query\": \"ghế gỗ dưới 5 triệu\",\n  \"page\": 1,\n  \"limit\": 5\n}"
+            },
+            "url": "{{baseUrl}}/ai/products/search"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Tìm AI: 200 khi có Gemini, 500 khi thiếu khóa\", function () {",
+                  "  pm.expect([200, 500]).to.include(pm.response.code);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "4. Yêu thích",
+      "item": [
+        {
+          "name": "Thêm yêu thích",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"productId\": \"{{productId}}\"\n}"
+            },
+            "url": "{{baseUrl}}/wishlist"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const body = (() => { try { return pm.response.json(); } catch (error) { return {}; } })();",
+                  "pm.test(\"Thêm yêu thích\", function () {",
+                  "  pm.expect([201]).to.include(pm.response.code);",
+                  "  if (pm.response.code < 400 && body && Object.prototype.hasOwnProperty.call(body, \"success\")) {",
+                  "    pm.expect(body.success).to.eql(true);",
+                  "  }",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Kiểm tra yêu thích",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": "{{baseUrl}}/wishlist/check/{{productId}}"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const body = (() => { try { return pm.response.json(); } catch (error) { return {}; } })();",
+                  "pm.test(\"Kiểm tra yêu thích\", function () {",
+                  "  pm.expect([200]).to.include(pm.response.code);",
+                  "  if (pm.response.code < 400 && body && Object.prototype.hasOwnProperty.call(body, \"success\")) {",
+                  "    pm.expect(body.success).to.eql(true);",
+                  "  }",
+                  "});",
+                  "if (pm.response.code === 200 && body.data.wishlistId) pm.environment.set(\"wishlistId\", body.data.wishlistId);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Danh sách yêu thích",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": "{{baseUrl}}/wishlist"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const body = (() => { try { return pm.response.json(); } catch (error) { return {}; } })();",
+                  "pm.test(\"Danh sách yêu thích\", function () {",
+                  "  pm.expect([200]).to.include(pm.response.code);",
+                  "  if (pm.response.code < 400 && body && Object.prototype.hasOwnProperty.call(body, \"success\")) {",
+                  "    pm.expect(body.success).to.eql(true);",
+                  "  }",
+                  "});",
+                  "if (pm.response.code === 200 && body.data && body.data[0]) pm.environment.set(\"wishlistId\", body.data[0].id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Chuyển yêu thích vào giỏ",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "description": "Ghế không có biến thể nên không gửi variantId. Giỏ sẽ bị xóa ở thư mục 5 trước khi thêm lại.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"quantity\": 1\n}"
+            },
+            "url": "{{baseUrl}}/wishlist/{{wishlistId}}/move-to-cart"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const body = (() => { try { return pm.response.json(); } catch (error) { return {}; } })();",
+                  "pm.test(\"Chuyển vào giỏ\", function () {",
+                  "  pm.expect([200]).to.include(pm.response.code);",
+                  "  if (pm.response.code < 400 && body && Object.prototype.hasOwnProperty.call(body, \"success\")) {",
+                  "    pm.expect(body.success).to.eql(true);",
+                  "  }",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "5. Giỏ hàng",
+      "item": [
+        {
+          "name": "Xóa giỏ",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": "{{baseUrl}}/cart"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const body = (() => { try { return pm.response.json(); } catch (error) { return {}; } })();",
+                  "pm.test(\"Xóa giỏ\", function () {",
+                  "  pm.expect([200]).to.include(pm.response.code);",
+                  "  if (pm.response.code < 400 && body && Object.prototype.hasOwnProperty.call(body, \"success\")) {",
+                  "    pm.expect(body.success).to.eql(true);",
+                  "  }",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Thêm ghế",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"productId\": \"{{productId}}\",\n  \"quantity\": 1\n}"
+            },
+            "url": "{{baseUrl}}/cart"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const body = (() => { try { return pm.response.json(); } catch (error) { return {}; } })();",
+                  "pm.test(\"Thêm ghế vào giỏ\", function () {",
+                  "  pm.expect([201]).to.include(pm.response.code);",
+                  "  if (pm.response.code < 400 && body && Object.prototype.hasOwnProperty.call(body, \"success\")) {",
+                  "    pm.expect(body.success).to.eql(true);",
+                  "  }",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Thêm bàn theo biến thể",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"productId\": \"{{variantProductId}}\",\n  \"variantId\": \"{{variantId}}\",\n  \"quantity\": 1\n}"
+            },
+            "url": "{{baseUrl}}/cart"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const body = (() => { try { return pm.response.json(); } catch (error) { return {}; } })();",
+                  "pm.test(\"Thêm biến thể vào giỏ\", function () {",
+                  "  pm.expect([201]).to.include(pm.response.code);",
+                  "  if (pm.response.code < 400 && body && Object.prototype.hasOwnProperty.call(body, \"success\")) {",
+                  "    pm.expect(body.success).to.eql(true);",
+                  "  }",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Xem giỏ",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": "{{baseUrl}}/cart"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const body = (() => { try { return pm.response.json(); } catch (error) { return {}; } })();",
+                  "pm.test(\"Xem giỏ\", function () {",
+                  "  pm.expect([200]).to.include(pm.response.code);",
+                  "  if (pm.response.code < 400 && body && Object.prototype.hasOwnProperty.call(body, \"success\")) {",
+                  "    pm.expect(body.success).to.eql(true);",
+                  "  }",
+                  "});",
+                  "if (pm.response.code === 200) {",
+                  "  const productId = pm.environment.get(\"productId\");",
+                  "  const line = (body.data.items || []).find((item) => item.productId === productId);",
+                  "  if (line) pm.environment.set(\"cartItemId\", line.id);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Cập nhật số lượng ghế",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"quantity\": 2\n}"
+            },
+            "url": "{{baseUrl}}/cart/{{cartItemId}}"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const body = (() => { try { return pm.response.json(); } catch (error) { return {}; } })();",
+                  "pm.test(\"Cập nhật số lượng\", function () {",
+                  "  pm.expect([200]).to.include(pm.response.code);",
+                  "  if (pm.response.code < 400 && body && Object.prototype.hasOwnProperty.call(body, \"success\")) {",
+                  "    pm.expect(body.success).to.eql(true);",
+                  "  }",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "6. Mã giảm giá",
+      "item": [
+        {
+          "name": "Mã đang hiệu lực",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/coupons/public"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const body = (() => { try { return pm.response.json(); } catch (error) { return {}; } })();",
+                  "pm.test(\"Mã công khai\", function () {",
+                  "  pm.expect([200]).to.include(pm.response.code);",
+                  "  if (pm.response.code < 400 && body && Object.prototype.hasOwnProperty.call(body, \"success\")) {",
+                  "    pm.expect(body.success).to.eql(true);",
+                  "  }",
+                  "});",
+                  "if (pm.response.code === 200 && body.data && body.data[0]) pm.environment.set(\"couponCode\", body.data[0].code);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Kiểm tra WELCOME10",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"code\": \"WELCOME10\",\n  \"orderAmount\": 4000000\n}"
+            },
+            "url": "{{baseUrl}}/coupons/check"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const body = (() => { try { return pm.response.json(); } catch (error) { return {}; } })();",
+                  "pm.test(\"Kiểm tra mã\", function () {",
+                  "  pm.expect([200]).to.include(pm.response.code);",
+                  "  if (pm.response.code < 400 && body && Object.prototype.hasOwnProperty.call(body, \"success\")) {",
+                  "    pm.expect(body.success).to.eql(true);",
+                  "  }",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "7. Đặt hàng & Thanh toán (COD)",
+      "description": "Chỉ mua dòng ghế (cartItemId). Phí vận chuyển do client gửi; đơn từ 3.000.000đ dùng 0.",
+      "item": [
+        {
+          "name": "Xem trước đơn COD",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"addressId\": \"{{addressId}}\",\n  \"selectedCartItemIds\": [\n    \"{{cartItemId}}\"\n  ],\n  \"couponCode\": \"WELCOME10\",\n  \"shippingFee\": 0,\n  \"note\": \"Giao giờ hành chính\"\n}"
+            },
+            "url": "{{baseUrl}}/checkout/preview"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const body = (() => { try { return pm.response.json(); } catch (error) { return {}; } })();",
+                  "pm.test(\"Xem trước đơn\", function () {",
+                  "  pm.expect([200]).to.include(pm.response.code);",
+                  "  if (pm.response.code < 400 && body && Object.prototype.hasOwnProperty.call(body, \"success\")) {",
+                  "    pm.expect(body.success).to.eql(true);",
+                  "  }",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Đặt hàng COD",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"addressId\": \"{{addressId}}\",\n  \"selectedCartItemIds\": [\n    \"{{cartItemId}}\"\n  ],\n  \"couponCode\": \"WELCOME10\",\n  \"shippingFee\": 0,\n  \"paymentMethod\": \"COD\",\n  \"note\": \"Giao giờ hành chính\"\n}"
+            },
+            "url": "{{baseUrl}}/checkout"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const body = (() => { try { return pm.response.json(); } catch (error) { return {}; } })();",
+                  "pm.test(\"Đặt hàng COD\", function () {",
+                  "  pm.expect([201]).to.include(pm.response.code);",
+                  "  if (pm.response.code < 400 && body && Object.prototype.hasOwnProperty.call(body, \"success\")) {",
+                  "    pm.expect(body.success).to.eql(true);",
+                  "  }",
+                  "});",
+                  "if (pm.response.code < 400) { pm.environment.set(\"orderId\", body.data.order.id); }",
+                  "if (pm.response.code < 400) { pm.environment.set(\"orderNumber\", body.data.order.orderNumber); }"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Tạo bản ghi thanh toán COD",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "description": "COD không có paymentUrl. Tiền được ghi khi đơn sang delivered. Request này tạo payment pending nếu đơn còn thanh toán được.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"orderId\": \"{{orderId}}\"\n}"
+            },
+            "url": "{{baseUrl}}/payments"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const body = (() => { try { return pm.response.json(); } catch (error) { return {}; } })();",
+                  "pm.test(\"Tạo thanh toán\", function () {",
+                  "  pm.expect([201]).to.include(pm.response.code);",
+                  "  if (pm.response.code < 400 && body && Object.prototype.hasOwnProperty.call(body, \"success\")) {",
+                  "    pm.expect(body.success).to.eql(true);",
+                  "  }",
+                  "});",
+                  "if (pm.response.code === 201) pm.environment.set(\"paymentId\", (body.data.payment && (body.data.payment.id || body.data.payment._id)) || \"\");"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Thanh toán của tôi",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "description": "Response lean() có thể trả _id thay vì id.",
+            "url": "{{baseUrl}}/payments/my-payments"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const body = (() => { try { return pm.response.json(); } catch (error) { return {}; } })();",
+                  "pm.test(\"Danh sách thanh toán\", function () {",
+                  "  pm.expect([200]).to.include(pm.response.code);",
+                  "  if (pm.response.code < 400 && body && Object.prototype.hasOwnProperty.call(body, \"success\")) {",
+                  "    pm.expect(body.success).to.eql(true);",
+                  "  }",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "8. Đơn hàng",
+      "item": [
+        {
+          "name": "Đơn của tôi",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": "{{baseUrl}}/orders/my-orders?page=1&limit=10"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const body = (() => { try { return pm.response.json(); } catch (error) { return {}; } })();",
+                  "pm.test(\"Đơn của tôi\", function () {",
+                  "  pm.expect([200]).to.include(pm.response.code);",
+                  "  if (pm.response.code < 400 && body && Object.prototype.hasOwnProperty.call(body, \"success\")) {",
+                  "    pm.expect(body.success).to.eql(true);",
+                  "  }",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Thống kê đơn",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": "{{baseUrl}}/customer/statistics/orders"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const body = (() => { try { return pm.response.json(); } catch (error) { return {}; } })();",
+                  "pm.test(\"Thống kê đơn\", function () {",
+                  "  pm.expect([200]).to.include(pm.response.code);",
+                  "  if (pm.response.code < 400 && body && Object.prototype.hasOwnProperty.call(body, \"success\")) {",
+                  "    pm.expect(body.success).to.eql(true);",
+                  "  }",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Chi tiết đơn",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": "{{baseUrl}}/orders/{{orderId}}"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const body = (() => { try { return pm.response.json(); } catch (error) { return {}; } })();",
+                  "pm.test(\"Chi tiết đơn\", function () {",
+                  "  pm.expect([200]).to.include(pm.response.code);",
+                  "  if (pm.response.code < 400 && body && Object.prototype.hasOwnProperty.call(body, \"success\")) {",
+                  "    pm.expect(body.success).to.eql(true);",
+                  "  }",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Dòng hàng trong đơn",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": "{{baseUrl}}/orders/{{orderId}}/items"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const body = (() => { try { return pm.response.json(); } catch (error) { return {}; } })();",
+                  "pm.test(\"Dòng hàng\", function () {",
+                  "  pm.expect([200]).to.include(pm.response.code);",
+                  "  if (pm.response.code < 400 && body && Object.prototype.hasOwnProperty.call(body, \"success\")) {",
+                  "    pm.expect(body.success).to.eql(true);",
+                  "  }",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Xác nhận đã nhận (chưa delivered)",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "description": "Khách chỉ xác nhận khi status là delivered. Đơn COD vừa tạo còn pending nên 400 là đúng.",
+            "url": "{{baseUrl}}/orders/{{orderId}}/confirm-delivery"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const body = (() => { try { return pm.response.json(); } catch (error) { return {}; } })();",
+                  "pm.test(\"Chưa được xác nhận nhận hàng\", function () {",
+                  "  pm.expect([400]).to.include(pm.response.code);",
+                  "  if (pm.response.code < 400 && body && Object.prototype.hasOwnProperty.call(body, \"success\")) {",
+                  "    pm.expect(body.success).to.eql(true);",
+                  "  }",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Hủy đơn chưa thanh toán",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "description": "Chỉ hủy được pending/confirmed và chưa paid. Payment pending của COD không gắn paymentStatus=paid.",
+            "url": "{{baseUrl}}/orders/{{orderId}}/cancel"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const body = (() => { try { return pm.response.json(); } catch (error) { return {}; } })();",
+                  "pm.test(\"Hủy đơn\", function () {",
+                  "  pm.expect([200]).to.include(pm.response.code);",
+                  "  if (pm.response.code < 400 && body && Object.prototype.hasOwnProperty.call(body, \"success\")) {",
+                  "    pm.expect(body.success).to.eql(true);",
+                  "  }",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "9. Đánh giá",
+      "description": "Không có API tạo/sửa/xóa ProductReview. Chỉ có thống kê số đánh giá của khách. Không thêm request giả.",
+      "item": [
+        {
+          "name": "Thống kê đánh giá của tôi",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": "{{baseUrl}}/customer/statistics/reviews"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const body = (() => { try { return pm.response.json(); } catch (error) { return {}; } })();",
+                  "pm.test(\"Thống kê đánh giá\", function () {",
+                  "  pm.expect([200]).to.include(pm.response.code);",
+                  "  if (pm.response.code < 400 && body && Object.prototype.hasOwnProperty.call(body, \"success\")) {",
+                  "    pm.expect(body.success).to.eql(true);",
+                  "  }",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "10. Thông báo / Chat",
+      "description": "Không có route Notification. Thư mục này chỉ gọi AI chat/search đã mount. Chat và search cần GEMINI_API_KEY; thiếu khóa thì 500.",
+      "item": [
+        {
+          "name": "Gửi tin chat AI",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "description": "Route không đọc JWT. sessionId 16–128 ký tự dùng cho khách vãng lai.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"message\": \"Xin chào, gợi ý ghế cafe\",\n  \"sessionId\": \"{{sessionId}}\"\n}"
+            },
+            "url": "{{baseUrl}}/ai/chat"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Chat AI: 200 khi có Gemini, 500 khi thiếu khóa\", function () {",
+                  "  pm.expect([200, 500]).to.include(pm.response.code);",
+                  "});",
+                  "if (pm.response.code === 200) {",
+                  "  const data = pm.response.json().data;",
+                  "  if (data && data.conversationId) pm.environment.set(\"conversationId\", data.conversationId);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Danh sách hội thoại",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/ai/chat/conversations?sessionId={{sessionId}}"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Danh sách hội thoại: 200 hoặc 500 nếu Gemini/DB lỗi\", function () {",
+                  "  pm.expect([200, 500]).to.include(pm.response.code);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Chi tiết hội thoại",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "description": "Chỉ có conversationId sau khi chat trả 200. Nếu chat lỗi, pre-request gán id giả để vẫn gọi đúng route /:id thay vì rơi vào danh sách.",
+            "url": "{{baseUrl}}/ai/chat/conversations/{{conversationId}}?sessionId={{sessionId}}"
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (!pm.environment.get(\"conversationId\")) pm.environment.set(\"conversationId\", \"000000000000000000000000\");"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const id = pm.environment.get(\"conversationId\");",
+                  "pm.test(id ? \"Chi tiết hội thoại\" : \"Chưa có conversationId vì chat không thành công\", function () {",
+                  "  if (id && id !== \"000000000000000000000000\") pm.expect([200, 404]).to.include(pm.response.code);",
+                  "  else pm.expect([200, 400, 404, 500]).to.include(pm.response.code);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "11. Admin",
+      "description": "Tài khoản seed admin@example.com / Admin@123456. Chỉ đọc và tạo rồi xóa một coupon để không phá dữ liệu cửa hàng.",
+      "item": [
+        {
+          "name": "Đăng nhập admin",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{adminEmail}}\",\n  \"password\": \"{{adminPassword}}\"\n}"
+            },
+            "url": "{{baseUrl}}/admin/login"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const body = (() => { try { return pm.response.json(); } catch (error) { return {}; } })();",
+                  "pm.test(\"Đăng nhập admin\", function () {",
+                  "  pm.expect([200]).to.include(pm.response.code);",
+                  "  if (pm.response.code < 400 && body && Object.prototype.hasOwnProperty.call(body, \"success\")) {",
+                  "    pm.expect(body.success).to.eql(true);",
+                  "  }",
+                  "});",
+                  "if (pm.response.code < 400) { pm.environment.set(\"adminToken\", body.data.token); }"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Hồ sơ admin",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminToken}}"
+              }
+            ],
+            "url": "{{baseUrl}}/admin/me"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const body = (() => { try { return pm.response.json(); } catch (error) { return {}; } })();",
+                  "pm.test(\"Hồ sơ admin\", function () {",
+                  "  pm.expect([200]).to.include(pm.response.code);",
+                  "  if (pm.response.code < 400 && body && Object.prototype.hasOwnProperty.call(body, \"success\")) {",
+                  "    pm.expect(body.success).to.eql(true);",
+                  "  }",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Thống kê người dùng",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminToken}}"
+              }
+            ],
+            "url": "{{baseUrl}}/admin/statistics/users"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const body = (() => { try { return pm.response.json(); } catch (error) { return {}; } })();",
+                  "pm.test(\"Thống kê người dùng\", function () {",
+                  "  pm.expect([200]).to.include(pm.response.code);",
+                  "  if (pm.response.code < 400 && body && Object.prototype.hasOwnProperty.call(body, \"success\")) {",
+                  "    pm.expect(body.success).to.eql(true);",
+                  "  }",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Danh sách khách",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminToken}}"
+              }
+            ],
+            "url": "{{baseUrl}}/admin/customers?page=1&limit=10"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const body = (() => { try { return pm.response.json(); } catch (error) { return {}; } })();",
+                  "pm.test(\"Danh sách khách\", function () {",
+                  "  pm.expect([200]).to.include(pm.response.code);",
+                  "  if (pm.response.code < 400 && body && Object.prototype.hasOwnProperty.call(body, \"success\")) {",
+                  "    pm.expect(body.success).to.eql(true);",
+                  "  }",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Chi tiết khách",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminToken}}"
+              }
+            ],
+            "url": "{{baseUrl}}/admin/customers/{{customerId}}"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const body = (() => { try { return pm.response.json(); } catch (error) { return {}; } })();",
+                  "pm.test(\"Chi tiết khách\", function () {",
+                  "  pm.expect([200]).to.include(pm.response.code);",
+                  "  if (pm.response.code < 400 && body && Object.prototype.hasOwnProperty.call(body, \"success\")) {",
+                  "    pm.expect(body.success).to.eql(true);",
+                  "  }",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Thương hiệu admin",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminToken}}"
+              }
+            ],
+            "url": "{{baseUrl}}/admin/brands/all?page=1&limit=10"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const body = (() => { try { return pm.response.json(); } catch (error) { return {}; } })();",
+                  "pm.test(\"Thương hiệu admin\", function () {",
+                  "  pm.expect([200]).to.include(pm.response.code);",
+                  "  if (pm.response.code < 400 && body && Object.prototype.hasOwnProperty.call(body, \"success\")) {",
+                  "    pm.expect(body.success).to.eql(true);",
+                  "  }",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Danh mục admin",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminToken}}"
+              }
+            ],
+            "url": "{{baseUrl}}/admin/categories/all?page=1&limit=10"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const body = (() => { try { return pm.response.json(); } catch (error) { return {}; } })();",
+                  "pm.test(\"Danh mục admin\", function () {",
+                  "  pm.expect([200]).to.include(pm.response.code);",
+                  "  if (pm.response.code < 400 && body && Object.prototype.hasOwnProperty.call(body, \"success\")) {",
+                  "    pm.expect(body.success).to.eql(true);",
+                  "  }",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Sản phẩm admin",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminToken}}"
+              }
+            ],
+            "url": "{{baseUrl}}/admin/products/all?page=1&limit=10"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const body = (() => { try { return pm.response.json(); } catch (error) { return {}; } })();",
+                  "pm.test(\"Sản phẩm admin\", function () {",
+                  "  pm.expect([200]).to.include(pm.response.code);",
+                  "  if (pm.response.code < 400 && body && Object.prototype.hasOwnProperty.call(body, \"success\")) {",
+                  "    pm.expect(body.success).to.eql(true);",
+                  "  }",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Đơn admin",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminToken}}"
+              }
+            ],
+            "url": "{{baseUrl}}/admin/orders?page=1&limit=10"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const body = (() => { try { return pm.response.json(); } catch (error) { return {}; } })();",
+                  "pm.test(\"Đơn admin\", function () {",
+                  "  pm.expect([200]).to.include(pm.response.code);",
+                  "  if (pm.response.code < 400 && body && Object.prototype.hasOwnProperty.call(body, \"success\")) {",
+                  "    pm.expect(body.success).to.eql(true);",
+                  "  }",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Chi tiết đơn admin",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminToken}}"
+              }
+            ],
+            "url": "{{baseUrl}}/admin/orders/{{orderId}}"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const body = (() => { try { return pm.response.json(); } catch (error) { return {}; } })();",
+                  "pm.test(\"Chi tiết đơn admin\", function () {",
+                  "  pm.expect([200]).to.include(pm.response.code);",
+                  "  if (pm.response.code < 400 && body && Object.prototype.hasOwnProperty.call(body, \"success\")) {",
+                  "    pm.expect(body.success).to.eql(true);",
+                  "  }",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Dòng hàng admin",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminToken}}"
+              }
+            ],
+            "url": "{{baseUrl}}/admin/order-items?page=1&limit=10&orderId={{orderId}}"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const body = (() => { try { return pm.response.json(); } catch (error) { return {}; } })();",
+                  "pm.test(\"Dòng hàng admin\", function () {",
+                  "  pm.expect([200]).to.include(pm.response.code);",
+                  "  if (pm.response.code < 400 && body && Object.prototype.hasOwnProperty.call(body, \"success\")) {",
+                  "    pm.expect(body.success).to.eql(true);",
+                  "  }",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Thanh toán admin",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminToken}}"
+              }
+            ],
+            "url": "{{baseUrl}}/admin/payments?page=1&limit=10"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const body = (() => { try { return pm.response.json(); } catch (error) { return {}; } })();",
+                  "pm.test(\"Thanh toán admin\", function () {",
+                  "  pm.expect([200]).to.include(pm.response.code);",
+                  "  if (pm.response.code < 400 && body && Object.prototype.hasOwnProperty.call(body, \"success\")) {",
+                  "    pm.expect(body.success).to.eql(true);",
+                  "  }",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Mã giảm giá admin",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminToken}}"
+              }
+            ],
+            "url": "{{baseUrl}}/admin/coupons?page=1&limit=10"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const body = (() => { try { return pm.response.json(); } catch (error) { return {}; } })();",
+                  "pm.test(\"Mã giảm giá admin\", function () {",
+                  "  pm.expect([200]).to.include(pm.response.code);",
+                  "  if (pm.response.code < 400 && body && Object.prototype.hasOwnProperty.call(body, \"success\")) {",
+                  "    pm.expect(body.success).to.eql(true);",
+                  "  }",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Tạo mã giảm giá admin",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"code\": \"{{adminCouponCode}}\",\n  \"name\": \"Mã Postman\",\n  \"description\": \"Tạo bởi collection rồi xóa\",\n  \"discountType\": \"fixed\",\n  \"discountValue\": 10000,\n  \"minimumOrderAmount\": 0\n}"
+            },
+            "url": "{{baseUrl}}/admin/coupons"
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.environment.set(\"adminCouponCode\", \"PM\" + Date.now());"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const body = (() => { try { return pm.response.json(); } catch (error) { return {}; } })();",
+                  "pm.test(\"Tạo mã admin\", function () {",
+                  "  pm.expect([201]).to.include(pm.response.code);",
+                  "  if (pm.response.code < 400 && body && Object.prototype.hasOwnProperty.call(body, \"success\")) {",
+                  "    pm.expect(body.success).to.eql(true);",
+                  "  }",
+                  "});",
+                  "if (pm.response.code < 400) { pm.environment.set(\"adminCouponId\", body.data.id); }"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Xóa mã giảm giá admin vừa tạo",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminToken}}"
+              }
+            ],
+            "url": "{{baseUrl}}/admin/coupons/{{adminCouponId}}"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const body = (() => { try { return pm.response.json(); } catch (error) { return {}; } })();",
+                  "pm.test(\"Xóa mã admin\", function () {",
+                  "  pm.expect([200]).to.include(pm.response.code);",
+                  "  if (pm.response.code < 400 && body && Object.prototype.hasOwnProperty.call(body, \"success\")) {",
+                  "    pm.expect(body.success).to.eql(true);",
+                  "  }",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Đăng xuất admin",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminToken}}"
+              }
+            ],
+            "url": "{{baseUrl}}/admin/logout"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const body = (() => { try { return pm.response.json(); } catch (error) { return {}; } })();",
+                  "pm.test(\"Đăng xuất admin\", function () {",
+                  "  pm.expect([200]).to.include(pm.response.code);",
+                  "  if (pm.response.code < 400 && body && Object.prototype.hasOwnProperty.call(body, \"success\")) {",
+                  "    pm.expect(body.success).to.eql(true);",
+                  "  }",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

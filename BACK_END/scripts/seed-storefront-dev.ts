@@ -114,6 +114,20 @@ async function main() {
     },
     { upsert: true },
   );
+  const adminPassword = await bcrypt.hash("Admin@123456", 12);
+  await User.findOneAndUpdate(
+    { email: "admin@example.com" },
+    {
+      name: "Quản trị",
+      email: "admin@example.com",
+      phone: "0901000001",
+      password: adminPassword,
+      role: "admin",
+      status: "active",
+      emailVerifiedAt: new Date(),
+    },
+    { upsert: true },
+  );
   const password = await bcrypt.hash("Customer@123", 12);
   await User.findOneAndUpdate(
     { email: "customer@example.com" },
