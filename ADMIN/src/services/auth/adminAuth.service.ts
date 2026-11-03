@@ -1,26 +1,27 @@
 /**
  * =========================================================
- * FILE: ADMIN/src/services/auth/adminAuth.service.ts
+ * FILE: src/services/auth/adminAuth.service.ts
  * =========================================================
  *
  * NHIỆM VỤ:
- * - Gọi API xác thực và quản lý tài khoản Admin.
- * - Không xử lý logic giao diện tại service.
- * - Không tự xử lý request/response của Express.
- * - Dùng chung httpClient và authToken.
+ * - Đăng nhập Admin.
+ * - Quên mật khẩu.
+ * - Đặt lại mật khẩu.
+ * - Đổi mật khẩu.
+ * - Yêu cầu OTP đổi email.
+ * - Xác minh OTP đổi email.
+ * - Đăng xuất Admin.
  *
- * API PREFIX:
- * /api/admin
+ * Hồ sơ Admin và avatar được xử lý tại:
+ * src/services/profile/adminProfile.service.ts
  * =========================================================
  */
 
 import { httpClient, authToken } from '../api/httpClient';
 
-/**
- * =========================================================
- * TYPES
- * =========================================================
- */
+// =========================================================
+// TYPES
+// =========================================================
 
 export interface AdminLoginPayload {
   email: string;
@@ -38,16 +39,16 @@ export interface AdminResetPasswordPayload {
   confirmPassword?: string;
 }
 
+/**
+ * Payload backend nhận khi Admin đổi mật khẩu.
+ * confirmPassword chỉ dùng validate ở frontend,
+ * không gửi lên API này.
+ */
 export interface AdminChangePasswordPayload {
   currentPassword: string;
   newPassword: string;
-  confirmPassword?: string;
-}
+  confirmPassword: string;
 
-export interface AdminUpdateProfilePayload {
-  name?: string;
-  phone?: string;
-  avatar?: string | File;
 }
 
 export interface AdminRequestChangeEmailPayload {
@@ -59,39 +60,32 @@ export interface AdminVerifyChangeEmailPayload {
   otp: string;
 }
 
-/**
- * =========================================================
- * API ENDPOINTS
- * Đồng bộ với BACK_END/src/routes/admin.routes.ts
- * =========================================================
- */
+// =========================================================
+// ENDPOINTS
+// Đồng bộ với BACK_END/src/routes/admin.routes.ts
+// =========================================================
 
 const ADMIN_AUTH_ENDPOINTS = {
   login: '/admin/login',
   forgotPassword: '/admin/forgot-password',
   resetPassword: '/admin/reset-password',
+
+  // POST /api/admin/auth/change-password
   changePassword: '/admin/change-password',
-  me: '/admin/me',
-  profile: '/admin/profile',
+
   requestChangeEmailOtp: '/admin/change-email/request-otp',
   verifyChangeEmailOtp: '/admin/change-email/verify',
   logout: '/admin/logout',
 } as const;
 
-/**
- * =========================================================
- * ADMIN AUTH SERVICE
- * =========================================================
- */
+// =========================================================
+// ADMIN AUTH SERVICE
+// =========================================================
 
 export const adminAuthService = {
   /**
    * Đăng nhập Admin.
-   *
    * POST /api/admin/login
-   *
-   * Việc lưu token và lựa chọn ghi nhớ đăng nhập
-   * được xử lý ở LoginPage.
    */
   login(payload: AdminLoginPayload) {
     return httpClient.post<unknown>(
@@ -102,7 +96,6 @@ export const adminAuthService = {
 
   /**
    * Yêu cầu OTP đặt lại mật khẩu.
-   *
    * POST /api/admin/forgot-password
    */
   forgotPassword(payload: AdminForgotPasswordPayload) {
@@ -114,7 +107,6 @@ export const adminAuthService = {
 
   /**
    * Đặt lại mật khẩu bằng OTP.
-   *
    * POST /api/admin/reset-password
    */
   resetPassword(payload: AdminResetPasswordPayload) {
@@ -125,11 +117,14 @@ export const adminAuthService = {
   },
 
   /**
-   * Đổi mật khẩu khi Admin đã đăng nhập.
+   * Đổi mật khẩu Admin đã đăng nhập.
+   * POST /api/admin/auth/change-password
    *
-   * POST /api/admin/change-password
-   * Yêu cầu JWT.
+   * Backend nhận:
+   * - currentPassword
+   * - newPassword
    */
+
   changePassword(payload: AdminChangePasswordPayload) {
     return httpClient.post<unknown>(
       ADMIN_AUTH_ENDPOINTS.changePassword,
@@ -138,76 +133,8 @@ export const adminAuthService = {
   },
 
   /**
-   * Lấy thông tin Admin hiện tại.
-   *
-   * GET /api/admin/me
-   * Yêu cầu JWT.
-   */
-  getMe() {
-    return httpClient.get<unknown>(
-      ADMIN_AUTH_ENDPOINTS.me,
-    );
-  },
-
-  /**
-   * Cập nhật hồ sơ Admin.
-   *
-   * PATCH /api/admin/profile
-   * Yêu cầu JWT.
-   *
-   * Nếu avatar là File thì gửi multipart/form-data.
-   * Nếu không có File thì gửi JSON.
-   */
-  updateProfile(payload: AdminUpdateProfilePayload) {
-    const formData = new FormData();
-
-    if (payload.name !== undefined) {
-      formData.append('name', payload.name);
-    }
-
-    if (payload.phone !== undefined) {
-      formData.append('phone', payload.phone);
-    }
-
-    if (payload.avatar instanceof File) {
-      formData.append('avatar', payload.avatar);
-
-      return httpClient.patch<unknown>(
-        ADMIN_AUTH_ENDPOINTS.profile,
-        formData,
-      );
-    }
-
-    // Không gửi chuỗi avatar như thể đó là file upload.
-    const jsonPayload: {
-      name?: string;
-      phone?: string;
-      avatar?: string;
-    } = {};
-
-    if (payload.name !== undefined) {
-      jsonPayload.name = payload.name;
-    }
-
-    if (payload.phone !== undefined) {
-      jsonPayload.phone = payload.phone;
-    }
-
-    if (typeof payload.avatar === 'string') {
-      jsonPayload.avatar = payload.avatar;
-    }
-
-    return httpClient.patch<unknown>(
-      ADMIN_AUTH_ENDPOINTS.profile,
-      jsonPayload,
-    );
-  },
-
-  /**
-   * Yêu cầu OTP để đổi email Admin.
-   *
+   * Yêu cầu OTP để đổi email.
    * POST /api/admin/change-email/request-otp
-   * Yêu cầu JWT.
    */
   requestChangeEmailOtp(
     payload: AdminRequestChangeEmailPayload,
@@ -219,15 +146,13 @@ export const adminAuthService = {
   },
 
   /**
-   * Xác nhận đổi email bằng OTP.
-   *
+   * Xác minh OTP đổi email.
    * POST /api/admin/change-email/verify
-   * Yêu cầu JWT.
    */
   verifyChangeEmailOtp(
     payload: AdminVerifyChangeEmailPayload,
   ) {
-    return httpClient.post<unknown>(    
+    return httpClient.post<unknown>(
       ADMIN_AUTH_ENDPOINTS.verifyChangeEmailOtp,
       payload,
     );
@@ -235,7 +160,6 @@ export const adminAuthService = {
 
   /**
    * Đăng xuất Admin.
-   *
    * POST /api/admin/logout
    *
    * Luôn xóa token cục bộ kể cả khi API logout lỗi.

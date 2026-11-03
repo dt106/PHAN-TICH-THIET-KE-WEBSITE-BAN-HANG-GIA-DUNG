@@ -1,8 +1,7 @@
-
-import { httpClient } from "../api/httpClient";
+import { httpClient } from '../api/httpClient';
 
 // =========================================================
-// KIỂU DỮ LIỆU HỒ SƠ ADMIN
+// TYPES
 // =========================================================
 
 export interface AdminProfile {
@@ -11,8 +10,8 @@ export interface AdminProfile {
   email: string;
   phone: string | null;
   avatar: string | null;
-  role: "admin";
-  status: "active" | "inactive" | "blocked";
+  role: 'admin';
+  status: 'active' | 'inactive' | 'blocked';
   emailVerifiedAt: string | null;
 }
 
@@ -22,83 +21,77 @@ interface ApiResponse<T> {
   data: T;
 }
 
+interface AdminProfileData {
+  user: AdminProfile;
+}
+
+export interface UpdateAdminProfilePayload {
+  name: string;
+  phone: string;
+  avatarFile: File | null;
+}
+
 // =========================================================
-// LẤY HỒ SƠ ADMIN
+// ENDPOINTS
+// =========================================================
+
+const ADMIN_PROFILE_ENDPOINTS = {
+  me: '/admin/me',
+  profile: '/admin/profile',
+} as const;
+
+// =========================================================
+// GET ADMIN PROFILE
 // GET /api/admin/me
 // =========================================================
 
 export async function getAdminProfile(): Promise<AdminProfile> {
-  const response = await httpClient.get<ApiResponse<AdminProfile>>(
-    "/admin/me",
-  );
+  const response = await httpClient.get<
+    ApiResponse<AdminProfileData>
+  >(ADMIN_PROFILE_ENDPOINTS.me);
 
-  return response.data;
+  return response.data.user;
 }
 
 // =========================================================
-// CẬP NHẬT HỒ SƠ ADMIN
+// UPDATE ADMIN PROFILE
 // PATCH /api/admin/profile
+//
+// Có avatarFile:
+// - Gửi multipart/form-data.
+// - Backend upload ảnh lên Cloudinary.
+// - Backend lưu URL avatar vào MongoDB.
+//
+// Không có avatarFile:
+// - Gửi JSON.
+// - Chỉ cập nhật name/phone.
 // =========================================================
 
-export async function updateAdminProfile(data: {
-  name: string;
-  phone: string;
-  avatarFile: File | null;
-}): Promise<AdminProfile> {
-  const formData = new FormData();
+export async function updateAdminProfile(
+  payload: UpdateAdminProfilePayload,
+): Promise<AdminProfile> {
+  if (payload.avatarFile instanceof File) {
+    const formData = new FormData();
 
-  formData.append("name", data.name);
-  formData.append("phone", data.phone);
+    formData.append('name', payload.name);
+    formData.append('phone', payload.phone);
+    formData.append('avatar', payload.avatarFile);
 
-  if (data.avatarFile) {
-    formData.append("avatar", data.avatarFile);
+    const response = await httpClient.patch<
+      ApiResponse<AdminProfileData>
+    >(ADMIN_PROFILE_ENDPOINTS.profile, formData);
+
+    return response.data.user;
   }
 
-  const response = await httpClient.patch<ApiResponse<AdminProfile>>(
-    "/admin/profile",
-    formData,
-  );
+  const jsonPayload = {
+    name: payload.name,
+    phone: payload.phone,
+  };
 
-  return response.data;
+  const response = await httpClient.patch<
+    ApiResponse<AdminProfileData>
+  >(ADMIN_PROFILE_ENDPOINTS.profile, jsonPayload);
+
+  return response.data.user;
 }
-
-// =========================================================
-// ĐỔI MẬT KHẨU ADMIN
-// POST /api/admin/change-password
-// =========================================================
-
-export async function changeAdminPassword(data: {
-  currentPassword: string;
-  newPassword: string;
-}): Promise<void> {
-  await httpClient.post("/admin/change-password", data);
-}
-
-// =========================================================
-// YÊU CẦU OTP ĐỔI EMAIL
-// POST /api/admin/change-email/request-otp
-// =========================================================
-
-export async function requestAdminEmailOtp(
-  newEmail: string,
-): Promise<void> {
-  await httpClient.post("/admin/change-email/request-otp", {
-    newEmail,
-  });
-}
-
-// =========================================================
-// XÁC MINH OTP ĐỔI EMAIL
-// POST /api/admin/change-email/verify
-// =========================================================
-
-export async function verifyAdminEmailOtp(data: {
-  newEmail: string;
-  otp: string;
-}): Promise<AdminProfile> {
-  const response = await httpClient.post<ApiResponse<AdminProfile>>(
-    "/admin/change-email/verify",
-    data,
-  );
-
-return response.data;}
