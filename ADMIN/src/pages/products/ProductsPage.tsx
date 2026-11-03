@@ -1,5 +1,7 @@
 import {
+  ArrowDown,
   ArrowDownUp,
+  ArrowUp,
   Eye,
   Package,
   Pencil,
@@ -13,11 +15,12 @@ import {
 import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 
-import PageHeader from '../../components/shared/PageHeader';
-import SearchBar from '../../components/shared/SearchBar';
-import FilterBar from '../../components/shared/FilterBar';
-import Pagination from '../../components/shared/Pagination';
+import ConfirmDialog from '../../components/shared/ConfirmDialog';
 import DataTable from '../../components/shared/DataTable';
+import FilterBar from '../../components/shared/FilterBar';
+import PageHeader from '../../components/shared/PageHeader';
+import Pagination from '../../components/shared/Pagination';
+import SearchBar from '../../components/shared/SearchBar';
 import StatCard from '../../components/shared/StatCard';
 import StatusBadge from '../../components/shared/StatusBadge';
 import { Button } from '../../components/ui/buttons/Button';
@@ -97,16 +100,17 @@ export default function ProductsPage() {
   const [sortByPrice, setSortByPrice] = useState<'asc' | 'desc' | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Product | null>(null);
 
-  const stats = useMemo(() => {
-    return {
+  const stats = useMemo(
+    () => ({
       total: products.length,
       active: products.filter((product) => product.status === 'active').length,
       lowStock: products.filter(
         (product) => product.stock > 0 && product.stock <= 10,
       ).length,
       outOfStock: products.filter((product) => product.stock <= 0).length,
-    };
-  }, [products]);
+    }),
+    [products],
+  );
 
   const filteredProducts = useMemo(() => {
     const keyword = search.trim().toLowerCase();
@@ -129,16 +133,17 @@ export default function ProductsPage() {
       return matchesSearch && matchesStatus && matchesStock;
     });
 
-    if (sortByPrice) {
-      result.sort((a, b) =>
-        sortByPrice === 'asc' ? a.price - b.price : b.price - a.price,
-      );
-    }
+    if (!sortByPrice) return result;
 
-    return result;
+    return [...result].sort((a, b) =>
+      sortByPrice === 'asc' ? a.price - b.price : b.price - a.price,
+    );
   }, [products, search, statusFilter, stockFilter, sortByPrice]);
 
-  const totalPages = Math.max(1, Math.ceil(filteredProducts.length / pageSize));
+  const totalPages = Math.max(
+    1,
+    Math.ceil(filteredProducts.length / pageSize),
+  );
   const currentPage = Math.min(page, totalPages);
 
   const paginatedProducts = filteredProducts.slice(
@@ -170,6 +175,7 @@ export default function ProductsPage() {
     saveProducts(nextProducts);
     setProducts(nextProducts);
     setDeleteTarget(null);
+
     setPage((current) =>
       Math.min(
         current,
@@ -229,15 +235,21 @@ export default function ProductsPage() {
             );
             setPage(1);
           }}
-          className="inline-flex items-center gap-2 whitespace-nowrap transition-colors hover:text-accent-primary"
-          aria-label="Sắp xếp theo giá bán"
+          className="inline-flex items-center gap-2 whitespace-nowrap rounded-md transition-colors hover:text-accent-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary"
+          aria-label={`Sắp xếp giá ${sortByPrice === 'asc'
+            ? 'từ thấp đến cao'
+            : sortByPrice === 'desc'
+              ? 'từ cao đến thấp'
+              : ''
+            }`}
         >
           GIÁ BÁN
-          <ArrowDownUp className="h-3.5 w-3.5" />
-          {sortByPrice && (
-            <span className="text-accent-primary">
-              {sortByPrice === 'asc' ? '↑' : '↓'}
-            </span>
+          {sortByPrice === 'asc' ? (
+            <ArrowUp className="h-3.5 w-3.5 text-accent-primary" />
+          ) : sortByPrice === 'desc' ? (
+            <ArrowDown className="h-3.5 w-3.5 text-accent-primary" />
+          ) : (
+            <ArrowDownUp className="h-3.5 w-3.5" />
           )}
         </button>
       ),
@@ -300,7 +312,7 @@ export default function ProductsPage() {
     {
       key: 'actions',
       header: 'THAO TÁC',
-      className: 'min-w-32 text-right',
+      className: 'min-w-36 text-right',
       headerClassName: 'text-right',
       render: (product: Product) => (
         <div className="flex items-center justify-end gap-1">
@@ -308,7 +320,7 @@ export default function ProductsPage() {
             to={`/products/${product.id}`}
             title="Xem chi tiết"
             aria-label={`Xem ${product.name}`}
-            className="inline-flex h-9 w-9 items-center justify-center rounded-lg text-text-secondary transition-colors hover:bg-bg-hover hover:text-accent-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary"
+            className="inline-flex h-10 w-10 items-center justify-center rounded-lg text-text-secondary transition-colors hover:bg-bg-hover hover:text-accent-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary"
           >
             <Eye className="h-4 w-4" />
           </Link>
@@ -317,7 +329,7 @@ export default function ProductsPage() {
             to={`/products/${product.id}/edit`}
             title="Chỉnh sửa"
             aria-label={`Sửa ${product.name}`}
-            className="inline-flex h-9 w-9 items-center justify-center rounded-lg text-text-secondary transition-colors hover:bg-bg-hover hover:text-accent-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary"
+            className="inline-flex h-10 w-10 items-center justify-center rounded-lg text-text-secondary transition-colors hover:bg-bg-hover hover:text-accent-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary"
           >
             <Pencil className="h-4 w-4" />
           </Link>
@@ -327,7 +339,7 @@ export default function ProductsPage() {
             title="Xóa sản phẩm"
             aria-label={`Xóa ${product.name}`}
             onClick={() => setDeleteTarget(product)}
-            className="inline-flex h-9 w-9 items-center justify-center rounded-lg text-text-secondary transition-colors hover:bg-red-500/10 hover:text-red-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-400"
+            className="inline-flex h-10 w-10 items-center justify-center rounded-lg text-text-secondary transition-colors hover:bg-red-500/10 hover:text-red-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-400"
           >
             <X className="h-4 w-4" />
           </button>
@@ -337,7 +349,7 @@ export default function ProductsPage() {
   ];
 
   return (
-    <main className="mx-auto w-full min-w-0 max-w-[1600px] space-y-6 pb-8">
+    <main className="mx-auto w-full min-w-0 max-w-[1600px] space-y-5 p-4 pb-8 sm:p-5 sm:pb-8 xl:p-6 xl:pb-8">      {/* Page header */}
       <PageHeader
         title="Quản lý sản phẩm"
         description="Theo dõi danh sách sản phẩm, giá bán và tình trạng tồn kho."
@@ -355,6 +367,7 @@ export default function ProductsPage() {
         }
       />
 
+      {/* Statistics */}
       <section
         aria-label="Thống kê sản phẩm"
         className="grid grid-cols-1 gap-4 sm:grid-cols-2 2xl:grid-cols-4"
@@ -365,18 +378,21 @@ export default function ProductsPage() {
           icon={ShoppingBag}
           accent="primary"
         />
+
         <StatCard
           label="Đang kinh doanh"
           value={String(stats.active)}
           icon={Package}
           accent="cyan"
         />
+
         <StatCard
           label="Sắp hết hàng"
           value={String(stats.lowStock)}
           icon={TriangleAlert}
           accent="warning"
         />
+
         <StatCard
           label="Hết hàng"
           value={String(stats.outOfStock)}
@@ -385,13 +401,16 @@ export default function ProductsPage() {
         />
       </section>
 
-      <section className="min-w-0 overflow-hidden rounded-2xl border border-border-default bg-bg-surface shadow-sm">
+      {/* Product list */}
+      <section className="min-w-0 overflow-hidden rounded-2xl border border-border-default bg-bg-surface">
+        {/* List heading + search */}
         <div className="flex flex-col gap-4 border-b border-border-default p-4 sm:p-5 xl:flex-row xl:items-center xl:justify-between">
           <div className="min-w-0">
             <div className="flex items-center gap-2">
               <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-accent-primary/10 text-accent-primary">
                 <Package className="h-4 w-4" />
               </div>
+
               <h2 className="text-base font-semibold text-text-primary">
                 Danh sách sản phẩm
               </h2>
@@ -414,6 +433,7 @@ export default function ProductsPage() {
           </div>
         </div>
 
+        {/* Filters */}
         <div className="border-b border-border-default bg-bg-app/30 px-4 py-4 sm:px-5">
           <FilterBar
             showReset={hasActiveFilters}
@@ -434,7 +454,7 @@ export default function ProductsPage() {
                   setStatusFilter(event.target.value as StatusFilter);
                   setPage(1);
                 }}
-                className="h-10 w-full min-w-0 rounded-xl border border-border-default bg-bg-elevated px-3 text-sm text-text-primary outline-none transition-colors focus:border-accent-primary focus:ring-2 focus:ring-accent-primary/15 sm:w-auto sm:min-w-40"
+                className="h-[42px] w-full min-w-0 rounded-xl border border-border-default bg-bg-elevated px-3 text-sm text-text-primary outline-none transition-colors focus:border-accent-primary focus:ring-2 focus:ring-accent-primary/15 sm:w-auto sm:min-w-40"
                 aria-label="Lọc theo trạng thái"
               >
                 <option value="all">Tất cả trạng thái</option>
@@ -449,7 +469,7 @@ export default function ProductsPage() {
                   setStockFilter(event.target.value as StockFilter);
                   setPage(1);
                 }}
-                className="h-10 w-full min-w-0 rounded-xl border border-border-default bg-bg-elevated px-3 text-sm text-text-primary outline-none transition-colors focus:border-accent-primary focus:ring-2 focus:ring-accent-primary/15 sm:w-auto sm:min-w-40"
+                className="h-[42px] w-full min-w-0 rounded-xl border border-border-default bg-bg-elevated px-3 text-sm text-text-primary outline-none transition-colors focus:border-accent-primary focus:ring-2 focus:ring-accent-primary/15 sm:w-auto sm:min-w-40"
                 aria-label="Lọc theo tồn kho"
               >
                 <option value="all">Tất cả tồn kho</option>
@@ -459,12 +479,16 @@ export default function ProductsPage() {
               </select>
 
               {sortByPrice && (
-                <span className="inline-flex h-9 items-center gap-2 self-start rounded-lg border border-border-default bg-bg-elevated px-3 text-xs text-text-secondary sm:self-auto">
-                  Giá: {sortByPrice === 'asc' ? 'Thấp đến cao' : 'Cao đến thấp'}
+                <span className="inline-flex min-h-9 items-center gap-2 self-start rounded-lg border border-border-default bg-bg-elevated px-3 text-xs text-text-secondary sm:self-auto">
+                  Giá:{' '}
+                  {sortByPrice === 'asc'
+                    ? 'Thấp đến cao'
+                    : 'Cao đến thấp'}
+
                   <button
                     type="button"
                     onClick={() => setSortByPrice(null)}
-                    className="text-text-muted hover:text-text-primary"
+                    className="inline-flex h-6 w-6 items-center justify-center rounded-md text-text-muted transition-colors hover:bg-bg-hover hover:text-text-primary"
                     aria-label="Bỏ sắp xếp giá"
                   >
                     <X className="h-3.5 w-3.5" />
@@ -484,6 +508,7 @@ export default function ProductsPage() {
           </FilterBar>
         </div>
 
+        {/* Table */}
         <div className="min-w-0">
           <DataTable
             columns={columns}
@@ -494,6 +519,7 @@ export default function ProductsPage() {
           />
         </div>
 
+        {/* Pagination */}
         <div className="border-t border-border-default bg-bg-app/20 px-4 py-4 sm:px-5">
           <Pagination
             page={currentPage}
@@ -508,63 +534,21 @@ export default function ProductsPage() {
         </div>
       </section>
 
-      {deleteTarget && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-black/70 p-4 backdrop-blur-sm"
-          onMouseDown={(event) => {
-            if (event.target === event.currentTarget) {
-              setDeleteTarget(null);
-            }
-          }}
-        >
-          <div
-            role="alertdialog"
-            aria-modal="true"
-            aria-labelledby="delete-product-title"
-            aria-describedby="delete-product-description"
-            className="my-auto w-full max-w-md rounded-2xl border border-border-default bg-bg-surface p-5 shadow-2xl sm:p-6"
-          >
-            <div className="mb-4 flex h-11 w-11 items-center justify-center rounded-xl bg-red-500/10 text-red-400">
-              <TriangleAlert className="h-5 w-5" />
-            </div>
-
-            <h2
-              id="delete-product-title"
-              className="text-lg font-semibold text-text-primary"
-            >
-              Xóa sản phẩm?
-            </h2>
-
-            <p
-              id="delete-product-description"
-              className="mt-2 wrap-break-word text-sm leading-6 text-text-secondary"
-            >
-              M có chắc muốn xóa{' '}
-              <span className="font-semibold text-text-primary">
-                {deleteTarget.name}
-              </span>
-              ? Sản phẩm sẽ bị xóa khỏi danh sách mock được lưu trên trình duyệt.
-            </p>
-
-            <div className="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
-              <Button
-                variant="secondary"
-                onClick={() => setDeleteTarget(null)}
-              >
-                Hủy
-              </Button>
-
-              <Button
-                variant="primary"
-                onClick={handleDelete}
-              >
-                <X className="mr-2 h-4 w-4" />
-                Xác nhận xóa
-              </Button>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* Delete confirmation */}
+      <ConfirmDialog
+        open={Boolean(deleteTarget)}
+        title="Xóa sản phẩm?"
+        description={
+          deleteTarget
+            ? `Bạn có chắc muốn xóa "${deleteTarget.name}"? Sản phẩm sẽ bị xóa khỏi danh sách mock được lưu trên trình duyệt.`
+            : ''
+        }
+        confirmText="Xác nhận xóa"
+        cancelText="Hủy"
+        variant="danger"
+        onConfirm={handleDelete}
+        onCancel={() => setDeleteTarget(null)}
+      />
     </main>
   );
 }
