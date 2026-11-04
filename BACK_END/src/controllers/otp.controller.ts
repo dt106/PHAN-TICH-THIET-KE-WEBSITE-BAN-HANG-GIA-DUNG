@@ -34,11 +34,7 @@
 
 import { Request, Response } from "express";
 
-import {
-  OTPType,
-  sendOtp,
-  verifyOtpService,
-} from "../services/otp.service";
+import { OTPType, sendOtp, verifyOtpService } from "../services/otp.service";
 
 /**
  * =========================================================
@@ -50,9 +46,7 @@ import {
  * =========================================================
  */
 
-const getErrorMessage = (
-  error: unknown,
-): string => {
+const getErrorMessage = (error: unknown): string => {
   if (error instanceof Error) {
     return error.message;
   }
@@ -70,13 +64,9 @@ const getErrorMessage = (
  * =========================================================
  */
 
-const isValidOtpType = (
-  type: unknown,
-): type is OTPType => {
+const isValidOtpType = (type: unknown): type is OTPType => {
   return (
-    type === "register" ||
-    type === "reset_password" ||
-    type === "change_email"
+    type === "register" || type === "reset_password" || type === "change_email"
   );
 };
 
@@ -117,17 +107,14 @@ export const requestOtp = async (
 ): Promise<Response> => {
   try {
     const { email, type } = req.body;
-
+    console.log(email, type);
     /**
      * -------------------------------------------------------
      * KIỂM TRA EMAIL
      * -------------------------------------------------------
      */
 
-    if (
-      typeof email !== "string" ||
-      !email.trim()
-    ) {
+    if (typeof email !== "string" || !email.trim()) {
       return res.status(400).json({
         success: false,
         message: "Email là bắt buộc.",
@@ -140,14 +127,10 @@ export const requestOtp = async (
      * -------------------------------------------------------
      */
 
-    if (
-      type !== "register" &&
-      type !== "reset_password"
-    ) {
+    if (type !== "register" && type !== "reset_password") {
       return res.status(400).json({
         success: false,
-        message:
-          "Loại OTP không hợp lệ.",
+        message: "Loại OTP không hợp lệ.",
       });
     }
 
@@ -157,10 +140,7 @@ export const requestOtp = async (
      * -------------------------------------------------------
      */
 
-    const result = await sendOtp(
-      email,
-      type,
-    );
+    const result = await sendOtp(email, type);
 
     /**
      * -------------------------------------------------------
@@ -184,19 +164,14 @@ export const requestOtp = async (
 
     return res.status(200).json({
       success: true,
-      message:
-        "Mã OTP đã được gửi đến email của bạn.",
+      message: "Mã OTP đã được gửi đến email của bạn.",
     });
   } catch (error) {
-    console.error(
-      "Lỗi khi gửi OTP:",
-      error,
-    );
+    console.error("Lỗi khi gửi OTP:", error);
 
     return res.status(500).json({
       success: false,
-      message:
-        "Không thể gửi email OTP. Vui lòng thử lại sau.",
+      message: "Không thể gửi email OTP. Vui lòng thử lại sau.",
     });
   }
 };
@@ -249,14 +224,8 @@ export const resendOtp = async (
  * =========================================================
  */
 
-export const verifyRegisterOtp = (
-  req: Request,
-  res: Response,
-): Response => {
-  const {
-    email,
-    otp,
-  } = req.body;
+export const verifyRegisterOtp = (req: Request, res: Response): Response => {
+  const { email, otp } = req.body;
 
   /**
    * -------------------------------------------------------
@@ -272,8 +241,7 @@ export const verifyRegisterOtp = (
   ) {
     return res.status(400).json({
       success: false,
-      message:
-        "Email và mã OTP là bắt buộc.",
+      message: "Email và mã OTP là bắt buộc.",
     });
   }
 
@@ -283,11 +251,7 @@ export const verifyRegisterOtp = (
    * -------------------------------------------------------
    */
 
-  const result = verifyOtpService(
-    email,
-    otp,
-    "register",
-  );
+  const result = verifyOtpService(email, otp, "register");
 
   /**
    * -------------------------------------------------------
@@ -298,8 +262,7 @@ export const verifyRegisterOtp = (
   if (!result) {
     return res.status(400).json({
       success: false,
-      message:
-        "OTP không hợp lệ hoặc đã hết hạn.",
+      message: "OTP không hợp lệ hoặc đã hết hạn.",
     });
   }
 
@@ -311,8 +274,7 @@ export const verifyRegisterOtp = (
 
   return res.status(200).json({
     success: true,
-    message:
-      "Xác thực OTP thành công. Bạn có thể tiếp tục đăng ký tài khoản.",
+    message: "Xác thực OTP thành công. Bạn có thể tiếp tục đăng ký tài khoản.",
   });
 };
 
@@ -337,10 +299,7 @@ export const verifyResetPasswordOtp = (
   req: Request,
   res: Response,
 ): Response => {
-  const {
-    email,
-    otp,
-  } = req.body;
+  const { email, otp } = req.body;
 
   /**
    * -------------------------------------------------------
@@ -356,8 +315,7 @@ export const verifyResetPasswordOtp = (
   ) {
     return res.status(400).json({
       success: false,
-      message:
-        "Email và mã OTP là bắt buộc.",
+      message: "Email và mã OTP là bắt buộc.",
     });
   }
 
@@ -367,11 +325,7 @@ export const verifyResetPasswordOtp = (
    * -------------------------------------------------------
    */
 
-  const result = verifyOtpService(
-    email,
-    otp,
-    "reset_password",
-  );
+  const result = verifyOtpService(email, otp, "reset_password");
 
   /**
    * -------------------------------------------------------
@@ -382,8 +336,7 @@ export const verifyResetPasswordOtp = (
   if (!result) {
     return res.status(400).json({
       success: false,
-      message:
-        "OTP không hợp lệ hoặc đã hết hạn.",
+      message: "OTP không hợp lệ hoặc đã hết hạn.",
     });
   }
 
@@ -395,8 +348,7 @@ export const verifyResetPasswordOtp = (
 
   return res.status(200).json({
     success: true,
-    message:
-      "OTP reset mật khẩu hợp lệ.",
+    message: "OTP reset mật khẩu hợp lệ.",
   });
 };
 
@@ -456,8 +408,7 @@ export const requestChangeEmailOtp = async (
     if (!req.user) {
       return res.status(401).json({
         success: false,
-        message:
-          "Bạn chưa đăng nhập.",
+        message: "Bạn chưa đăng nhập.",
       });
     }
 
@@ -470,8 +421,7 @@ export const requestChangeEmailOtp = async (
     if (req.user.role !== "admin") {
       return res.status(403).json({
         success: false,
-        message:
-          "Bạn không có quyền thực hiện chức năng này.",
+        message: "Bạn không có quyền thực hiện chức năng này.",
       });
     }
 
@@ -483,14 +433,10 @@ export const requestChangeEmailOtp = async (
 
     const { newEmail } = req.body;
 
-    if (
-      typeof newEmail !== "string" ||
-      !newEmail.trim()
-    ) {
+    if (typeof newEmail !== "string" || !newEmail.trim()) {
       return res.status(400).json({
         success: false,
-        message:
-          "Email mới là bắt buộc.",
+        message: "Email mới là bắt buộc.",
       });
     }
 
@@ -500,8 +446,7 @@ export const requestChangeEmailOtp = async (
      * -------------------------------------------------------
      */
 
-    const normalizedEmail =
-      newEmail.trim().toLowerCase();
+    const normalizedEmail = newEmail.trim().toLowerCase();
 
     /**
      * -------------------------------------------------------
@@ -509,16 +454,12 @@ export const requestChangeEmailOtp = async (
      * -------------------------------------------------------
      */
 
-    const emailRegex =
-      /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-    if (
-      !emailRegex.test(normalizedEmail)
-    ) {
+    if (!emailRegex.test(normalizedEmail)) {
       return res.status(400).json({
         success: false,
-        message:
-          "Email không đúng định dạng.",
+        message: "Email không đúng định dạng.",
       });
     }
 
@@ -566,19 +507,14 @@ export const requestChangeEmailOtp = async (
 
     return res.status(200).json({
       success: true,
-      message:
-        "Mã OTP đã được gửi đến email mới.",
+      message: "Mã OTP đã được gửi đến email mới.",
     });
   } catch (error) {
-    console.error(
-      "Lỗi khi gửi OTP đổi email:",
-      error,
-    );
+    console.error("Lỗi khi gửi OTP đổi email:", error);
 
     return res.status(500).json({
       success: false,
-      message:
-        "Không thể gửi OTP. Vui lòng thử lại sau.",
+      message: "Không thể gửi OTP. Vui lòng thử lại sau.",
     });
   }
 };

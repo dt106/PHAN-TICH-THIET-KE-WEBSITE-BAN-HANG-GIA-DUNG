@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import room1 from "../../assets/images/gallery/room-1.png";
 import room2 from "../../assets/images/gallery/room-2.png";
@@ -12,8 +12,14 @@ import share6 from "../../assets/images/gallery/share-6.png";
 import share7 from "../../assets/images/gallery/share-7.png";
 import share8 from "../../assets/images/gallery/share-8.png";
 import share9 from "../../assets/images/gallery/share-9.png";
+import bedroom from "../../assets/images/bedroom.png";
+import dining from "../../assets/images/dining.png";
+import living from "../../assets/images/living.png";
 import { ProductCard } from "../../components/product/ProductCard.tsx";
-import { categories, products } from "../../data/catalog.ts";
+import { toCard } from "../../lib/productView.ts";
+import { catalogService } from "../../services/catalog.service.ts";
+import { errorText } from "../../services/http.ts";
+import type { Category, Product } from "../../types/api.ts";
 import styles from "./HomePage.module.css";
 
 const rooms = [
@@ -21,12 +27,27 @@ const rooms = [
   { image: room2, index: "02", label: "Living", title: "Living Room" },
   { image: room3, index: "03", label: "Dining", title: "Dining Room" },
 ];
-
 const gallery = [share1, share2, share3, share4, share5, share6, share7, share8, share9];
+const fallbackImages = [dining, living, bedroom];
 
 export function HomePage() {
   const [roomIndex, setRoomIndex] = useState(0);
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [products, setProducts] = useState<Product[]>([]);
+  const [error, setError] = useState("");
   const visibleRooms = [0, 1].map((offset) => rooms[(roomIndex + offset) % rooms.length]);
+
+  useEffect(() => {
+    Promise.all([
+      catalogService.getCategories({ parentId: "null", limit: 12 }),
+      catalogService.getFeaturedProducts(8),
+    ])
+      .then(([categoryResult, productResult]) => {
+        setCategories(categoryResult.data);
+        setProducts(productResult.data);
+      })
+      .catch((reason: unknown) => setError(errorText(reason)));
+  }, []);
 
   return (
     <>
@@ -38,10 +59,7 @@ export function HomePage() {
             <br />
             New Collection
           </h1>
-          <p>
-            Lorem ipsum dolor sit amet, consectetur adipiscing elit. Ut elit
-            tellus, luctus nec ullamcorper mattis.
-          </p>
+          <p>Sản phẩm nổi bật và danh mục lấy từ cửa hàng.</p>
           <Link to="/shop" className={styles.buy}>
             Buy Now
           </Link>
@@ -50,14 +68,12 @@ export function HomePage() {
 
       <section className={`wrap ${styles.section}`}>
         <h2>Browse The Range</h2>
-        <p className={styles.lead}>
-          Lorem ipsum dolor sit amet, consectetur adipiscing elit.
-        </p>
+        {error ? <p>{error}</p> : null}
         <div className={styles.ranges}>
-          {categories.map((category) => (
+          {categories.map((category, index) => (
             <Link key={category.id} to={`/shop?category=${category.id}`}>
-              <img src={category.image} alt="" />
-              {category.label}
+              <img src={category.image || fallbackImages[index % fallbackImages.length]} alt="" />
+              {category.name}
             </Link>
           ))}
         </div>
@@ -67,7 +83,7 @@ export function HomePage() {
         <h2>Our Products</h2>
         <div className={styles.grid}>
           {products.map((product) => (
-            <ProductCard key={product.slug} product={product} />
+            <ProductCard key={product.id} product={toCard(product)} />
           ))}
         </div>
         <Link to="/shop" className={styles.more}>
@@ -82,11 +98,8 @@ export function HomePage() {
             <br />
             inspiration
           </h2>
-          <p>
-            Our designer already made a lot of beautiful prototipe of rooms that
-            inspire you
-          </p>
-          <Link to="/shop?category=bedroom" className={styles.buy}>
+          <p>Bộ sưu tập hình ảnh trưng bày, không lấy từ API.</p>
+          <Link to="/shop" className={styles.buy}>
             Explore More
           </Link>
         </div>

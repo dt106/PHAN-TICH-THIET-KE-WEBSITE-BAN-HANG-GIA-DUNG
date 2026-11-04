@@ -87,6 +87,16 @@ app.use(
   }),
 );
 
+app.use((req, res, next) => {
+  const started = Date.now();
+  res.on("finish", () => {
+    console.log(
+      `[${new Date().toISOString()}] ${req.method} ${req.originalUrl} ${res.statusCode} ${Date.now() - started}ms`,
+    );
+  });
+  next();
+});
+
 /**
  * 7. HEALTH CHECK
  *
