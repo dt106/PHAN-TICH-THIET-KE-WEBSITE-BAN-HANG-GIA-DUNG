@@ -1,5 +1,6 @@
 
-import { useEffect, useState } from 'react';
+
+import { useState } from 'react';
 import {
   FolderTree,
   MoreHorizontal,
@@ -37,23 +38,26 @@ export default function CategoryTable({
 }: CategoryTableProps) {
   const [menuId, setMenuId] = useState<string | null>(null);
 
-  // Đóng menu khi danh sách thay đổi.
-  useEffect(() => {
-    setMenuId(null);
-  }, [categories]);
+  const getCategoryKey = (category: Category, index: number) => {
+    const id = String(category.id ?? '').trim();
 
-  // Lấy tên danh mục cha.
+    // ID backend là khóa ưu tiên; slug/name là fallback nếu dữ liệu chưa chuẩn.
+    return id || category.slug?.trim() || `${category.name}-${index}`;
+  };
+
   const getParentName = (parentId: string | null) => {
     if (!parentId) return 'Danh mục gốc';
 
     return (
-      allCategories.find((item) => item.id === parentId)?.name ??
-      'Không xác định'
+      allCategories.find(
+        (item) => String(item.id) === String(parentId),
+      )?.name ?? 'Không xác định'
     );
   };
 
-  // Định dạng ngày tạo an toàn với dữ liệu ISO hoặc YYYY-MM-DD.
   const formatCreatedDate = (createdAt: string) => {
+    if (!createdAt) return '—';
+
     const date = /^\d{4}-\d{2}-\d{2}$/.test(createdAt)
       ? new Date(`${createdAt}T00:00:00`)
       : new Date(createdAt);
@@ -95,153 +99,148 @@ export default function CategoryTable({
       </TableHeader>
 
       <TableBody>
-        {categories.map((category) => (
-          <TableRow key={category.id}>
-            {/* Thông tin danh mục */}
-            <TableCell>
-              <div className="flex items-start gap-3 py-2">
-                <div className="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-border-default bg-bg-elevated text-accent-primary">
-                  <FolderTree size={18} />
-                </div>
+        {categories.map((category, index) => {
+          const categoryKey = getCategoryKey(category, index);
+          const isActive = category.status === 'active';
+          const isMenuOpen = menuId === categoryKey;
 
-                <div className="min-w-0">
-                  <p className="font-medium text-text-primary">
-                    {category.name}
-                  </p>
+          return (
+            <TableRow key={categoryKey}>
+              <TableCell>
+                <div className="flex items-start gap-3 py-2">
+                  <div className="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-border-default bg-bg-elevated text-accent-primary">
+                    <FolderTree size={18} />
+                  </div>
 
-                  <p className="mt-1 text-xs text-text-muted">
-                    {category.slug}
-                  </p>
-
-                  {category.description && (
-                    <p className="mt-1 max-w-xs truncate text-xs text-text-muted">
-                      {category.description}
+                  <div className="min-w-0">
+                    <p className="font-medium text-text-primary">
+                      {category.name}
                     </p>
-                  )}
+
+                    <p className="mt-1 text-xs text-text-muted">
+                      {category.slug}
+                    </p>
+
+                    {category.description && (
+                      <p className="mt-1 max-w-xs truncate text-xs text-text-muted">
+                        {category.description}
+                      </p>
+                    )}
+                  </div>
                 </div>
-              </div>
-            </TableCell>
+              </TableCell>
 
-            {/* Danh mục cha */}
-            <TableCell>
-              <span className="text-sm text-text-secondary">
-                {getParentName(category.parentId)}
-              </span>
-            </TableCell>
+              <TableCell>
+                <span className="text-sm text-text-secondary">
+                  {getParentName(category.parentId)}
+                </span>
+              </TableCell>
 
-            {/* Số lượng sản phẩm */}
-            <TableCell>
-              <span className="font-medium tabular-nums text-text-primary">
-                {category.productCount.toLocaleString('vi-VN')}
-              </span>
+              <TableCell>
+                <span className="font-medium tabular-nums text-text-primary">
+                  {category.productCount.toLocaleString('vi-VN')}
+                </span>
+                <span className="ml-1 text-xs text-text-muted">
+                  sản phẩm
+                </span>
+              </TableCell>
 
-              <span className="ml-1 text-xs text-text-muted">
-                sản phẩm
-              </span>
-            </TableCell>
-
-            {/* Trạng thái */}
-            <TableCell>
-              <span
-                className={
-                  category.status === 'active'
-                    ? 'inline-flex items-center gap-2 rounded-full border border-accent-primary/20 bg-accent-primary/10 px-2.5 py-1 text-xs font-medium text-accent-primary'
-                    : 'inline-flex items-center gap-2 rounded-full border border-border-default bg-bg-elevated px-2.5 py-1 text-xs font-medium text-text-muted'
-                }
-              >
+              <TableCell>
                 <span
                   className={
-                    category.status === 'active'
-                      ? 'h-1.5 w-1.5 rounded-full bg-accent-primary'
-                      : 'h-1.5 w-1.5 rounded-full bg-text-muted'
-                  }
-                />
-
-                {category.status === 'active' ? 'Hoạt động' : 'Đã tắt'}
-              </span>
-            </TableCell>
-
-            {/* Ngày tạo */}
-            <TableCell>
-              <span className="text-sm text-text-muted">
-                {formatCreatedDate(category.createdAt)}
-              </span>
-            </TableCell>
-
-            {/* Menu thao tác */}
-            <TableCell>
-              <div className="relative flex justify-end">
-                <Button
-                  type="button"
-                  variant="icon"
-                  aria-label={`Thao tác với ${category.name}`}
-                  aria-expanded={menuId === category.id}
-                  onClick={() =>
-                    setMenuId((current) =>
-                      current === category.id ? null : category.id,
-                    )
+                    isActive
+                      ? 'inline-flex items-center gap-2 rounded-full border border-accent-primary/20 bg-accent-primary/10 px-2.5 py-1 text-xs font-medium text-accent-primary'
+                      : 'inline-flex items-center gap-2 rounded-full border border-border-default bg-bg-elevated px-2.5 py-1 text-xs font-medium text-text-muted'
                   }
                 >
-                  <MoreHorizontal size={18} />
-                </Button>
+                  <span
+                    className={
+                      isActive
+                        ? 'h-1.5 w-1.5 rounded-full bg-accent-primary'
+                        : 'h-1.5 w-1.5 rounded-full bg-text-muted'
+                    }
+                  />
+                  {isActive ? 'Hoạt động' : 'Đã tắt'}
+                </span>
+              </TableCell>
 
-                {menuId === category.id && (
-                  <>
-                    <button
-                      type="button"
-                      aria-label="Đóng menu thao tác"
-                      className="fixed inset-0 z-20 cursor-default"
-                      onClick={() => setMenuId(null)}
-                    />
+              <TableCell>
+                <span className="text-sm text-text-muted">
+                  {formatCreatedDate(category.createdAt)}
+                </span>
+              </TableCell>
 
-                    <div className="absolute right-0 top-10 z-30 w-48 rounded-xl border border-border-default bg-bg-elevated p-1.5 shadow-xl">
+              <TableCell>
+                <div className="relative flex justify-end">
+                  <Button
+                    type="button"
+                    variant="icon"
+                    aria-label={`Thao tác với ${category.name}`}
+                    aria-expanded={isMenuOpen}
+                    onClick={() =>
+                      setMenuId((current) =>
+                        current === categoryKey ? null : categoryKey,
+                      )
+                    }
+                  >
+                    <MoreHorizontal size={18} />
+                  </Button>
+
+                  {isMenuOpen && (
+                    <>
                       <button
                         type="button"
-                        onClick={() => {
-                          setMenuId(null);
-                          onEdit(category);
-                        }}
-                        className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2.5 text-left text-sm text-text-secondary transition hover:bg-bg-hover hover:text-text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary"
-                      >
-                        <Pencil size={15} />
-                        Chỉnh sửa
-                      </button>
+                        aria-label="Đóng menu thao tác"
+                        className="fixed inset-0 z-20 cursor-default"
+                        onClick={() => setMenuId(null)}
+                      />
 
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setMenuId(null);
-                          onToggleStatus(category);
-                        }}
-                        className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2.5 text-left text-sm text-text-secondary transition hover:bg-bg-hover hover:text-text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary"
-                      >
-                        <Power size={15} />
+                      <div className="absolute right-0 top-10 z-30 w-48 rounded-xl border border-border-default bg-bg-elevated p-1.5 shadow-xl">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setMenuId(null);
+                            onEdit(category);
+                          }}
+                          className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2.5 text-left text-sm text-text-secondary transition hover:bg-bg-hover hover:text-text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary"
+                        >
+                          <Pencil size={15} />
+                          Chỉnh sửa
+                        </button>
 
-                        {category.status === 'active'
-                          ? 'Ngừng hoạt động'
-                          : 'Kích hoạt'}
-                      </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setMenuId(null);
+                            onToggleStatus(category);
+                          }}
+                          className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2.5 text-left text-sm text-text-secondary transition hover:bg-bg-hover hover:text-text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary"
+                        >
+                          <Power size={15} />
+                          {isActive ? 'Ngừng hoạt động' : 'Kích hoạt'}
+                        </button>
 
-                      <div className="my-1 border-t border-border-default" />
+                        <div className="my-1 border-t border-border-default" />
 
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setMenuId(null);
-                          onDelete(category);
-                        }}
-                        className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2.5 text-left text-sm text-status-danger transition hover:bg-status-danger/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-status-danger"
-                      >
-                        <Trash2 size={15} />
-                        Xóa danh mục
-                      </button>
-                    </div>
-                  </>
-                )}
-              </div>
-            </TableCell>
-          </TableRow>
-        ))}
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setMenuId(null);
+                            onDelete(category);
+                          }}
+                          className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2.5 text-left text-sm text-status-danger transition hover:bg-status-danger/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-status-danger"
+                        >
+                          <Trash2 size={15} />
+                          Xóa danh mục
+                        </button>
+                      </div>
+                    </>
+                  )}
+                </div>
+              </TableCell>
+            </TableRow>
+          );
+        })}
       </TableBody>
     </Table>
   );
