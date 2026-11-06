@@ -54,9 +54,21 @@ export const API_ENDPOINTS = {
   },
 
   brands: {
+    // Public
     base: '/brands',
-  },
 
+    // Admin
+    adminList: '/admin/brands/all',
+    adminDetail: (id: string) =>
+      `/admin/brands/${encodeURIComponent(id)}`,
+    create: '/admin/brands',
+    update: (id: string) =>
+      `/admin/brands/${encodeURIComponent(id)}`,
+    status: (id: string) =>
+      `/admin/brands/${encodeURIComponent(id)}/status`,
+    delete: (id: string) =>
+      `/admin/brands/${encodeURIComponent(id)}`,
+  },
   attributes: {
     base: '/attributes',
   },

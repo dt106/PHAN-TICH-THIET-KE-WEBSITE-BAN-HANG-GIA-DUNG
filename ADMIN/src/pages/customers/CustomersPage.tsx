@@ -1,17 +1,13 @@
 
-import { useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
   Users,
   UserCheck,
-  Crown,
   Download,
-  Plus,
   Eye,
   Mail,
   Phone,
-  ShoppingBag,
-  Wallet,
 } from 'lucide-react';
 
 import PageHeader from '../../components/shared/PageHeader';
@@ -26,11 +22,10 @@ import StatusBadge from '../../components/shared/StatusBadge';
 
 import { Button } from '../../components/ui/buttons/Button';
 
-import { customersMock } from '../../mocks/customers.mock';
+import { customersService } from '../../services/customers/customers.service';
 
 import type {
-  Customer,
-  CustomerSegment,
+  AdminCustomer,
   CustomerStatus,
 } from '../../types/customer.types';
 
@@ -38,21 +33,14 @@ import type {
    FORMATTERS
 ===================================================== */
 
-const money = (value: number) =>
-  new Intl.NumberFormat('vi-VN', {
-    style: 'currency',
-    currency: 'VND',
-    maximumFractionDigits: 0,
-  }).format(value);
+const formatDate = (value?: string | null) => {
+  if (!value) return 'Chưa cập nhật';
 
-const formatDate = (value: string) => {
-  if (!value) return 'Chưa có đơn';
+  const date = new Date(value);
 
-  const parsed = new Date(`${value.slice(0, 10)}T00:00:00`);
-
-  return Number.isNaN(parsed.getTime())
-    ? 'Chưa có đơn'
-    : parsed.toLocaleDateString('vi-VN');
+  return Number.isNaN(date.getTime())
+    ? 'Chưa cập nhật'
+    : date.toLocaleDateString('vi-VN');
 };
 
 const statusLabels: Record<CustomerStatus, string> = {
@@ -70,39 +58,11 @@ const statusVariants: Record<
   blocked: 'danger',
 };
 
-const segmentLabels: Record<CustomerSegment, string> = {
-  new: 'Mới',
-  regular: 'Thân thiết',
-  vip: 'VIP',
+const getErrorMessage = (error: unknown) => {
+  if (error instanceof Error) return error.message;
+
+  return 'Không thể tải danh sách khách hàng. Vui lòng thử lại.';
 };
-
-/* =====================================================
-   CUSTOMER SEGMENT BADGE
-===================================================== */
-
-function SegmentBadge({
-  segment,
-}: {
-  segment: CustomerSegment;
-}) {
-  const styles: Record<CustomerSegment, string> = {
-    new: 'border-[#1084A9]/25 bg-[#1084A9]/10 text-[#55B9D8]',
-    regular: 'border-[#A78BFA]/25 bg-[#A78BFA]/10 text-[#C4B5FD]',
-    vip: 'border-[#65D928]/25 bg-[#65D928]/10 text-[#8BE85A]',
-  };
-
-  return (
-    <span
-      className={`inline-flex items-center gap-1 whitespace-nowrap rounded-md border px-2 py-1 text-[11px] font-medium ${styles[segment]}`}
-    >
-      {segment === 'vip' && (
-        <Crown size={12} aria-hidden="true" />
-      )}
-
-      {segmentLabels[segment]}
-    </span>
-  );
-}
 
 /* =====================================================
    CUSTOMER AVATAR
@@ -111,7 +71,7 @@ function SegmentBadge({
 function CustomerAvatar({
   customer,
 }: {
-  customer: Customer;
+  customer: AdminCustomer;
 }) {
   const initials = customer.name
     .trim()
@@ -130,7 +90,7 @@ function CustomerAvatar({
           className="h-full w-full object-cover"
         />
       ) : (
-        initials
+        initials || customer.name.charAt(0).toUpperCase()
       )}
     </div>
   );
@@ -138,7 +98,6 @@ function CustomerAvatar({
 
 /* =====================================================
    CUSTOMER STATUS
-   Reuse shared StatusBadge
 ===================================================== */
 
 function CustomerStatusBadge({
@@ -160,87 +119,112 @@ function CustomerStatusBadge({
 ===================================================== */
 
 export default function CustomersPage() {
+  const [customers, setCustomers] = useState<AdminCustomer[]>([]);
   const [search, setSearch] = useState('');
   const [status, setStatus] = useState<CustomerStatus | 'all'>('all');
-  const [segment, setSegment] = useState<CustomerSegment | 'all'>('all');
+
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
 
-  const customers = customersMock;
+  const [total, setTotal] = useState(0);
+  const [totalPages, setTotalPages] = useState(1);
+
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+
+  /* =====================================================
+     LOAD CUSTOMERS FROM API
+  ===================================================== */
+
+  const loadCustomers = useCallback(async () => {
+    setLoading(true);
+    setError('');
+
+    try {
+      const response = await customersService.getCustomers({
+        keyword: search.trim() || undefined,
+        status: status === 'all' ? undefined : status,
+        page,
+        limit: pageSize,
+        sortBy: 'createdAt',
+        sortOrder: 'desc',
+      });
+
+      setCustomers(response.data);
+      setTotal(response.pagination.total);
+      setTotalPages(Math.max(1, response.pagination.totalPages));
+    } catch (err) {
+      setCustomers([]);
+      setTotal(0);
+      setTotalPages(1);
+      setError(getErrorMessage(err));
+    } finally {
+      setLoading(false);
+    }
+  }, [search, status, page, pageSize]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const fetchCustomers = async () => {
+      setLoading(true);
+      setError('');
+
+      try {
+        const response = await customersService.getCustomers({
+          keyword: search.trim() || undefined,
+          status: status === 'all' ? undefined : status,
+          page,
+          limit: pageSize,
+          sortBy: 'createdAt',
+          sortOrder: 'desc',
+        });
+
+        if (cancelled) return;
+
+        setCustomers(response.data);
+        setTotal(response.pagination.total);
+        setTotalPages(Math.max(1, response.pagination.totalPages));
+      } catch (err) {
+        if (cancelled) return;
+
+        setCustomers([]);
+        setTotal(0);
+        setTotalPages(1);
+        setError(getErrorMessage(err));
+      } finally {
+        if (!cancelled) {
+          setLoading(false);
+        }
+      }
+    };
+
+    void fetchCustomers();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [search, status, page, pageSize]);
 
   /* =====================================================
      STATISTICS
+     These counts describe the currently loaded page.
+     The backend does not provide aggregate statistics.
   ===================================================== */
 
   const stats = useMemo(
     () => ({
-      total: customers.length,
+      total,
 
       active: customers.filter(
         (customer) => customer.status === 'active',
       ).length,
 
-      vip: customers.filter(
-        (customer) => customer.segment === 'vip',
+      blocked: customers.filter(
+        (customer) => customer.status === 'blocked',
       ).length,
-
-      spent: customers.reduce(
-        (sum, customer) => sum + customer.totalSpent,
-        0,
-      ),
     }),
-    [customers],
-  );
-
-  /* =====================================================
-     SEARCH AND FILTERS
-  ===================================================== */
-
-  const filteredCustomers = useMemo(() => {
-    const keyword = search.trim().toLocaleLowerCase('vi-VN');
-
-    return customers.filter((customer) => {
-      const searchableValues = [
-        customer.name,
-        customer.code,
-        customer.email,
-        customer.phone,
-      ];
-
-      const matchesSearch =
-        !keyword ||
-        searchableValues.some((value) =>
-          value.toLocaleLowerCase('vi-VN').includes(keyword),
-        );
-
-      const matchesStatus =
-        status === 'all' || customer.status === status;
-
-      const matchesSegment =
-        segment === 'all' || customer.segment === segment;
-
-      return matchesSearch && matchesStatus && matchesSegment;
-    });
-  }, [customers, search, status, segment]);
-
-  /* =====================================================
-     PAGINATION
-  ===================================================== */
-
-  const pageCount = Math.max(
-    1,
-    Math.ceil(filteredCustomers.length / pageSize),
-  );
-
-  const safePage = Math.min(Math.max(1, page), pageCount);
-
-  const visibleCustomers = useMemo(
-    () =>
-      filteredCustomers.slice(
-        (safePage - 1) * pageSize,
-        safePage * pageSize,
-      ),
-    [filteredCustomers, safePage, pageSize],
+    [customers, total],
   );
 
   /* =====================================================
@@ -250,31 +234,29 @@ export default function CustomersPage() {
   const resetFilters = () => {
     setSearch('');
     setStatus('all');
-    setSegment('all');
     setPage(1);
   };
 
   const hasActiveFilters =
-    Boolean(search.trim()) || status !== 'all' || segment !== 'all';
+    Boolean(search.trim()) || status !== 'all';
 
   /* =====================================================
      TABLE COLUMNS
-     Reuse shared DataTable
   ===================================================== */
 
-  const columns: DataTableColumn<Customer>[] = [
+  const columns: DataTableColumn<AdminCustomer>[] = [
     {
       key: 'customer',
       header: 'Khách hàng',
-      className: 'min-w-[190px]',
-      headerClassName: 'min-w-[190px]',
+      className: 'min-w-[210px]',
+      headerClassName: 'min-w-[210px]',
       render: (customer) => (
         <div className="flex min-w-0 items-center gap-2.5">
           <CustomerAvatar customer={customer} />
 
           <div className="min-w-0">
             <Link
-              to={`/customers/${customer.id}`}
+              to={`/customers/${customer._id}`}
               title={customer.name}
               className="block max-w-50 truncate text-xs font-semibold text-text-primary transition-colors hover:text-accent-primary"
             >
@@ -282,7 +264,7 @@ export default function CustomersPage() {
             </Link>
 
             <p className="mt-0.5 text-[10px] text-text-muted">
-              {customer.code}
+              ID: {customer._id}
             </p>
           </div>
         </div>
@@ -291,8 +273,8 @@ export default function CustomersPage() {
     {
       key: 'contact',
       header: 'Thông tin liên hệ',
-      className: 'min-w-[200px]',
-      headerClassName: 'min-w-[200px]',
+      className: 'min-w-[220px]',
+      headerClassName: 'min-w-[220px]',
       render: (customer) => (
         <div className="min-w-0 space-y-1.5">
           <p className="flex min-w-0 items-center gap-1.5 text-[11px] text-text-secondary">
@@ -322,50 +304,25 @@ export default function CustomersPage() {
       ),
     },
     {
-      key: 'segment',
-      header: 'Phân nhóm',
+      key: 'emailVerified',
+      header: 'Xác thực email',
       className: 'min-w-[130px]',
       headerClassName: 'min-w-[130px]',
       render: (customer) => (
-        <SegmentBadge segment={customer.segment} />
+        <StatusBadge
+          status={customer.emailVerifiedAt ? 'Đã xác thực' : 'Chưa xác thực'}
+          variant={customer.emailVerifiedAt ? 'success' : 'neutral'}
+        />
       ),
     },
     {
-      key: 'orders',
-      header: 'Đơn hàng',
-      className: 'min-w-[95px] text-center',
-      headerClassName: 'min-w-[95px] text-center',
-      render: (customer) => (
-        <span className="inline-flex items-center justify-center gap-1.5 text-xs font-medium text-text-primary">
-          <ShoppingBag
-            size={13}
-            className="text-text-muted"
-            aria-hidden="true"
-          />
-
-          {customer.totalOrders.toLocaleString('vi-VN')}
-        </span>
-      ),
-    },
-    {
-      key: 'spent',
-      header: 'Tổng chi tiêu',
-      className: 'min-w-[140px]',
-      headerClassName: 'min-w-[140px]',
-      render: (customer) => (
-        <span className="whitespace-nowrap text-xs font-semibold text-text-primary">
-          {money(customer.totalSpent)}
-        </span>
-      ),
-    },
-    {
-      key: 'lastOrder',
-      header: 'Mua gần nhất',
+      key: 'createdAt',
+      header: 'Ngày đăng ký',
       className: 'min-w-[120px]',
       headerClassName: 'min-w-[120px]',
       render: (customer) => (
         <span className="whitespace-nowrap text-[11px] text-text-secondary">
-          {formatDate(customer.lastOrderDate)}
+          {formatDate(customer.createdAt)}
         </span>
       ),
     },
@@ -386,7 +343,7 @@ export default function CustomersPage() {
       render: (customer) => (
         <div className="flex justify-end">
           <Link
-            to={`/customers/${customer.id}`}
+            to={`/customers/${customer._id}`}
             title="Xem chi tiết"
             aria-label={`Xem chi tiết ${customer.name}`}
             className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-border-default text-text-secondary transition-colors hover:border-accent-primary/40 hover:bg-accent-primary/10 hover:text-accent-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary"
@@ -398,41 +355,32 @@ export default function CustomersPage() {
     },
   ];
 
+  /* =====================================================
+     RENDER
+  ===================================================== */
+
   return (
     <div className="min-h-full bg-bg-app p-4 text-text-primary sm:p-5 xl:p-6">
       <div className="mx-auto flex max-w-[1800px] flex-col gap-4">
-        {/* PAGE HEADER */}
-
         <PageHeader
           eyebrow="Quản lý / Khách hàng"
           title="Khách hàng"
-          description="Theo dõi hồ sơ, phân nhóm và lịch sử mua hàng."
+          description="Theo dõi hồ sơ và trạng thái tài khoản khách hàng."
           actions={
-            <>
-              <Button
-                type="button"
-                variant="secondary"
-                onClick={() => window.print()}
-              >
-                <Download size={16} aria-hidden="true" />
-                <span className="hidden sm:inline">Xuất / In</span>
-              </Button>
-
-              <Button
-                type="button"
-                disabled
-                title="Chức năng thêm khách hàng chưa được triển khai"
-              >
-                <Plus size={17} aria-hidden="true" />
-                Thêm khách hàng
-              </Button>
-            </>
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={() => window.print()}
+            >
+              <Download size={16} aria-hidden="true" />
+              <span className="hidden sm:inline">Xuất / In</span>
+            </Button>
           }
         />
 
         {/* STATISTICS */}
 
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
           <div className="min-w-0">
             <StatCard
               label="Tổng khách hàng"
@@ -440,9 +388,8 @@ export default function CustomersPage() {
               icon={Users}
               accent="primary"
             />
-
             <p className="px-1 pt-2 text-xs text-text-muted">
-              Tất cả hồ sơ khách hàng
+              Tổng số hồ sơ từ hệ thống
             </p>
           </div>
 
@@ -453,35 +400,20 @@ export default function CustomersPage() {
               icon={UserCheck}
               accent="primary"
             />
-
             <p className="px-1 pt-2 text-xs text-text-muted">
-              Tài khoản đang hoạt động
+              Trong trang dữ liệu hiện tại
             </p>
           </div>
 
           <div className="min-w-0">
             <StatCard
-              label="Khách hàng VIP"
-              value={stats.vip.toLocaleString('vi-VN')}
-              icon={Crown}
-              accent="primary"
-            />
-
-            <p className="px-1 pt-2 text-xs text-text-muted">
-              Nhóm khách hàng giá trị cao
-            </p>
-          </div>
-
-          <div className="min-w-0">
-            <StatCard
-              label="Tổng chi tiêu"
-              value={money(stats.spent)}
-              icon={Wallet}
+              label="Đã khóa"
+              value={stats.blocked.toLocaleString('vi-VN')}
+              icon={Users}
               accent="cyan"
             />
-
             <p className="px-1 pt-2 text-xs text-text-muted">
-              Tổng giá trị mua hàng mẫu
+              Trong trang dữ liệu hiện tại
             </p>
           </div>
         </div>
@@ -498,9 +430,9 @@ export default function CustomersPage() {
               </h2>
 
               <p className="mt-1 text-xs text-text-muted">
-                {filteredCustomers.length.toLocaleString('vi-VN')} kết quả
+                {total.toLocaleString('vi-VN')} khách hàng
                 {' · '}
-                Dữ liệu mẫu
+                Dữ liệu từ hệ thống
               </p>
             </div>
 
@@ -518,7 +450,7 @@ export default function CustomersPage() {
                       setSearch(value);
                       setPage(1);
                     }}
-                    placeholder="Tìm tên, mã, email, số điện thoại..."
+                    placeholder="Tìm tên, email, số điện thoại..."
                     className="w-full"
                     ariaLabel="Tìm kiếm khách hàng"
                   />
@@ -543,26 +475,6 @@ export default function CustomersPage() {
                     <option value="blocked">Đã khóa</option>
                   </select>
                 </label>
-
-                <label className="flex min-w-0 flex-1 flex-col gap-1 text-xs font-medium text-text-secondary sm:min-w-36.25">
-                  <span>Phân nhóm</span>
-
-                  <select
-                    value={segment}
-                    onChange={(event) => {
-                      setSegment(
-                        event.target.value as CustomerSegment | 'all',
-                      );
-                      setPage(1);
-                    }}
-                    className="h-10 w-full rounded-lg border border-border-strong bg-bg-app px-3 text-sm text-text-primary outline-none transition-colors focus:border-accent-primary focus:ring-2 focus:ring-accent-primary/15"
-                  >
-                    <option value="all">Tất cả nhóm</option>
-                    <option value="new">Khách hàng mới</option> 
-                    <option value="regular">Thân thiết</option>
-                    <option value="vip">VIP</option>
-                  </select>
-                </label>
               </FilterBar>
             </div>
           </div>
@@ -573,47 +485,78 @@ export default function CustomersPage() {
             <span>
               Hiển thị{' '}
               <strong className="font-semibold text-text-primary">
-                {visibleCustomers.length}
+                {customers.length}
               </strong>{' '}
-              / {filteredCustomers.length} khách hàng
+              / {total} khách hàng
             </span>
 
             <span className="inline-flex items-center gap-1.5">
               <span className="h-1.5 w-1.5 rounded-full bg-accent-primary" />
-              Dữ liệu mẫu
+              Dữ liệu API
             </span>
           </div>
 
-          {/* SHARED DATA TABLE */}
+          {/* LOADING */}
 
-          <div className="min-w-0 overflow-x-auto px-3 pb-3 sm:px-4">
-            <div className="min-w-262.5">
-              <DataTable
-                columns={columns}
-                data={visibleCustomers}
-                getRowId={(customer) => customer.id}
-                emptyTitle="Không tìm thấy khách hàng"
-                emptyDescription="Thử thay đổi từ khóa tìm kiếm hoặc bộ lọc."
-              />
+          {loading ? (
+            <div className="flex min-h-64 flex-col items-center justify-center gap-3 text-text-muted">
+              <div className="h-7 w-7 animate-spin rounded-full border-2 border-border-default border-t-accent-primary" />
+              <p className="text-sm">Đang tải danh sách khách hàng...</p>
             </div>
-          </div>
+          ) : error ? (
+            <div className="flex min-h-64 flex-col items-center justify-center gap-3 px-4 text-center">
+              <p className="text-sm text-danger">{error}</p>
 
-          {/* SHARED PAGINATION */}
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={() => void loadCustomers()}
+              >
+                Thử tải lại
+              </Button>
+            </div>
+          ) : (
+            <>
+              {/* SHARED DATA TABLE */}
 
-          <div className="px-3 pb-4 sm:px-4">
-            <Pagination
-              page={safePage}
-              pageSize={pageSize}
-              total={filteredCustomers.length}
-              onPageChange={setPage}
-              onPageSizeChange={(nextPageSize) => {
-                setPageSize(nextPageSize);
-                setPage(1);
-              }}
-              pageSizeOptions={[5, 10, 20, 50]}
-            />
-          </div>
+              <div className="min-w-0 overflow-x-auto px-3 pb-3 sm:px-4">
+                <div className="min-w-[850px]">
+                  <DataTable
+                    columns={columns}
+                    data={customers}
+                    getRowId={(customer) => customer._id}
+                    emptyTitle="Không tìm thấy khách hàng"
+                    emptyDescription="Thử thay đổi từ khóa tìm kiếm hoặc bộ lọc."
+                  />
+                </div>
+              </div>
+
+              {/* SHARED PAGINATION */}
+
+              <div className="px-3 pb-4 sm:px-4">
+                <Pagination
+                  page={page}
+                  pageSize={pageSize}
+                  total={total}
+                  onPageChange={setPage}
+                  onPageSizeChange={(nextPageSize) => {
+                    setPageSize(nextPageSize);
+                    setPage(1);
+                  }}
+                  pageSizeOptions={[5, 10, 20, 50]}
+                />
+              </div>
+            </>
+          )}
         </section>
+
+        {/* PAGE INFORMATION */}
+
+        {!loading && !error && totalPages > 0 && (
+          <p className="text-right text-[11px] text-text-muted">
+            Trang {page} / {totalPages}
+          </p>
+        )}
       </div>
     </div>
   );
