@@ -3,8 +3,8 @@ import {
   CalendarDays,
   Package,
   Pencil,
+  Star,
   Tag,
-  Warehouse,
 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
@@ -12,30 +12,49 @@ import { Link, useNavigate, useParams } from 'react-router-dom';
 import PageHeader from '../../components/shared/PageHeader';
 import StatusBadge from '../../components/shared/StatusBadge';
 import { Button } from '../../components/ui/buttons/Button';
-import { getProducts } from '../../mocks/products.mock';
-import type { Product, ProductStatus } from '../../types/product.types';
 
-const formatCurrency = (value: number) =>
+import { productsService } from '../../services/catalog/products.service';
+
+import type {
+  Product,
+  ProductReference,
+} from '../../types/product.types';
+
+const formatCurrency = (value: number | null | undefined) =>
   new Intl.NumberFormat('vi-VN', {
     style: 'currency',
     currency: 'VND',
     maximumFractionDigits: 0,
-  }).format(value);
+  }).format(value ?? 0);
 
-const statusLabel: Record<ProductStatus, string> = {
-  active: 'Đang bán',
-  inactive: 'Ngừng bán',
-  draft: 'Bản nháp',
+const formatDate = (value?: string) => {
+  if (!value) return 'Chưa cập nhật';
+
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) return 'Chưa cập nhật';
+
+  return new Intl.DateTimeFormat('vi-VN', {
+    dateStyle: 'medium',
+    timeStyle: 'short',
+  }).format(date);
 };
 
-const statusVariant: Record<
-  ProductStatus,
-  'success' | 'neutral' | 'warning'
-> = {
-  active: 'success',
-  inactive: 'neutral',
-  draft: 'warning',
-};
+function getReferenceName(
+  value: string | ProductReference | null | undefined,
+) {
+  if (!value) return 'Chưa liên kết';
+  if (typeof value === 'string') return value;
+  return value.name || 'Chưa cập nhật';
+}
+
+function getReferenceId(
+  value: string | ProductReference | null | undefined,
+) {
+  if (!value) return '';
+  if (typeof value === 'string') return value;
+  return value._id ?? value.id ?? '';
+}
 
 function DetailItem({
   label,
@@ -45,37 +64,13 @@ function DetailItem({
   value: string;
 }) {
   return (
-    <div className="flex min-w-0 flex-col justify-center rounded-xl border border-border-default bg-bg-elevated/40 p-4 sm:p-5">
+    <div className="rounded-xl border border-border-default bg-bg-elevated/40 p-4">
       <p className="text-xs font-medium uppercase tracking-wider text-text-muted">
         {label}
       </p>
-      <p className="mt-2 wrap-break-word text-sm font-semibold leading-6 text-text-primary">
+      <p className="mt-2 break-words text-sm font-semibold text-text-primary">
         {value || 'Chưa cập nhật'}
       </p>
-    </div>
-  );
-}
-
-function ManagementItem({
-  icon: Icon,
-  label,
-  value,
-}: {
-  icon: typeof Tag;
-  label: string;
-  value: string;
-}) {
-  return (
-    <div className="flex min-w-0 items-start gap-3">
-      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-border-default bg-bg-elevated text-text-secondary">
-        <Icon className="h-4 w-4" />
-      </div>
-      <div className="min-w-0 flex-1 pt-0.5">
-        <p className="text-xs text-text-muted">{label}</p>
-        <p className="mt-1 wrap-break-word text-sm font-medium leading-6 text-text-primary">
-          {value || 'Chưa cập nhật'}
-        </p>
-      </div>
     </div>
   );
 }
@@ -85,23 +80,55 @@ export default function ProductDetailPage() {
   const navigate = useNavigate();
 
   const [product, setProduct] = useState<Product | null>(null);
-  const [imageError, setImageError] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
 
   useEffect(() => {
-    const found = getProducts().find((item) => item.id === id);
+    let cancelled = false;
 
-    if (!found) {
-      navigate('/products', { replace: true });
-      return;
+    async function loadProduct() {
+      if (!id) {
+        navigate('/products', { replace: true });
+        return;
+      }
+
+      setLoading(true);
+      setError('');
+
+      try {
+        const response = await productsService.getAdminProductById(id);
+
+        if (cancelled) return;
+
+        if (!response.data) {
+          navigate('/products', { replace: true });
+          return;
+        }
+
+        setProduct(response.data);
+      } catch (err) {
+        if (cancelled) return;
+
+        setError(
+          err instanceof Error
+            ? err.message
+            : 'Không thể tải thông tin sản phẩm.',
+        );
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
     }
 
-    setProduct(found);
-    setImageError(false);
+    void loadProduct();
+
+    return () => {
+      cancelled = true;
+    };
   }, [id, navigate]);
 
-  if (!product) {
+  if (loading) {
     return (
-      <main className="mx-auto w-full min-w-0 max-w-[1600px] p-4 sm:p-5 xl:p-6">
+      <main className="mx-auto w-full max-w-[1600px] p-4 sm:p-6">
         <div className="flex min-h-48 items-center justify-center rounded-2xl border border-border-default bg-bg-surface text-sm text-text-secondary">
           Đang tải thông tin sản phẩm...
         </div>
@@ -109,34 +136,58 @@ export default function ProductDetailPage() {
     );
   }
 
+  if (error || !product) {
+    return (
+      <main className="mx-auto w-full max-w-[1600px] space-y-4 p-4 sm:p-6">
+        <Button
+          variant="secondary"
+          onClick={() => navigate('/products')}
+        >
+          <ArrowLeft className="mr-2 h-4 w-4" />
+          Quay lại danh sách
+        </Button>
+
+        <div
+          role="alert"
+          className="rounded-xl border border-red-500/30 bg-red-500/10 p-4 text-sm text-red-400"
+        >
+          {error || 'Không tìm thấy sản phẩm.'}
+        </div>
+      </main>
+    );
+  }
+
   const discount =
-    product.originalPrice > product.price && product.originalPrice > 0
+    product.salePrice !== null &&
+      product.salePrice !== undefined &&
+      product.basePrice > 0 &&
+      product.salePrice < product.basePrice
       ? Math.round(
-          ((product.originalPrice - product.price) / product.originalPrice) *
-            100,
-        )
+        ((product.basePrice - product.salePrice) / product.basePrice) *
+        100,
+      )
       : 0;
 
+  const categoryId = getReferenceId(product.categoryId);
+  const brandId = getReferenceId(product.brandId);
+
   return (
-    <main className="mx-auto w-full min-w-0 max-w-[1800px] space-y-6 p-4 pb-8 sm:space-y-7 sm:p-5 sm:pb-8 xl:p-6 xl:pb-10">
+    <main className="mx-auto w-full max-w-[1600px] space-y-6 p-4 sm:p-6">
       <PageHeader
         title="Chi tiết sản phẩm"
-        description="Xem thông tin, giá bán và tình trạng kinh doanh của sản phẩm."
+        description="Thông tin sản phẩm được lấy trực tiếp từ hệ thống."
         eyebrow={`PRODUCT / ${product.sku}`}
         actions={
-          <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
-            <Link to="/products" className="w-full sm:w-auto">
-              <Button variant="secondary" className="w-full sm:w-auto">
+          <div className="flex flex-wrap gap-2">
+            <Link to="/products">
+              <Button variant="secondary">
                 <ArrowLeft className="mr-2 h-4 w-4" />
                 Quay lại
               </Button>
             </Link>
 
-            <Link
-              to={`/products/${product.id}/edit`}
-              className="w-full sm:w-auto"
-            >
-              <Button variant="primary" className="w-full sm:w-auto">
+            <Link to={`/products/${product.id}/edit`}>
+              <Button variant="primary">
                 <Pencil className="mr-2 h-4 w-4" />
                 Chỉnh sửa
               </Button>
@@ -145,193 +196,179 @@ export default function ProductDetailPage() {
         }
       />
 
-      <div className="grid min-w-0 grid-cols-1 items-start gap-5 lg:gap-6 2xl:grid-cols-[minmax(0,0.92fr)_minmax(0,1.08fr)]">
-        <section className="min-w-0 overflow-hidden rounded-2xl border border-border-default bg-bg-surface">
-          <div className="border-b border-border-default px-5 py-4 sm:px-6">
-            <p className="text-sm font-semibold text-text-primary">
-              Hình ảnh sản phẩm
-            </p>
-            <p className="mt-1 text-xs leading-5 text-text-muted">
-              Hình ảnh minh họa của mặt hàng đang quản lý
-            </p>
-          </div>
+      <section className="overflow-hidden rounded-2xl border border-border-default bg-bg-surface">
+        <div className="flex flex-col gap-4 border-b border-border-default p-5 sm:flex-row sm:items-start sm:justify-between sm:p-6">
+          <div className="min-w-0">
+            <div className="flex flex-wrap items-center gap-2">
+              {product.isActive ? (
+                <StatusBadge status="Đang kinh doanh" variant="success" />
+              ) : (
+                <StatusBadge status="Ngừng kinh doanh" variant="neutral" />
+              )}
 
-          <div className="flex min-h-70 items-center justify-center bg-bg-elevated/50 p-6 sm:min-h-90 sm:p-8 xl:min-h-105">
-            {product.image && !imageError ? (
-              <img
-                src={product.image}
-                alt={product.name}
-                loading="lazy"
-                onError={() => setImageError(true)}
-                className="max-h-105 w-full object-contain"
-              />
-            ) : (
-              <div className="flex h-32 w-32 items-center justify-center rounded-2xl border border-border-default bg-bg-surface">
-                <Package className="h-14 w-14 text-text-muted" />
-              </div>
-            )}
-          </div>
-
-          <div className="space-y-5 p-5 sm:p-6">
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <StatusBadge
-                status={statusLabel[product.status]}
-                variant={statusVariant[product.status]}
-              />
-              <span className="rounded-lg border border-border-default bg-bg-elevated px-3 py-1.5 text-xs font-medium text-text-secondary">
-                SKU: {product.sku}
-              </span>
-            </div>
-
-            <div>
-              <h2 className="wrap-break-word text-xl font-bold leading-8 text-text-primary sm:text-2xl">
-                {product.name}
-              </h2>
-              <p className="mt-3 whitespace-pre-line text-sm leading-7 text-text-secondary">
-                {product.description || 'Chưa có mô tả cho sản phẩm này.'}
-              </p>
-            </div>
-          </div>
-        </section>
-
-        <div className="grid min-w-0 grid-cols-1 gap-5 sm:gap-6">
-          <section className="min-w-0 rounded-2xl border border-border-default bg-bg-surface p-5 sm:p-6 lg:p-7">
-            <div className="flex items-start gap-3">
-              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-accent-primary/10 text-accent-primary">
-                <Tag className="h-5 w-5" />
-              </div>
-              <div className="min-w-0">
-                <h2 className="font-semibold text-text-primary">
-                  Thông tin giá bán
-                </h2>
-                <p className="mt-1 text-sm leading-5 text-text-muted">
-                  Giá hiện tại và thông tin phân loại sản phẩm
-                </p>
-              </div>
-            </div>
-
-            <div className="mt-6 rounded-xl border border-border-default bg-bg-elevated/40 p-4 sm:p-5">
-              <p className="text-xs font-medium uppercase tracking-wider text-text-muted">
-                Giá bán hiện tại
-              </p>
-
-              <div className="mt-3 flex flex-wrap items-center gap-3">
-                <span className="wrap-break-word text-2xl font-bold leading-tight text-accent-primary sm:text-3xl">
-                  {formatCurrency(product.price)}
-                </span>
-
-                {discount > 0 && (
-                  <span className="rounded-lg border border-red-500/20 bg-red-500/10 px-2.5 py-1 text-xs font-semibold text-red-400">
-                    Giảm {discount}%
-                  </span>
-                )}
-              </div>
-
-              {product.originalPrice > product.price && (
-                <p className="mt-2 text-sm text-text-muted">
-                  Giá gốc:{' '}
-                  <span className="line-through">
-                    {formatCurrency(product.originalPrice)}
-                  </span>
-                </p>
+              {product.isFeatured && (
+                <StatusBadge status="Nổi bật" variant="warning" />
               )}
             </div>
 
-            <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
-              <DetailItem label="Thương hiệu" value={product.brand} />
-              <DetailItem label="Danh mục" value={product.category} />
-            </div>
-          </section>
+            <h2 className="mt-4 break-words text-2xl font-bold text-text-primary">
+              {product.name}
+            </h2>
 
-          <section className="min-w-0 rounded-2xl border border-border-default bg-bg-surface p-5 sm:p-6 lg:p-7">
-            <div className="flex items-start gap-3">
-              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-cyan-500/10 text-cyan-400">
-                <Warehouse className="h-5 w-5" />
-              </div>
-              <div className="min-w-0">
-                <h2 className="font-semibold text-text-primary">
-                  Tình trạng kho
-                </h2>
-                <p className="mt-1 text-sm leading-5 text-text-muted">
-                  Theo dõi số lượng hàng hiện có
-                </p>
-              </div>
-            </div>
+            <p className="mt-2 text-sm text-text-muted">
+              SKU: {product.sku}
+            </p>
 
-            <div className="mt-5 flex flex-wrap items-center gap-4 rounded-xl border border-border-default bg-bg-elevated/40 p-4 sm:p-5">
-              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-accent-primary/10 text-accent-primary">
-                <Package className="h-6 w-6" />
-              </div>
+            <p className="mt-1 text-sm text-text-muted">
+              Slug: {product.slug}
+            </p>
+          </div>
 
-              <div className="min-w-0">
-                <p className="text-sm text-text-secondary">Số lượng tồn kho</p>
-                <p className="mt-1 text-2xl font-bold text-text-primary">
-                  {product.stock}
-                  <span className="ml-2 text-sm font-normal text-text-muted">
-                    sản phẩm
-                  </span>
-                </p>
-              </div>
-
-              <div className="sm:ml-auto">
-                {product.stock <= 0 ? (
-                  <StatusBadge status="Hết hàng" variant="danger" />
-                ) : product.stock <= 10 ? (
-                  <StatusBadge status="Sắp hết hàng" variant="warning" />
-                ) : (
-                  <StatusBadge status="Còn hàng" variant="success" />
-                )}
-              </div>
-            </div>
-
-            {product.stock <= 0 && (
-              <p className="mt-4 rounded-lg border border-red-500/20 bg-red-500/5 px-3 py-2.5 text-sm leading-6 text-red-400">
-                Sản phẩm hiện đã hết hàng. Cần kiểm tra kế hoạch nhập bổ sung.
-              </p>
-            )}
-
-            {product.stock > 0 && product.stock <= 10 && (
-              <p className="mt-4 rounded-lg border border-amber-500/20 bg-amber-500/5 px-3 py-2.5 text-sm leading-6 text-amber-400">
-                Sản phẩm sắp hết hàng. Nên kiểm tra và lên kế hoạch nhập bổ sung.
-              </p>
-            )}
-          </section>
-
-          <section className="min-w-0 rounded-2xl border border-border-default bg-bg-surface p-5 sm:p-6 lg:p-7">
-            <div className="flex items-start gap-3">
-              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-purple-500/10 text-purple-400">
-                <CalendarDays className="h-5 w-5" />
-              </div>
-              <div className="min-w-0">
-                <h2 className="font-semibold text-text-primary">
-                  Thông tin quản lý
-                </h2>
-                <p className="mt-1 text-sm leading-5 text-text-muted">
-                  Mã định danh và lịch sử cập nhật
-                </p>
-              </div>
-            </div>
-
-            <div className="mt-6 grid grid-cols-1 gap-5 sm:grid-cols-2">
-              <ManagementItem
-                icon={Tag}
-                label="Mã sản phẩm"
-                value={product.id}
-              />
-              <ManagementItem
-                icon={CalendarDays}
-                label="Ngày tạo"
-                value={product.createdAt}
-              />
-              <ManagementItem
-                icon={CalendarDays}
-                label="Cập nhật lần cuối"
-                value={product.updatedAt}
-              />
-            </div>
-          </section>
+          <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl border border-border-default bg-bg-elevated text-text-muted">
+            <Package className="h-7 w-7" />
+          </div>
         </div>
-      </div>
+
+        <div className="grid grid-cols-1 gap-5 p-5 sm:grid-cols-2 sm:p-6 xl:grid-cols-3">
+          <DetailItem
+            label="Danh mục"
+            value={getReferenceName(product.categoryId)}
+          />
+
+          <DetailItem
+            label="ID danh mục"
+            value={categoryId}
+          />
+
+          <DetailItem
+            label="Thương hiệu"
+            value={getReferenceName(product.brandId)}
+          />
+
+          <DetailItem
+            label="ID thương hiệu"
+            value={brandId || 'Không chọn thương hiệu'}
+          />
+
+          <DetailItem
+            label="Giá gốc"
+            value={formatCurrency(product.basePrice)}
+          />
+
+          <DetailItem
+            label="Giá khuyến mãi"
+            value={
+              product.salePrice === null
+                ? 'Không áp dụng'
+                : formatCurrency(product.salePrice)
+            }
+          />
+
+          <DetailItem
+            label="Giá thấp nhất"
+            value={
+              product.minPrice === null
+                ? 'Chưa có dữ liệu'
+                : formatCurrency(product.minPrice)
+            }
+          />
+
+          <DetailItem
+            label="Giá cao nhất"
+            value={
+              product.maxPrice === null
+                ? 'Chưa có dữ liệu'
+                : formatCurrency(product.maxPrice)
+            }
+          />
+
+          <DetailItem
+            label="Đánh giá trung bình"
+            value={`${Number(product.averageRating ?? 0).toFixed(1)} / 5`}
+          />
+
+          <DetailItem
+            label="Tổng lượt đánh giá"
+            value={String(product.totalReviews ?? 0)}
+          />
+
+          <DetailItem
+            label="Tổng lượt bán"
+            value={String(product.totalSales ?? 0)}
+          />
+
+          <DetailItem
+            label="Trạng thái nổi bật"
+            value={product.isFeatured ? 'Có' : 'Không'}
+          />
+        </div>
+      </section>
+
+      <section className="rounded-2xl border border-border-default bg-bg-surface p-5 sm:p-6">
+        <div className="flex items-center gap-3">
+          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-accent-primary/10 text-accent-primary">
+            <Tag className="h-5 w-5" />
+          </div>
+          <div>
+            <h3 className="font-semibold text-text-primary">
+              Mô tả sản phẩm
+            </h3>
+            <p className="mt-1 text-sm text-text-muted">
+              Nội dung mô tả được lưu trong Product.
+            </p>
+          </div>
+        </div>
+
+        <p className="mt-5 whitespace-pre-line text-sm leading-7 text-text-secondary">
+          {product.description || 'Sản phẩm chưa có mô tả.'}
+        </p>
+      </section>
+
+      <section className="rounded-2xl border border-border-default bg-bg-surface p-5 sm:p-6">
+        <div className="flex items-center gap-3">
+          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-purple-500/10 text-purple-400">
+            <CalendarDays className="h-5 w-5" />
+          </div>
+          <div>
+            <h3 className="font-semibold text-text-primary">
+              Thông tin quản lý
+            </h3>
+            <p className="mt-1 text-sm text-text-muted">
+              Thời gian tạo và cập nhật dữ liệu.
+            </p>
+          </div>
+        </div>
+
+        <div className="mt-5 grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <DetailItem
+            label="ID sản phẩm"
+            value={product.id}
+          />
+          <DetailItem
+            label="Ngày tạo"
+            value={formatDate(product.createdAt)}
+          />
+          <DetailItem
+            label="Cập nhật lần cuối"
+            value={formatDate(product.updatedAt)}
+          />
+        </div>
+      </section>
+
+      <section className="rounded-2xl border border-border-default bg-bg-elevated/40 p-5">
+        <div className="flex items-center gap-2 text-text-primary">
+          <Star className="h-4 w-4 text-amber-400" />
+          <h3 className="text-sm font-semibold">
+            Quản lý dữ liệu liên quan
+          </h3>
+        </div>
+
+        <p className="mt-2 text-sm leading-6 text-text-muted">
+          Biến thể, thuộc tính biến thể, hình ảnh và tồn kho được quản lý
+          thông qua các module riêng. Không có các trường này trong Product
+          document nên trang chi tiết không tự tạo dữ liệu thay thế.
+        </p>
+      </section>
     </main>
   );
 }

@@ -1,38 +1,33 @@
-
 /**
- * Một bản ghi liên kết biến thể sản phẩm với thuộc tính và giá trị thuộc tính.
+ * Thông tin thuộc tính được hiển thị trong trang quản lý
+ * thuộc tính của biến thể sản phẩm.
  *
- * Ví dụ:
- * Biến thể: Áo thun ABC - Đỏ - Size M
- * Thuộc tính: Màu sắc
- * Giá trị: Đỏ
- *
- * Mỗi biến thể chỉ được có một giá trị cho mỗi thuộc tính.
+ * Các trường productName, variantSku, attributeName,
+ * attributeValue là dữ liệu phục vụ hiển thị trên Frontend.
  */
 
 export interface VariantAttribute {
   id: string;
-  variant_id: string;
-  attribute_id: string;
-  attribute_value_id: string;
+  variantId: string;
+  attributeId: string;
+  attributeValueId: string;
 
-  // Các trường bổ sung để hiển thị trong giao diện quản trị.
-  // Đây là dữ liệu hiển thị, không phải cột bắt buộc trong bảng liên kết.
-  product_name: string;
-  variant_sku: string;
-  attribute_name: string;
-  attribute_value: string;
+  productName: string;
+  variantSku: string;
+  attributeName: string;
+  attributeValue: string;
 }
 
-export type VariantAttributeFormData = Pick<
-  VariantAttribute,
-  'variant_id' | 'attribute_id' | 'attribute_value_id'
->;
+export interface VariantAttributeFormData {
+  variantId: string;
+  attributeId: string;
+  attributeValueId: string;
+}
 
 export interface VariantAttributeFilters {
   keyword: string;
-  attribute_id: string;
+  attributeId: string;
   status: 'all' | 'assigned' | 'unassigned';
 }
 
-export type VariantAttributeStatus = 'assigned' | 'unassigned';
+export type VariantAttributeStatus = 'assigned' | 'unassigned'; 

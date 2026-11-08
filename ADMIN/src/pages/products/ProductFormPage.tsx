@@ -1,85 +1,76 @@
 import {
   ArrowLeft,
-  ImagePlus,
-  Package,
   Save,
-  Tag,
-  Warehouse,
 } from 'lucide-react';
-import { useEffect, useState, type FormEvent } from 'react';
+import {
+  useEffect,
+  useState,
+  type FormEvent,
+  type ReactNode,
+} from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 
 import PageHeader from '../../components/shared/PageHeader';
 import { Button } from '../../components/ui/buttons/Button';
-import { getProducts, saveProducts } from '../../mocks/products.mock';
-import type { Product, ProductStatus } from '../../types/product.types';
+
+import { categoriesService } from '../../services/catalog/categories.service';
+import { brandsService } from '../../services/catalog/brands.service';
+import { productsService } from '../../services/catalog/products.service';
+
+import type { Category } from '../../types/category.types';
+import type { Brand } from '../../types/brand.types';
+import type {
+  ProductReference,
+  ProductCreatePayload,
+} from '../../types/product.types';
 
 const initialForm = {
   name: '',
   sku: '',
+  slug: '',
   description: '',
-  category: '',
-  brand: '',
-  price: '',
-  originalPrice: '',
-  stock: '',
-  status: 'draft' as ProductStatus,
-  image: '',
+  categoryId: '',
+  brandId: '',
+  basePrice: '',
+  salePrice: '',
+  metaTitle: '',
+  metaDescription: '',
+  isActive: true,
+  isFeatured: false,
 };
 
 type ProductFormValues = typeof initialForm;
 
 const fieldClass =
-  'mt-2.5 block w-full min-w-0 rounded-xl border border-border-default bg-bg-elevated px-4 py-3 text-sm leading-6 text-text-primary outline-none transition-colors placeholder:text-text-muted hover:border-border-strong focus:border-accent-primary focus:ring-2 focus:ring-accent-primary/15';
+  'mt-2.5 block w-full min-w-0 rounded-xl border border-border-default bg-bg-elevated px-4 py-3 text-sm text-text-primary outline-none transition-colors placeholder:text-text-muted focus:border-accent-primary focus:ring-2 focus:ring-accent-primary/15';
 
 function FormSection({
-  icon: Icon,
   title,
   description,
   children,
 }: {
-  icon: typeof Package;
   title: string;
   description: string;
-  children: React.ReactNode;
+  children: ReactNode;
 }) {
   return (
-    <section className="min-w-0 overflow-hidden rounded-2xl border border-border-default bg-bg-surface">
-      <div className="flex items-start gap-3 border-b border-border-default px-5 py-5 sm:px-6 sm:py-6">
-        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-accent-primary/10 text-accent-primary">
-          <Icon className="h-5 w-5" />
-        </div>
-
-        <div className="min-w-0">
-          <h2 className="text-base font-semibold text-text-primary">
-            {title}
-          </h2>
-          <p className="mt-1 text-sm leading-6 text-text-muted">
-            {description}
-          </p>
-        </div>
+    <section className="overflow-hidden rounded-2xl border border-border-default bg-bg-surface">
+      <div className="border-b border-border-default px-5 py-5">
+        <h2 className="font-semibold text-text-primary">{title}</h2>
+        <p className="mt-1 text-sm text-text-muted">{description}</p>
       </div>
 
-      <div className="p-5 sm:p-6 lg:p-7">{children}</div>
+      <div className="p-5 sm:p-6">{children}</div>
     </section>
   );
 }
 
-function FieldLabel({
-  children,
-  hint,
-}: {
-  children: React.ReactNode;
-  hint?: string;
-}) {
-  return (
-    <span className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm font-medium text-text-secondary">
-      <span>{children}</span>
-      {hint && (
-        <span className="text-xs font-normal text-text-muted">{hint}</span>
-      )}
-    </span>
-  );
+function getReferenceId(
+  value: string | ProductReference | null | undefined,
+): string {
+  if (!value) return '';
+  if (typeof value === 'string') return value;
+  return value._id ?? value.id ?? '';
 }
 
 export default function ProductFormPage() {
@@ -88,447 +79,443 @@ export default function ProductFormPage() {
   const isEditing = Boolean(id);
 
   const [form, setForm] = useState<ProductFormValues>(initialForm);
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [brands, setBrands] = useState<Brand[]>([]);
+
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
 
-  const [previewError, setPreviewError] = useState(false);
-
   useEffect(() => {
-    if (!id) {
-      setForm(initialForm);
-      return;
+    let cancelled = false;
+
+    async function loadFormData() {
+      setLoading(true);
+      setError('');
+
+      try {
+        const [categoryResponse, brandResponse] = await Promise.all([
+          categoriesService.getAdminList({
+            page: 1,
+            limit: 100,
+          }),
+          brandsService.getList({
+            page: 1,
+            limit: 100,
+          }),
+        ]);
+
+        if (cancelled) return;
+
+        const categoryItems = categoryResponse.data ?? [];
+        const brandItems = brandResponse.data ?? [];
+
+        setCategories(categoryItems);
+        setBrands(brandItems);
+
+        if (!id) {
+          setForm(initialForm);
+          return;
+        }
+
+        const response = await productsService.getAdminProductById(id);
+
+        if (cancelled) return;
+
+        const product = response.data;
+
+        if (!product) {
+          navigate('/products', { replace: true });
+          return;
+        }
+
+        setForm({
+          name: product.name ?? '',
+          sku: product.sku ?? '',
+          slug: product.slug ?? '',
+          description: product.description ?? '',
+          categoryId: getReferenceId(product.categoryId),
+          brandId: getReferenceId(product.brandId),
+          basePrice: String(product.basePrice ?? ''),
+          salePrice:
+            product.salePrice === null || product.salePrice === undefined
+              ? ''
+              : String(product.salePrice),
+          metaTitle: product.metaTitle ?? '',
+          metaDescription: product.metaDescription ?? '',
+          isActive: Boolean(product.isActive),
+          isFeatured: Boolean(product.isFeatured),
+        });
+      } catch (err) {
+        if (!cancelled) {
+          setError(
+            err instanceof Error
+              ? err.message
+              : 'Không thể tải dữ liệu sản phẩm.',
+          );
+        }
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
     }
 
-    const product = getProducts().find((item) => item.id === id);
+    void loadFormData();
 
-    if (!product) {
-      navigate('/products', { replace: true });
-      return;
-    }
-
-    setForm({
-      name: product.name,
-      sku: product.sku,
-      description: product.description,
-      category: product.category,
-      brand: product.brand,
-      price: String(product.price),
-      originalPrice: String(product.originalPrice),
-      stock: String(product.stock),
-      status: product.status,
-      image: product.image,
-    });
-
-    setPreviewError(false);
+    return () => {
+      cancelled = true;
+    };
   }, [id, navigate]);
 
-  const updateField = <K extends keyof ProductFormValues>(
+  function updateField<K extends keyof ProductFormValues>(
     key: K,
     value: ProductFormValues[K],
-  ) => {
-    setForm((current) => ({ ...current, [key]: value }));
+  ) {
+    setForm((current) => ({
+      ...current,
+      [key]: value,
+    }));
     setError('');
+  }
 
-    if (key === 'image') {
-      setPreviewError(false);
-    }
-  };
-
-  const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError('');
 
     const name = form.name.trim();
-    const sku = form.sku.trim();
-    const category = form.category.trim();
-    const brand = form.brand.trim();
-    const price = Number(form.price);
-    const originalPrice =
-      form.originalPrice.trim() === ''
-        ? price
-        : Number(form.originalPrice);
-    const stock = Number(form.stock);
+    const sku = form.sku.trim().toUpperCase();
+    const categoryId = form.categoryId;
 
-    if (!name || !sku || !category || !brand) {
-      setError('M cần nhập đầy đủ tên sản phẩm, SKU, danh mục và thương hiệu.');
+    const basePrice = Number(form.basePrice);
+    const salePrice =
+      form.salePrice.trim() === '' ? null : Number(form.salePrice);
+
+    if (!name || !sku || !categoryId) {
+      setError('Vui lòng nhập tên, SKU và chọn danh mục sản phẩm.');
       return;
     }
 
     if (
-      form.price.trim() === '' ||
-      !Number.isFinite(price) ||
-      price < 0 ||
-      !Number.isFinite(originalPrice) ||
-      originalPrice < 0
+      form.basePrice.trim() === '' ||
+      !Number.isFinite(basePrice) ||
+      basePrice < 0
     ) {
-      setError('Giá sản phẩm phải là số hợp lệ và không được âm.');
+      setError('Giá gốc phải là số hợp lệ và không được âm.');
       return;
     }
 
     if (
-      form.stock.trim() === '' ||
-      !Number.isInteger(stock) ||
-      stock < 0
+      salePrice !== null &&
+      (!Number.isFinite(salePrice) || salePrice < 0)
     ) {
-      setError('Tồn kho phải là số nguyên không âm.');
+      setError('Giá khuyến mãi phải là số hợp lệ và không được âm.');
       return;
     }
 
-    if (
-      originalPrice > 0 &&
-      price > originalPrice
-    ) {
-      setError('Giá bán không nên cao hơn giá gốc. M hãy kiểm tra lại.');
+    if (salePrice !== null && salePrice > basePrice) {
+      setError('Giá khuyến mãi không được lớn hơn giá gốc.');
       return;
     }
 
-    const products = getProducts();
-
-    const duplicateSku = products.some(
-      (product) =>
-        product.sku.toLowerCase() === sku.toLowerCase() &&
-        product.id !== id,
-    );
-
-    if (duplicateSku) {
-      setError('SKU này đã tồn tại. M hãy nhập một SKU khác.');
-      return;
-    }
-
-    const now = new Date().toISOString().slice(0, 10);
-    const normalizedImage = form.image.trim();
-
-    if (isEditing && id) {
-      const existing = products.find((product) => product.id === id);
-
-      if (!existing) {
-        setError('Không tìm thấy sản phẩm cần chỉnh sửa.');
-        return;
-      }
-
-      const updatedProduct: Product = {
-        ...existing,
-        ...form,
-        name,
-        sku,
-        category,
-        brand,
-        image: normalizedImage,
-        price,
-        originalPrice,
-        stock,
-        updatedAt: now,
-      };
-
-      saveProducts(
-        products.map((product) =>
-          product.id === id ? updatedProduct : product,
-        ),
-      );
-
-      navigate(`/products/${id}`);
-      return;
-    }
-
-    const newProduct: Product = {
-      ...form,
-      id: `PRD-${Date.now()}`,
+    const payload: ProductCreatePayload = {
       name,
       sku,
-      category,
-      brand,
-      image: normalizedImage,
-      price,
-      originalPrice,
-      stock,
-      createdAt: now,
-      updatedAt: now,
+      slug: form.slug.trim() || undefined,
+      categoryId,
+      brandId: form.brandId || null,
+      description: form.description.trim() || null,
+      basePrice,
+      salePrice,
+      metaTitle: form.metaTitle.trim() || null,
+      metaDescription: form.metaDescription.trim() || null,
+      isFeatured: form.isFeatured,
+      isActive: form.isActive,
     };
 
-    saveProducts([newProduct, ...products]);
-    navigate(`/products/${newProduct.id}`);
-  };
+    setSaving(true);
+
+    try {
+      if (id) {
+        await productsService.updateProduct(id, payload);
+        navigate(`/products/${id}`);
+      } else {
+        const response = await productsService.createProduct(payload);
+        const createdProduct = response.data;
+
+        if (createdProduct?.id) {
+          navigate(`/products/${createdProduct.id}`);
+        } else {
+          navigate('/products');
+        }
+      }
+    } catch (err) {
+      setError(
+        err instanceof Error
+          ? err.message
+          : 'Không thể lưu sản phẩm. Vui lòng thử lại.',
+      );
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  if (loading) {
+    return (
+      <main className="p-4 sm:p-6">
+        <div className="flex min-h-48 items-center justify-center rounded-2xl border border-border-default bg-bg-surface text-sm text-text-secondary">
+          Đang tải dữ liệu sản phẩm...
+        </div>
+      </main>
+    );
+  }
 
   return (
-    <main className="mx-auto w-full min-w-0 max-w-[1800px] space-y-6 p-4 pb-8 sm:space-y-7 sm:p-5 sm:pb-8 xl:p-6 xl:pb-10">
+    <main className="mx-auto w-full max-w-[1600px] space-y-6 p-4 sm:p-6">
       <PageHeader
         title={isEditing ? 'Chỉnh sửa sản phẩm' : 'Thêm sản phẩm'}
-        description={
-          isEditing
-            ? 'Cập nhật thông tin, giá bán và tình trạng kinh doanh của sản phẩm.'
-            : 'Hoàn thiện thông tin bên dưới để thêm sản phẩm vào cửa hàng.'
-        }
+        description="Quản lý thông tin cơ bản, phân loại và giá của sản phẩm."
         eyebrow={isEditing ? 'PRODUCT / EDIT' : 'PRODUCT / CREATE'}
         actions={
-          <Link to="/products" className="inline-flex w-full sm:w-auto">
-            <Button variant="secondary" className="w-full sm:w-auto">
+          <Link to="/products">
+            <Button variant="secondary">
               <ArrowLeft className="mr-2 h-4 w-4" />
-              Quay lại danh sách
+              Quay lại
             </Button>
           </Link>
         }
       />
 
-      <form onSubmit={handleSubmit} className="min-w-0 space-y-5 sm:space-y-6">
-        <div className="grid min-w-0 grid-cols-1 items-start gap-5 xl:grid-cols-[minmax(0,1.65fr)_minmax(300px,0.85fr)] xl:gap-6">
-          <div className="min-w-0 space-y-5 sm:space-y-6">
-            <FormSection
-              icon={Package}
-              title="Thông tin cơ bản"
-              description="Thông tin nhận diện và phân loại sản phẩm."
-            >
-              <div className="grid min-w-0 grid-cols-1 gap-x-5 gap-y-6 md:grid-cols-2">
-                <label className="block min-w-0">
-                  <FieldLabel>Tên sản phẩm *</FieldLabel>
-                  <input
-                    className={fieldClass}
-                    value={form.name}
-                    onChange={(event) =>
-                      updateField('name', event.target.value)
-                    }
-                    placeholder="Nhập tên sản phẩm"
-                    autoComplete="off"
-                    required
-                  />
-                </label>
+      <form onSubmit={handleSubmit} className="space-y-5">
+        <FormSection
+          title="Thông tin cơ bản"
+          description="Thông tin nhận diện sản phẩm trong hệ thống."
+        >
+          <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
+            <label>
+              <span className="text-sm font-medium text-text-secondary">
+                Tên sản phẩm *
+              </span>
+              <input
+                className={fieldClass}
+                value={form.name}
+                onChange={(e) => updateField('name', e.target.value)}
+                required
+                maxLength={255}
+                placeholder="Nhập tên sản phẩm"
+              />
+            </label>
 
-                <label className="block min-w-0">
-                  <FieldLabel>SKU *</FieldLabel>
-                  <input
-                    className={fieldClass}
-                    value={form.sku}
-                    onChange={(event) =>
-                      updateField('sku', event.target.value)
-                    }
-                    placeholder="VD: PHI-AF-009"
-                    autoComplete="off"
-                    required
-                  />
-                </label>
+            <label>
+              <span className="text-sm font-medium text-text-secondary">
+                SKU *
+              </span>
+              <input
+                className={fieldClass}
+                value={form.sku}
+                onChange={(e) => updateField('sku', e.target.value)}
+                required
+                placeholder="VD: NOI-INOX-001"
+              />
+            </label>
 
-                <label className="block min-w-0">
-                  <FieldLabel>Danh mục *</FieldLabel>
-                  <input
-                    className={fieldClass}
-                    value={form.category}
-                    onChange={(event) =>
-                      updateField('category', event.target.value)
-                    }
-                    placeholder="Nhập danh mục sản phẩm"
-                    required
-                  />
-                </label>
+            <label>
+              <span className="text-sm font-medium text-text-secondary">
+                Slug
+              </span>
+              <input
+                className={fieldClass}
+                value={form.slug}
+                onChange={(e) => updateField('slug', e.target.value)}
+                placeholder="Để trống để Backend tự tạo"
+              />
+            </label>
 
-                <label className="block min-w-0">
-                  <FieldLabel>Thương hiệu *</FieldLabel>
-                  <input
-                    className={fieldClass}
-                    value={form.brand}
-                    onChange={(event) =>
-                      updateField('brand', event.target.value)
-                    }
-                    placeholder="Nhập tên thương hiệu"
-                    required
-                  />
-                </label>
+            <label>
+              <span className="text-sm font-medium text-text-secondary">
+                Danh mục *
+              </span>
+              <select
+                className={fieldClass}
+                value={form.categoryId}
+                onChange={(e) => updateField('categoryId', e.target.value)}
+                required
+              >
+                <option value="">-- Chọn danh mục --</option>
+                {categories.map((category) => (
+                  <option key={category.id} value={category.id}>
+                    {category.name}
+                    {category.status === 'inactive' ? ' (Ngừng hoạt động)' : ''}
+                  </option>
+                ))}
+              </select>
+            </label>
 
-                <label className="block min-w-0 md:col-span-2">
-                  <FieldLabel>Mô tả sản phẩm</FieldLabel>
-                  <textarea
-                    className={`${fieldClass} min-h-36 resize-y`}
-                    value={form.description}
-                    onChange={(event) =>
-                      updateField('description', event.target.value)
-                    }
-                    placeholder="Mô tả đặc điểm, công dụng và thông tin nổi bật của sản phẩm..."
-                    rows={5}
-                  />
-                  <span className="mt-2 block text-xs leading-5 text-text-muted">
-                    Mô tả rõ ràng giúp việc quản lý và nhận diện sản phẩm dễ
-                    dàng hơn.
-                  </span>
-                </label>
-              </div>
-            </FormSection>
+            <label>
+              <span className="text-sm font-medium text-text-secondary">
+                Thương hiệu
+              </span>
+              <select
+                className={fieldClass}
+                value={form.brandId}
+                onChange={(e) => updateField('brandId', e.target.value)}
+              >
+                <option value="">-- Không chọn thương hiệu --</option>
+                {brands.map((brand) => (
+                  <option key={brand.id} value={brand.id}>
+                    {brand.name}
+                    {!brand.isActive ? ' (Ngừng hoạt động)' : ''}
+                  </option>
+                ))}
+              </select>
+            </label>
 
-            <FormSection
-              icon={Warehouse}
-              title="Giá bán và tồn kho"
-              description="Thiết lập giá sản phẩm và số lượng hàng hiện có."
-            >
-              <div className="grid min-w-0 grid-cols-1 gap-x-5 gap-y-6 md:grid-cols-2">
-                <label className="block min-w-0">
-                  <FieldLabel>Giá bán (VNĐ) *</FieldLabel>
-                  <input
-                    className={fieldClass}
-                    type="number"
-                    min="0"
-                    step="1000"
-                    value={form.price}
-                    onChange={(event) =>
-                      updateField('price', event.target.value)
-                    }
-                    placeholder="VD: 250000"
-                    required
-                  />
-                  <span className="mt-2 block text-xs text-text-muted">
-                    Giá bán hiện tại của sản phẩm.
-                  </span>
-                </label>
-
-                <label className="block min-w-0">
-                  <FieldLabel>Giá gốc (VNĐ)</FieldLabel>
-                  <input
-                    className={fieldClass}
-                    type="number"
-                    min="0"
-                    step="1000"
-                    value={form.originalPrice}
-                    onChange={(event) =>
-                      updateField('originalPrice', event.target.value)
-                    }
-                    placeholder="Để trống nếu bằng giá bán"
-                  />
-                  <span className="mt-2 block text-xs text-text-muted">
-                    Dùng để thể hiện mức giá trước khuyến mãi.
-                  </span>
-                </label>
-
-                <label className="block min-w-0 md:col-span-2">
-                  <FieldLabel>Số lượng tồn kho *</FieldLabel>
-                  <input
-                    className={fieldClass}
-                    type="number"
-                    min="0"
-                    step="1"
-                    value={form.stock}
-                    onChange={(event) =>
-                      updateField('stock', event.target.value)
-                    }
-                    placeholder="Nhập số lượng tồn kho"
-                    required
-                  />
-                  <span className="mt-2 block text-xs text-text-muted">
-                    Nhập số nguyên từ 0 trở lên.
-                  </span>
-                </label>
-              </div>
-            </FormSection>
+            <label className="md:col-span-2">
+              <span className="text-sm font-medium text-text-secondary">
+                Mô tả sản phẩm
+              </span>
+              <textarea
+                className={`${fieldClass} min-h-32 resize-y`}
+                value={form.description}
+                onChange={(e) => updateField('description', e.target.value)}
+                rows={5}
+                placeholder="Nhập mô tả sản phẩm..."
+              />
+            </label>
           </div>
+        </FormSection>
 
-          <aside className="min-w-0 space-y-5 sm:space-y-6">
-            <FormSection
-              icon={ImagePlus}
-              title="Hình ảnh sản phẩm"
-              description="Thêm đường dẫn ảnh và kiểm tra hình xem trước."
-            >
-              <label className="block min-w-0">
-                <FieldLabel>Đường dẫn ảnh</FieldLabel>
-                <input
-                  className={fieldClass}
-                  type="url"
-                  value={form.image}
-                  onChange={(event) =>
-                    updateField('image', event.target.value)
-                  }
-                  placeholder="https://example.com/image.jpg"
-                />
-              </label>
+        <FormSection
+          title="Thông tin giá"
+          description="basePrice là giá gốc; salePrice là giá khuyến mãi."
+        >
+          <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
+            <label>
+              <span className="text-sm font-medium text-text-secondary">
+                Giá gốc (VNĐ) *
+              </span>
+              <input
+                className={fieldClass}
+                type="number"
+                min="0"
+                step="1"
+                value={form.basePrice}
+                onChange={(e) => updateField('basePrice', e.target.value)}
+                required
+                placeholder="VD: 500000"
+              />
+            </label>
 
-              <div className="mt-5 flex min-h-56 items-center justify-center overflow-hidden rounded-xl border border-dashed border-border-strong bg-bg-elevated/50 p-4 sm:min-h-64">
-                {form.image.trim() && !previewError ? (
-                  <img
-                    src={form.image}
-                    alt="Xem trước sản phẩm"
-                    className="max-h-64 w-full object-contain"
-                    onError={() => setPreviewError(true)}
-                  />
-                ) : (
-                  <div className="flex flex-col items-center px-4 py-6 text-center">
-                    <div className="flex h-14 w-14 items-center justify-center rounded-2xl border border-border-default bg-bg-surface text-text-muted">
-                      <ImagePlus className="h-6 w-6" />
-                    </div>
-                    <p className="mt-4 text-sm font-medium text-text-secondary">
-                      {previewError ? 'Không thể tải hình ảnh' : 'Chưa có hình ảnh'}
-                    </p>
-                    <p className="mt-1 max-w-52 text-xs leading-5 text-text-muted">
-                      {previewError
-                        ? 'Kiểm tra lại đường dẫn ảnh rồi thử lại.'
-                        : 'Nhập URL ảnh để xem trước tại đây.'}
-                    </p>
-                  </div>
-                )}
-              </div>
-            </FormSection>
+            <label>
+              <span className="text-sm font-medium text-text-secondary">
+                Giá khuyến mãi (VNĐ)
+              </span>
+              <input
+                className={fieldClass}
+                type="number"
+                min="0"
+                step="1"
+                value={form.salePrice}
+                onChange={(e) => updateField('salePrice', e.target.value)}
+                placeholder="Để trống nếu không giảm giá"
+              />
+            </label>
+          </div>
+        </FormSection>
 
-            <FormSection
-              icon={Tag}
-              title="Trạng thái"
-              description="Chọn trạng thái hiển thị của sản phẩm."
-            >
-              <label className="block min-w-0">
-                <FieldLabel>Trạng thái kinh doanh</FieldLabel>
-                <select
-                  className={fieldClass}
-                  value={form.status}
-                  onChange={(event) =>
-                    updateField('status', event.target.value as ProductStatus)
-                  }
-                >
-                  <option value="draft">Bản nháp</option>
-                  <option value="active">Đang bán</option>
-                  <option value="inactive">Ngừng bán</option>
-                </select>
-              </label>
+        <FormSection
+          title="SEO"
+          description="Thông tin hỗ trợ hiển thị trên công cụ tìm kiếm."
+        >
+          <div className="grid grid-cols-1 gap-5">
+            <label>
+              <span className="text-sm font-medium text-text-secondary">
+                Meta title
+              </span>
+              <input
+                className={fieldClass}
+                maxLength={255}
+                value={form.metaTitle}
+                onChange={(e) => updateField('metaTitle', e.target.value)}
+              />
+            </label>
 
-              <div className="mt-4 rounded-xl border border-border-default bg-bg-elevated/40 p-4">
-                <p className="text-xs font-medium uppercase tracking-wider text-text-muted">
-                  Trạng thái đã chọn
-                </p>
-                <p className="mt-2 text-sm font-semibold text-text-primary">
-                  {form.status === 'active'
-                    ? 'Đang bán'
-                    : form.status === 'inactive'
-                      ? 'Ngừng bán'
-                      : 'Bản nháp'}
-                </p>
-                <p className="mt-1 text-xs leading-5 text-text-muted">
-                  {form.status === 'active'
-                    ? 'Sản phẩm được đánh dấu đang kinh doanh.'
-                    : form.status === 'inactive'
-                      ? 'Sản phẩm được đánh dấu ngừng kinh doanh.'
-                      : 'Sản phẩm được lưu dưới dạng bản nháp.'}
-                </p>
-              </div>
-            </FormSection>
-          </aside>
+            <label>
+              <span className="text-sm font-medium text-text-secondary">
+                Meta description
+              </span>
+              <textarea
+                className={`${fieldClass} min-h-24`}
+                value={form.metaDescription}
+                onChange={(e) =>
+                  updateField('metaDescription', e.target.value)
+                }
+              />
+            </label>
+          </div>
+        </FormSection>
+
+        <FormSection
+          title="Trạng thái sản phẩm"
+          description="Thiết lập trạng thái kinh doanh và sản phẩm nổi bật."
+        >
+          <div className="space-y-4">
+            <label className="flex items-center gap-3 text-sm text-text-primary">
+              <input
+                type="checkbox"
+                checked={form.isActive}
+                onChange={(e) => updateField('isActive', e.target.checked)}
+                className="h-4 w-4 accent-current"
+              />
+              Đang kinh doanh
+            </label>
+
+            <label className="flex items-center gap-3 text-sm text-text-primary">
+              <input
+                type="checkbox"
+                checked={form.isFeatured}
+                onChange={(e) => updateField('isFeatured', e.target.checked)}
+                className="h-4 w-4 accent-current"
+              />
+              Sản phẩm nổi bật
+            </label>
+          </div>
+        </FormSection>
+
+        <div className="rounded-xl border border-border-default bg-bg-elevated/40 p-4 text-sm leading-6 text-text-muted">
+          <p className="font-medium text-text-secondary">
+            Lưu ý về biến thể, tồn kho và hình ảnh
+          </p>
+          <p className="mt-1">
+            Tồn kho và SKU từng phiên bản cần được quản lý trong ProductVariant
+            và Inventory. Hình ảnh được quản lý riêng trong ProductMedia sau
+            khi sản phẩm được tạo.
+          </p>
         </div>
 
         {error && (
           <div
             role="alert"
-            className="rounded-xl border border-red-500/30 bg-red-500/10 p-4 text-sm leading-6 text-red-400"
+            className="rounded-xl border border-red-500/30 bg-red-500/10 p-4 text-sm text-red-400"
           >
             {error}
           </div>
         )}
 
-        <div className="flex flex-col-reverse gap-3 rounded-2xl border border-border-default bg-bg-surface p-4 sm:flex-row sm:items-center sm:justify-between sm:p-5">
-          <p className="text-xs leading-5 text-text-muted">
-            Các trường có dấu * là bắt buộc.
-          </p>
-
-          <div className="flex flex-col-reverse gap-3 sm:flex-row">
-            <Link to="/products" className="inline-flex">
-              <Button variant="secondary" className="w-full sm:w-auto">
-                Hủy
-              </Button>
-            </Link>
-
-            <Button variant="primary" type="submit" className="w-full sm:w-auto">
-              <Save className="mr-2 h-4 w-4" />
-              {isEditing ? 'Lưu thay đổi' : 'Tạo sản phẩm'}
+        <div className="flex flex-col-reverse justify-end gap-3 sm:flex-row">
+          <Link to="/products">
+            <Button variant="secondary" className="w-full sm:w-auto">
+              Hủy
             </Button>
-          </div>
+          </Link>
+
+          <Button
+            variant="primary"
+            type="submit"
+            loading={saving}
+            className="w-full sm:w-auto"
+          >
+            <Save className="mr-2 h-4 w-4" />
+            {isEditing ? 'Lưu thay đổi' : 'Tạo sản phẩm'}
+          </Button>
         </div>
       </form>
     </main>

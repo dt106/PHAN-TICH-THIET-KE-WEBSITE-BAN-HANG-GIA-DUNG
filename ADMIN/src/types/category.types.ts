@@ -15,7 +15,8 @@ export type CategoryParentIdApi =
 
 /** Category đúng theo dữ liệu backend */
 export interface CategoryApi {
-  _id: string;
+  id?: string;
+  _id?: string;
   parentId: CategoryParentIdApi;
   name: string;
   slug: string;
