@@ -74,8 +74,10 @@ function mapParentId(
 }
 
 function mapCategory(api: CategoryApi): Category {
+  const id = api._id ?? api.id;
+
   return {
-    id: api._id,
+    id: id ? String(id) : '',
     name: api.name,
     slug: api.slug,
     description: api.description ?? '',
