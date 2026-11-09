@@ -224,8 +224,20 @@ export default function ProductsPage() {
       className: 'min-w-64',
       render: (product) => (
         <div className="flex min-w-0 items-center gap-3">
-          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-border-default bg-bg-elevated text-text-muted">
-            <Package className="h-5 w-5" />
+          <div className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-border-default bg-bg-elevated text-text-muted">
+            {product.thumbnail ? (
+              <img
+                src={product.thumbnail}
+                alt={product.name}
+                loading="lazy"
+                onError={(event) => {
+                  event.currentTarget.style.display = 'none';
+                }}
+                className="h-full w-full object-cover"
+              />
+            ) : (
+              <Package className="h-5 w-5" />
+            )}
           </div>
 
           <div className="min-w-0">

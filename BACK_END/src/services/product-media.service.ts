@@ -1,6 +1,8 @@
 import ProductMedia from "../models/ProductMedia.model";
 import Product from "../models/Product.model";
 import { AppError } from "../utils/appError";
+import type { Express } from "express";
+import { uploadImageService } from "./upload.service";
 
 interface MediaPayload {
   mediaType: "image" | "video";
@@ -181,3 +183,41 @@ export const deleteBatchMedia = async (
 
   return { message: "Đã xóa danh sách media thành công." };
 };
+/**
+ * Upload nhiều ảnh lên Cloudinary và lưu vào ProductMedia.
+ *
+ * - Kiểm tra sản phẩm tồn tại trước khi upload.
+ * - Upload ảnh lên Cloudinary.
+ * - Lưu URL ảnh vào MongoDB.
+ * - Tự động đặt ảnh đầu tiên làm ảnh chính nếu sản phẩm chưa có media.
+ */
+export const uploadAndCreateBatchMedia = async (
+  productId: string,
+  files: Express.Multer.File[],
+) => {
+  const product = await Product.findById(productId);
+
+  if (!product) {
+    throw new AppError(404, "Sản phẩm không tồn tại.");
+  }
+
+  if (!files || files.length === 0) {
+    throw new AppError(400, "Vui lòng chọn ít nhất một ảnh.");
+  }
+
+  const mediaList: MediaPayload[] = await Promise.all(
+    files.map(async (file) => {
+      const mediaUrl = await uploadImageService(
+        file,
+        "sweetshop/products/media",
+      );
+
+      return {
+        mediaType: "image",
+        mediaUrl,
+      };
+    }),
+  );
+
+  return createBatchMedia(productId, mediaList);
+};  

@@ -126,3 +126,38 @@ export const deleteBatchMedia = async (req: Request, res: Response, next: NextFu
     next(error);
   }
 };
+/**
+ * POST /api/admin/products/:productId/media/upload
+ *
+ * Upload một hoặc nhiều ảnh từ máy tính lên Cloudinary.
+ * Field multipart/form-data: files
+ */
+export const uploadMediaFiles = async (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) => {
+  try {
+    const files = req.files as Express.Multer.File[] | undefined;
+
+    if (!files || files.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: "Vui lòng chọn ít nhất một ảnh để tải lên.",
+      });
+    }
+
+    const mediaList = await mediaService.uploadAndCreateBatchMedia(
+      getPathParam(req.params.productId),
+      files,
+    );
+
+    return res.status(201).json({
+      success: true,
+      message: `Tải lên thành công ${mediaList.length} hình ảnh.`,
+      data: mediaList,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
