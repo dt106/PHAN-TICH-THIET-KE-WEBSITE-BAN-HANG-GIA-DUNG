@@ -123,8 +123,43 @@ export const API_ENDPOINTS = {
     adminDelete: (id: string) =>
       `/admin/variants/${encodeURIComponent(id)}`,
   },
+
   productMedia: {
-    base: '/product-media',
+    // Lấy danh sách media theo sản phẩm.
+    adminListByProduct: (productId: string) =>
+      `/admin/products/${encodeURIComponent(productId)}/media`,
+
+    // Tạo một media bằng URL.
+    adminCreateByProduct: (productId: string) =>
+      `/admin/products/${encodeURIComponent(productId)}/media`,
+
+    // Tạo nhiều media bằng URL.
+    adminCreateBatchByProduct: (productId: string) =>
+      `/admin/products/${encodeURIComponent(productId)}/media/batch`,
+
+    // Upload một hoặc nhiều ảnh từ máy tính.
+    adminUploadByProduct: (productId: string) =>
+      `/admin/products/${encodeURIComponent(productId)}/media/upload`,
+
+    // Cập nhật media.
+    adminUpdate: (id: string) =>
+      `/admin/media/${encodeURIComponent(id)}`,
+
+    // Đặt ảnh chính.
+    adminSetPrimary: (id: string) =>
+      `/admin/media/${encodeURIComponent(id)}/primary`,
+
+    // Cập nhật thứ tự media.
+    adminUpdateSortOrder: (productId: string) =>
+      `/admin/products/${encodeURIComponent(productId)}/media/sort-order`,
+
+    // Xóa một media.
+    adminDelete: (id: string) =>
+      `/admin/media/${encodeURIComponent(id)}`,
+
+    // Xóa toàn bộ media của sản phẩm.
+    adminDeleteByProduct: (productId: string) =>
+      `/admin/products/${encodeURIComponent(productId)}/media`,
   },
 
   variantAttributes: {
