@@ -1,15 +1,14 @@
+import type { AttributeValue } from './attribute.types';
 
-export interface AttributeValue {
-  id: number;
-  attribute_id: number;
-  value: string;
-  slug: string;
-  created_at: string;
-  updated_at: string;
-}
+export type { AttributeValue };
 
 export interface AttributeOption {
-  id: number;
+  id: string;
   name: string;
   slug: string;
+}
+
+export interface AttributeValueFormData {
+  attributeId: string;
+  value: string;
 }

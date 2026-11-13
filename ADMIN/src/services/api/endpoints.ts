@@ -2,7 +2,7 @@
 /**
  * FILE: ADMIN/src/services/api/endpoints.ts
  *
- * Các route Admin đã biết và những route cần đối chiếu.
+ * Quản lý tập trung các API endpoint.
  */
 
 export const API_ENDPOINTS = {
@@ -20,27 +20,33 @@ export const API_ENDPOINTS = {
 
   customers: {
     list: '/admin/customers',
-    detail: (id: string) => `/admin/customers/${id}`,
-    status: (id: string) => `/admin/customers/${id}/status`,
+    detail: (id: string) => `/admin/customers/${encodeURIComponent(id)}`,
+    status: (id: string) => `/admin/customers/${encodeURIComponent(id)}/status`,
   },
 
   products: {
+    // Public API
     list: '/products',
-    detail: (id: string) => `/products/${id}`,
+    detail: (id: string) => `/products/${encodeURIComponent(id)}`,
     featured: '/products/featured',
-    related: (id: string) => `/products/related/${id}`,
+    related: (id: string) => `/products/related/${encodeURIComponent(id)}`,
     bySlug: (slug: string) => `/products/slug/${encodeURIComponent(slug)}`,
-    adminList: '/products/admin/all',
-    adminDetail: (id: string) => `/products/admin/${id}`,
-    create: '/products/admin',
-    update: (id: string) => `/products/admin/${id}`,
-    status: (id: string) => `/products/admin/${id}/status`,
-    featuredStatus: (id: string) => `/products/admin/${id}/featured`,
-    delete: (id: string) => `/products/admin/${id}`,
+
+    // Admin API
+    adminList: '/admin/products/all',
+    adminDetail: (id: string) =>
+      `/admin/products/${encodeURIComponent(id)}`,
+    create: '/admin/products',
+    update: (id: string) =>
+      `/admin/products/${encodeURIComponent(id)}`,
+    status: (id: string) =>
+      `/admin/products/${encodeURIComponent(id)}/status`,
+    featuredStatus: (id: string) =>
+      `/admin/products/${encodeURIComponent(id)}/featured`,
+    delete: (id: string) =>
+      `/admin/products/${encodeURIComponent(id)}`,
   },
 
-  // Các nhóm dưới đây cần đối chiếu với file routes backend
-  // trước khi sử dụng trên môi trường thật.
   dashboard: {
     overview: '/admin/dashboard/overview',
     revenue: '/admin/dashboard/revenue',
@@ -54,11 +60,44 @@ export const API_ENDPOINTS = {
   },
 
   brands: {
+    // Public
     base: '/brands',
+
+    // Admin
+    adminList: '/admin/brands/all',
+    adminDetail: (id: string) =>
+      `/admin/brands/${encodeURIComponent(id)}`,
+    create: '/admin/brands',
+    update: (id: string) =>
+      `/admin/brands/${encodeURIComponent(id)}`,
+    status: (id: string) =>
+      `/admin/brands/${encodeURIComponent(id)}/status`,
+    delete: (id: string) =>
+      `/admin/brands/${encodeURIComponent(id)}`,
   },
 
   attributes: {
+    // Public
     base: '/attributes',
+    detail: (id: string) =>
+      `/attributes/${encodeURIComponent(id)}`,
+
+    // Admin
+    adminBase: '/admin/attributes',
+    create: '/admin/attributes',
+    update: (id: string) =>
+      `/admin/attributes/${encodeURIComponent(id)}`,
+    delete: (id: string) =>
+      `/admin/attributes/${encodeURIComponent(id)}`,
+
+    createValue: (id: string) =>
+      `/admin/attributes/${encodeURIComponent(id)}/values`,
+
+    updateValue: (valueId: string) =>
+      `/admin/attributes/values/${encodeURIComponent(valueId)}`,
+
+    deleteValue: (valueId: string) =>
+      `/admin/attributes/values/${encodeURIComponent(valueId)}`,
   },
 
   attributeValues: {
@@ -66,11 +105,61 @@ export const API_ENDPOINTS = {
   },
 
   productVariants: {
-    base: '/product-variants',
+    adminListByProduct: (productId: string) =>
+      `/admin/products/${encodeURIComponent(productId)}/variants`,
+
+    adminCreateByProduct: (productId: string) =>
+      `/admin/products/${encodeURIComponent(productId)}/variants`,
+
+    adminUpdate: (id: string) =>
+      `/admin/variants/${encodeURIComponent(id)}`,
+
+    adminUpdateStock: (id: string) =>
+      `/admin/variants/${encodeURIComponent(id)}/stock`,
+
+    adminUpdateStatus: (id: string) =>
+      `/admin/variants/${encodeURIComponent(id)}/status`,
+
+    adminDelete: (id: string) =>
+      `/admin/variants/${encodeURIComponent(id)}`,
   },
 
   productMedia: {
-    base: '/product-media',
+    // Lấy danh sách media theo sản phẩm.
+    adminListByProduct: (productId: string) =>
+      `/admin/products/${encodeURIComponent(productId)}/media`,
+
+    // Tạo một media bằng URL.
+    adminCreateByProduct: (productId: string) =>
+      `/admin/products/${encodeURIComponent(productId)}/media`,
+
+    // Tạo nhiều media bằng URL.
+    adminCreateBatchByProduct: (productId: string) =>
+      `/admin/products/${encodeURIComponent(productId)}/media/batch`,
+
+    // Upload một hoặc nhiều ảnh từ máy tính.
+    adminUploadByProduct: (productId: string) =>
+      `/admin/products/${encodeURIComponent(productId)}/media/upload`,
+
+    // Cập nhật media.
+    adminUpdate: (id: string) =>
+      `/admin/media/${encodeURIComponent(id)}`,
+
+    // Đặt ảnh chính.
+    adminSetPrimary: (id: string) =>
+      `/admin/media/${encodeURIComponent(id)}/primary`,
+
+    // Cập nhật thứ tự media.
+    adminUpdateSortOrder: (productId: string) =>
+      `/admin/products/${encodeURIComponent(productId)}/media/sort-order`,
+
+    // Xóa một media.
+    adminDelete: (id: string) =>
+      `/admin/media/${encodeURIComponent(id)}`,
+
+    // Xóa toàn bộ media của sản phẩm.
+    adminDeleteByProduct: (productId: string) =>
+      `/admin/products/${encodeURIComponent(productId)}/media`,
   },
 
   variantAttributes: {

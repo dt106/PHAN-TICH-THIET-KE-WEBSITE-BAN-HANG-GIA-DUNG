@@ -1,249 +1,317 @@
-
 import {
     ListFilter,
     Plus,
-    Pencil,
-    Trash2,
-    Search,
     RotateCcw,
+    Search,
     SlidersHorizontal,
 } from 'lucide-react';
-import { useMemo, useState, type FormEvent } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import PageHeader from '../../components/shared/PageHeader';
 import StatCard from '../../components/shared/StatCard';
-import DataTable, {
-    type DataTableColumn,
-} from '../../components/shared/DataTable';
 import Pagination from '../../components/shared/Pagination';
 import ConfirmDialog from '../../components/shared/ConfirmDialog';
 import { Button } from '../../components/ui/buttons/Button';
-import Modal from '../../components/ui/overlays/Modal';
 
-import {
-    attributeOptionsMock,
-    attributeValuesMock,
-} from '../../mocks/attribute-values.mock';
+import AttributeValueFormModal from './components/AttributeValueFormModal';
+import AttributeValueTable from './components/AttributeValueTable';
 
+import { attributesService } from '../../services/catalog/attributes.service';
+import { attributeValuesService } from '../../services/catalog/attributeValues.service';
+
+import type { ProductAttribute } from '../../types/attribute.types';
 import type {
-
     AttributeValue,
+    AttributeOption,
+    AttributeValueFormData,
 } from '../../types/attribute-value.types';
 
 const PAGE_SIZE = 7;
-
-const slugify = (text: string) =>
-    text
-        .normalize('NFD')
-        .replace(/[\u0300-\u036f]/g, '')
-        .replace(/đ/g, 'd')
-        .replace(/Đ/g, 'D')
-        .toLowerCase()
-        .trim()
-        .replace(/[^a-z0-9]+/g, '-')
-        .replace(/^-|-$/g, '');
 
 const inputClass =
     'w-full rounded-lg border border-border-default bg-bg-app px-3 py-2.5 text-sm text-text-primary outline-none transition focus:border-accent-primary';
 
 export default function AttributeValuesPage() {
-    const [items, setItems] = useState<AttributeValue[]>(
-        attributeValuesMock,
-    );
+    const [attributes, setAttributes] = useState<ProductAttribute[]>([]);
+    const [items, setItems] = useState<AttributeValue[]>([]);
+
+    const [loading, setLoading] = useState(true);
+    const [saving, setSaving] = useState(false);
+    const [deleting, setDeleting] = useState(false);
+
+    const [pageError, setPageError] = useState('');
+
     const [search, setSearch] = useState('');
     const [attributeFilter, setAttributeFilter] = useState('all');
     const [page, setPage] = useState(1);
+
     const [modalOpen, setModalOpen] = useState(false);
     const [editing, setEditing] = useState<AttributeValue | null>(null);
     const [deleteTarget, setDeleteTarget] =
         useState<AttributeValue | null>(null);
-    const [attributeId, setAttributeId] = useState('1');
-    const [value, setValue] = useState('');
-    const [error, setError] = useState('');
 
-    const getAttributeName = (id: number) =>
-        attributeOptionsMock.find((item) => item.id === id)?.name ??
-        'Không xác định';
+    // =========================
+    // ATTRIBUTE OPTIONS
+    // =========================
+
+    const attributeOptions = useMemo<AttributeOption[]>(
+        () =>
+            attributes.map((attribute) => ({
+                id: attribute.id,
+                name: attribute.name,
+                slug: attribute.slug,
+            })),
+        [attributes],
+    );
+
+    const attributeNames = useMemo<Record<string, string>>(
+        () =>
+            Object.fromEntries(
+                attributes.map((attribute) => [
+                    attribute.id,
+                    attribute.name,
+                ]),
+            ),
+        [attributes],
+    );
+
+    // =========================
+    // LOAD DATA
+    // =========================
+
+    const loadData = useCallback(async () => {
+        try {
+            const result = await attributesService.getAll();
+
+            const safeAttributes = Array.isArray(result) ? result : [];
+
+            setAttributes(safeAttributes);
+
+            const allValues = safeAttributes.flatMap((attribute) =>
+                Array.isArray(attribute.values) ? attribute.values : [],
+            );
+
+            setItems(allValues);
+            setPageError('');
+        } catch (error) {
+            console.error('Failed to load attribute values:', error);
+
+            setPageError(
+                'Không thể tải danh sách giá trị thuộc tính. Vui lòng thử lại.',
+            );
+        } finally {
+            setLoading(false);
+        }
+    }, []);
+
+    // Tải dữ liệu ban đầu.
+    // Không gọi loadData trực tiếp trong effect để tránh lỗi set-state-in-effect.
+    useEffect(() => {
+        let active = true;
+
+        attributesService
+            .getAll()
+            .then((result) => {
+                if (!active) return;
+
+                const safeAttributes = Array.isArray(result) ? result : [];
+
+                setAttributes(safeAttributes);
+
+                const allValues = safeAttributes.flatMap((attribute) =>
+                    Array.isArray(attribute.values) ? attribute.values : [],
+                );
+
+                setItems(allValues);
+                setPageError('');
+            })
+            .catch((error) => {
+                console.error('Failed to load attribute values:', error);
+
+                if (active) {
+                    setPageError(
+                        'Không thể tải danh sách giá trị thuộc tính. Vui lòng thử lại.',
+                    );
+                }
+            })
+            .finally(() => {
+                if (active) {
+                    setLoading(false);
+                }
+            });
+
+        return () => {
+            active = false;
+        };
+    }, []);
+
+    // =========================
+    // SEARCH & FILTER
+    // =========================
 
     const filteredItems = useMemo(() => {
         const keyword = search.trim().toLocaleLowerCase('vi');
 
         return items.filter((item) => {
+            const attributeName =
+                attributeNames[item.attributeId] ?? '';
+
             const matchesSearch =
                 item.value.toLocaleLowerCase('vi').includes(keyword) ||
-                item.slug.toLowerCase().includes(keyword) ||
-                getAttributeName(item.attribute_id)
-                    .toLocaleLowerCase('vi')
-                    .includes(keyword);
+                item.slug.toLocaleLowerCase('vi').includes(keyword) ||
+                attributeName.toLocaleLowerCase('vi').includes(keyword);
 
             const matchesAttribute =
                 attributeFilter === 'all' ||
-                item.attribute_id === Number(attributeFilter);
+                item.attributeId === attributeFilter;
 
             return matchesSearch && matchesAttribute;
         });
-    }, [items, search, attributeFilter]);
+    }, [items, search, attributeFilter, attributeNames]);
 
+    // =========================
+    // PAGINATION
+    // =========================
 
-    const paginatedItems = filteredItems.slice(
-        (page - 1) * PAGE_SIZE,
-        page * PAGE_SIZE,
+    const paginatedItems = useMemo(
+        () =>
+            filteredItems.slice(
+                (page - 1) * PAGE_SIZE,
+                page * PAGE_SIZE,
+            ),
+        [filteredItems, page],
     );
+
+    // =========================
+    // STATISTICS
+    // =========================
+
+    const totalValues = items.length;
+
+    const usedAttributes = new Set(
+        items.map((item) => item.attributeId),
+    ).size;
+
+    const visibleValues = filteredItems.length;
+
+    // =========================
+    // MODAL
+    // =========================
 
     const openCreate = () => {
         setEditing(null);
-        setAttributeId(attributeOptionsMock[0]?.id.toString() ?? '');
-        setValue('');
-        setError('');
         setModalOpen(true);
     };
 
     const openEdit = (item: AttributeValue) => {
         setEditing(item);
-        setAttributeId(String(item.attribute_id));
-        setValue(item.value);
-        setError('');
         setModalOpen(true);
     };
 
-    const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
-        event.preventDefault();
+    const closeModal = () => {
+        if (saving) return;
 
-        const cleanValue = value.trim();
-        const selectedAttributeId = Number(attributeId);
+        setModalOpen(false);
+        setEditing(null);
+    };
 
-        if (!cleanValue || !selectedAttributeId) {
-            setError('Vui lòng nhập giá trị và chọn thuộc tính.');
-            return;
-        }
+    // =========================
+    // CREATE / UPDATE
+    // =========================
+
+    const handleSave = async (payload: AttributeValueFormData) => {
+        const cleanValue = payload.value.trim();
 
         const duplicate = items.some(
             (item) =>
-                item.attribute_id === selectedAttributeId &&
+                item.attributeId === payload.attributeId &&
                 item.value.toLocaleLowerCase('vi') ===
                 cleanValue.toLocaleLowerCase('vi') &&
                 item.id !== editing?.id,
         );
 
         if (duplicate) {
-            setError('Giá trị này đã tồn tại trong thuộc tính đã chọn.');
-            return;
-        }
-
-        const now = new Date().toISOString().slice(0, 10);
-
-        if (editing) {
-            setItems((current) =>
-                current.map((item) =>
-                    item.id === editing.id
-                        ? {
-                            ...item,
-                            attribute_id: selectedAttributeId,
-                            value: cleanValue,
-                            slug: slugify(cleanValue),
-                            updated_at: now,
-                        }
-                        : item,
-                ),
+            throw new Error(
+                'Giá trị này đã tồn tại trong thuộc tính đã chọn.',
             );
-        } else {
-            const newItem: AttributeValue = {
-                id: Math.max(0, ...items.map((item) => item.id)) + 1,
-                attribute_id: selectedAttributeId,
-                value: cleanValue,
-                slug: slugify(cleanValue),
-                created_at: now,
-                updated_at: now,
-            };
-
-            setItems((current) => [newItem, ...current]);
-            setPage(1);
         }
 
-        setModalOpen(false);
-        setEditing(null);
-    };
+        try {
+            setSaving(true);
 
-    const handleDelete = () => {
+            if (editing) {
+                await attributeValuesService.update(editing.id, {
+                    value: cleanValue,
+                });
+            } else {
+                await attributeValuesService.create(payload.attributeId, {
+                    value: cleanValue,
+                });
+            }
+
+            setModalOpen(false);
+            setEditing(null);
+            setPage(1);
+
+            await loadData();
+        } catch (error) {
+            console.error('Failed to save attribute value:', error);
+
+            throw error instanceof Error
+                ? error
+                : new Error('Không thể lưu giá trị thuộc tính.');
+        } finally {
+            setSaving(false);
+        }
+    };
+    // =========================
+    // DELETE
+    // =========================
+
+    const handleDelete = async () => {
         if (!deleteTarget) return;
 
-        setItems((current) =>
-            current.filter((item) => item.id !== deleteTarget.id),
-        );
+        try {
+            setDeleting(true);
 
-        setDeleteTarget(null);
+            await attributeValuesService.remove(deleteTarget.id);
+
+            setDeleteTarget(null);
+
+            await loadData();
+
+            setPage((currentPage) =>
+                Math.min(
+                    currentPage,
+                    Math.max(1, Math.ceil((items.length - 1) / PAGE_SIZE)),
+                ),
+            );
+        } catch (error) {
+            console.error('Failed to delete attribute value:', error);
+
+            setPageError(
+                error instanceof Error
+                    ? error.message
+                    : 'Không thể xóa giá trị thuộc tính.',
+            );
+        } finally {
+            setDeleting(false);
+        }
+    };
+
+    // =========================
+    // RESET FILTER
+    // =========================
+
+    const resetFilters = () => {
+        setSearch('');
+        setAttributeFilter('all');
         setPage(1);
     };
 
-    const columns: DataTableColumn<AttributeValue>[] = [
-        {
-            key: 'value',
-            header: 'Giá trị',
-            render: (item) => (
-                <div className="min-w-0">
-                    <p className="font-medium text-text-primary">{item.value}</p>
-                    <p className="mt-0.5 text-xs text-text-muted">
-                        ID: {item.id}
-                    </p>
-                </div>
-            ),
-        },
-        {
-            key: 'attribute',
-            header: 'Thuộc tính',
-            render: (item) => (
-                <span className="inline-flex rounded-md border border-border-default bg-bg-elevated px-2.5 py-1 text-xs text-text-secondary">
-                    {getAttributeName(item.attribute_id)}
-                </span>
-            ),
-        },
-        {
-            key: 'slug',
-            header: 'Slug',
-            render: (item) => (
-                <span className="break-all font-mono text-xs text-text-secondary">
-                    {item.slug}
-                </span>
-            ),
-        },
-        {
-            key: 'updated',
-            header: 'Cập nhật',
-            render: (item) => (
-                <span className="text-sm text-text-secondary">
-                    {item.updated_at}
-                </span>
-            ),
-        },
-        {
-            key: 'actions',
-            header: 'Thao tác',
-            headerClassName: 'text-right',
-            className: 'text-right',
-            render: (item) => (
-                <div className="flex justify-end gap-1">
-                    <Button
-                        type="button"
-                        variant="ghost"
-                        className="h-9! w-9! p-0!"
-                        onClick={() => openEdit(item)}
-                        aria-label={`Sửa ${item.value}`}
-                    >
-                        <Pencil size={16} />
-                    </Button>
-                    <Button
-                        type="button"
-                        variant="ghost"
-                        className="h-9! w-9! p-0! text-status-danger"
-                        onClick={() => setDeleteTarget(item)}
-                        aria-label={`Xóa ${item.value}`}
-                    >
-                        <Trash2 size={16} />
-                    </Button>
-                </div>
-            ),
-        },
-    ];
+    // =========================
+    // RENDER
+    // =========================
 
     return (
         <div className="min-h-full bg-bg-app p-4 text-text-primary sm:p-5 xl:p-6">
@@ -253,28 +321,53 @@ export default function AttributeValuesPage() {
                     title="Giá trị thuộc tính"
                     description="Quản lý màu sắc, kích thước, dung tích và các lựa chọn của sản phẩm."
                     actions={
-                        <Button onClick={openCreate}>
+                        <Button
+                            type="button"
+                            onClick={openCreate}
+                            disabled={attributeOptions.length === 0}
+                        >
                             <Plus size={16} />
                             Thêm giá trị
                         </Button>
                     }
                 />
 
+                {pageError && (
+                    <div className="flex flex-col gap-3 rounded-xl border border-status-danger/30 bg-bg-surface p-4 sm:flex-row sm:items-center sm:justify-between">
+                        <p className="text-sm text-status-danger">{pageError}</p>
+
+                        <Button
+                            type="button"
+                            variant="secondary"
+                            onClick={() => {
+                                setLoading(true);
+                                void loadData();
+                            }}
+                        >
+                            <RotateCcw size={15} />
+                            Thử lại
+                        </Button>
+                    </div>
+                )}
+
                 <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
                     <StatCard
                         label="Tổng giá trị"
-                        value={String(items.length)}
+                        value={String(totalValues)}
                         icon={ListFilter}
                         accent="primary"
                     />
+
                     <StatCard
                         label="Thuộc tính đang sử dụng"
-                        value={String(new Set(items.map((item) => item.attribute_id)).size)}
-                        icon={SlidersHorizontal} accent="cyan"
+                        value={String(usedAttributes)}
+                        icon={SlidersHorizontal}
+                        accent="cyan"
                     />
+
                     <StatCard
                         label="Giá trị đang hiển thị"
-                        value={String(filteredItems.length)}
+                        value={String(visibleValues)}
                         icon={Search}
                         accent="purple"
                     />
@@ -286,6 +379,7 @@ export default function AttributeValuesPage() {
                             <h2 className="font-semibold text-text-primary">
                                 Danh sách giá trị
                             </h2>
+
                             <p className="mt-1 text-xs text-text-muted">
                                 Tìm thấy {filteredItems.length} giá trị thuộc tính
                             </p>
@@ -297,6 +391,7 @@ export default function AttributeValuesPage() {
                                     size={16}
                                     className="absolute left-3 top-1/2 -translate-y-1/2 text-text-muted"
                                 />
+
                                 <input
                                     value={search}
                                     onChange={(event) => {
@@ -318,7 +413,8 @@ export default function AttributeValuesPage() {
                                 aria-label="Lọc theo thuộc tính"
                             >
                                 <option value="all">Tất cả thuộc tính</option>
-                                {attributeOptionsMock.map((attribute) => (
+
+                                {attributeOptions.map((attribute) => (
                                     <option key={attribute.id} value={attribute.id}>
                                         {attribute.name}
                                     </option>
@@ -328,11 +424,7 @@ export default function AttributeValuesPage() {
                             <Button
                                 type="button"
                                 variant="secondary"
-                                onClick={() => {
-                                    setSearch('');
-                                    setAttributeFilter('all');
-                                    setPage(1);
-                                }}
+                                onClick={resetFilters}
                                 aria-label="Đặt lại bộ lọc"
                             >
                                 <RotateCcw size={15} />
@@ -342,13 +434,19 @@ export default function AttributeValuesPage() {
                     </div>
 
                     <div className="min-w-0 px-3 pb-2 sm:px-4">
-                        <DataTable
-                            columns={columns}
-                            data={paginatedItems}
-                            getRowId={(item) => item.id}
-                            emptyTitle="Chưa có giá trị thuộc tính"
-                            emptyDescription="Thêm giá trị mới hoặc thay đổi bộ lọc tìm kiếm."
-                        />
+                        {loading ? (
+                            <div className="py-12 text-center text-sm text-text-muted">
+                                Đang tải dữ liệu...
+                            </div>
+                        ) : (
+                            <AttributeValueTable
+                                items={paginatedItems}
+                                attributeNames={attributeNames}
+                                loading={loading}
+                                onEdit={openEdit}
+                                onDelete={setDeleteTarget}
+                            />
+                        )}
                     </div>
 
                     <div className="px-3 pb-4 sm:px-4">
@@ -358,95 +456,34 @@ export default function AttributeValuesPage() {
                             total={filteredItems.length}
                             onPageChange={setPage}
                             onPageSizeChange={() => setPage(1)}
-                            pageSizeOptions={[7]}
+                            pageSizeOptions={[PAGE_SIZE]}
                         />
                     </div>
                 </section>
             </div>
 
-            <Modal
+            <AttributeValueFormModal
                 open={modalOpen}
-                onClose={() => setModalOpen(false)}
-                title={editing ? 'Cập nhật giá trị' : 'Thêm giá trị thuộc tính'}
-                maxWidth="md"
-            >
-                <form onSubmit={handleSubmit} className="space-y-4">
-                    <div>
-                        <label className="mb-1.5 block text-sm font-medium">
-                            Thuộc tính <span className="text-status-danger">*</span>
-                        </label>
-                        <select
-                            value={attributeId}
-                            onChange={(event) => setAttributeId(event.target.value)}
-                            className={inputClass}
-                            required
-                        >
-                            {attributeOptionsMock.map((attribute) => (
-                                <option key={attribute.id} value={attribute.id}>
-                                    {attribute.name}
-                                </option>
-                            ))}
-                        </select>
-                    </div>
-
-                    <div>
-                        <label className="mb-1.5 block text-sm font-medium">
-                            Giá trị <span className="text-status-danger">*</span>
-                        </label>
-                        <input
-                            value={value}
-                            onChange={(event) => setValue(event.target.value)}
-                            className={inputClass}
-                            placeholder="Ví dụ: Trắng, Inox, 2 lít..."
-                            maxLength={100}
-                            required
-                            autoFocus
-                        />
-                        <p className="mt-1.5 text-xs text-text-muted">
-                            Slug sẽ được tạo tự động từ giá trị.
-                        </p>
-                    </div>
-
-                    {value.trim() && (
-                        <div className="rounded-lg border border-border-default bg-bg-app p-3">
-                            <p className="text-xs text-text-muted">Slug dự kiến</p>
-                            <p className="mt-1 break-all font-mono text-sm text-text-secondary">
-                                {slugify(value)}
-                            </p>
-                        </div>
-                    )}
-
-                    {error && (
-                        <p className="text-sm text-status-danger">{error}</p>
-                    )}
-
-                    <div className="flex justify-end gap-2 border-t border-border-default pt-4">
-                        <Button
-                            type="button"
-                            variant="secondary"
-                            onClick={() => setModalOpen(false)}
-                        >
-                            Hủy
-                        </Button>
-                        <Button type="submit">
-                            {editing ? 'Lưu thay đổi' : 'Thêm giá trị'}
-                        </Button>
-                    </div>
-                </form>
-            </Modal>
+                loading={saving}
+                attributes={attributeOptions}
+                editing={editing}
+                onClose={closeModal}
+                onSubmit={handleSave}
+            />
 
             <ConfirmDialog
                 open={Boolean(deleteTarget)}
                 title="Xóa giá trị thuộc tính?"
-                description={`Bạn có chắc muốn xóa "${deleteTarget?.value ?? ''}"? Thao tác này chỉ xóa dữ liệu mock trên giao diện hiện tại.`}
+                description={`Bạn có chắc muốn xóa "${deleteTarget?.value ?? ''}"? Thao tác này không thể hoàn tác.`}
                 confirmText="Xóa giá trị"
                 cancelText="Hủy"
                 variant="danger"
+                loading={deleting}
                 onConfirm={handleDelete}
-                onCancel={() => setDeleteTarget(null)}
+                onCancel={() => {
+                    if (!deleting) setDeleteTarget(null);
+                }}
             />
         </div>
     );
 }
-
-

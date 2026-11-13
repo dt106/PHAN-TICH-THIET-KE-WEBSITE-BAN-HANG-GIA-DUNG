@@ -1,4 +1,3 @@
-
 export interface AttributeValue {
   id: string;
   attributeId: string;

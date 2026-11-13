@@ -10,8 +10,7 @@ import {
   Trash2,
   X,
 } from 'lucide-react';
-import { useMemo, useState, type FormEvent } from 'react';
-
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import ConfirmDialog from '../../components/shared/ConfirmDialog';
 import DataTable, {
   type DataTableColumn,
@@ -21,8 +20,13 @@ import Pagination from '../../components/shared/Pagination';
 import StatCard from '../../components/shared/StatCard';
 import { Button } from '../../components/ui/buttons/Button';
 import Modal from '../../components/ui/overlays/Modal';
-import { getAttributes, saveAttributes } from '../../mocks/attributes.mock';
-import type { ProductAttribute } from '../../types/attribute.types';
+
+import { attributesService } from '../../services/catalog/attributes.service';
+
+import type {
+  AttributeFormData,
+  ProductAttribute,
+} from '../../types/attribute.types';
 
 const PAGE_SIZE = 7;
 
@@ -40,6 +44,8 @@ function createSlug(value: string): string {
 }
 
 function formatDate(value: string): string {
+  if (!value) return '—';
+
   const date = new Date(value);
 
   if (Number.isNaN(date.getTime())) return '—';
@@ -52,9 +58,11 @@ function formatDate(value: string): string {
 }
 
 export default function AttributesPage() {
-  const [attributes, setAttributes] = useState<ProductAttribute[]>(
-    () => getAttributes(),
-  );
+  const [attributes, setAttributes] = useState<ProductAttribute[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [deletingLoading, setDeletingLoading] = useState(false);
+  const [pageError, setPageError] = useState('');
 
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState<FilterValue>('all');
@@ -63,38 +71,141 @@ export default function AttributesPage() {
 
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState<ProductAttribute | null>(null);
+
   const [name, setName] = useState('');
   const [slug, setSlug] = useState('');
   const [valuesText, setValuesText] = useState('');
   const [slugTouched, setSlugTouched] = useState(false);
   const [formError, setFormError] = useState('');
+
   const [deleting, setDeleting] = useState<ProductAttribute | null>(null);
 
-  const totalValues = attributes.reduce(
-    (total, attribute) => total + attribute.values.length,
-    0,
+  // =========================
+  // LOAD ATTRIBUTES
+  // =========================
+
+  const loadAttributes = useCallback(async () => {
+    try {
+      setPageError('');
+
+      const result = await attributesService.getAll();
+
+      setAttributes(Array.isArray(result) ? result : []);
+    } catch (error) {
+      console.error('Failed to load attributes:', error);
+      setPageError('Không thể tải danh sách thuộc tính. Vui lòng thử lại.');
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    let active = true;
+
+    async function fetchAttributes() {
+      try {
+        const result = await attributesService.getAll();
+
+        if (active) {
+          setAttributes(Array.isArray(result) ? result : []);
+          setPageError('');
+        }
+      } catch (error) {
+        console.error('Failed to load attributes:', error);
+
+        if (active) {
+          setPageError(
+            'Không thể tải danh sách thuộc tính. Vui lòng thử lại.',
+          );
+        }
+      } finally {
+        if (active) {
+          setLoading(false);
+        }
+      }
+    }
+
+    void fetchAttributes();
+
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    let active = true;
+
+    attributesService
+      .getAll()
+      .then((result) => {
+        if (!active) return;
+
+        setAttributes(Array.isArray(result) ? result : []);
+        setPageError('');
+      })
+      .catch((error) => {
+        console.error('Failed to load attributes:', error);
+
+        if (active) {
+          setPageError(
+            'Không thể tải danh sách thuộc tính. Vui lòng thử lại.',
+          );
+        }
+      })
+      .finally(() => {
+        if (active) {
+          setLoading(false);
+        }
+      });
+
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  // =========================
+  // STATISTICS
+  // =========================
+
+  const totalValues = useMemo(
+    () =>
+      attributes.reduce(
+        (total, attribute) => total + (attribute.values?.length ?? 0),
+        0,
+      ),
+    [attributes],
   );
 
-  const attributesWithValues = attributes.filter(
-    (attribute) => attribute.values.length > 0,
-  ).length;
+  const attributesWithValues = useMemo(
+    () =>
+      attributes.filter(
+        (attribute) => (attribute.values?.length ?? 0) > 0,
+      ).length,
+    [attributes],
+  );
+
+  // =========================
+  // SEARCH / FILTER / SORT
+  // =========================
 
   const filteredAttributes = useMemo(() => {
     const keyword = search.trim().toLocaleLowerCase('vi');
 
     const result = attributes.filter((attribute) => {
+      const values = attribute.values ?? [];
+
       const matchesSearch =
         !keyword ||
         attribute.name.toLocaleLowerCase('vi').includes(keyword) ||
         attribute.slug.toLowerCase().includes(keyword) ||
-        attribute.values.some((item) =>
+        values.some((item) =>
           item.value.toLocaleLowerCase('vi').includes(keyword),
         );
 
       const matchesFilter =
         filter === 'all' ||
-        (filter === 'with-values' && attribute.values.length > 0) ||
-        (filter === 'without-values' && attribute.values.length === 0);
+        (filter === 'with-values' && values.length > 0) ||
+        (filter === 'without-values' && values.length === 0);
 
       return matchesSearch && matchesFilter;
     });
@@ -105,7 +216,9 @@ export default function AttributesPage() {
       }
 
       if (sort === 'values-desc') {
-        return b.values.length - a.values.length;
+        return (
+          (b.values?.length ?? 0) - (a.values?.length ?? 0)
+        );
       }
 
       return a.name.localeCompare(b.name, 'vi');
@@ -116,17 +229,21 @@ export default function AttributesPage() {
     1,
     Math.ceil(filteredAttributes.length / PAGE_SIZE),
   );
+
   const currentPage = Math.min(page, totalPages);
 
-  const paginatedAttributes = filteredAttributes.slice(
-    (currentPage - 1) * PAGE_SIZE,
-    currentPage * PAGE_SIZE,
+  const paginatedAttributes = useMemo(
+    () =>
+      filteredAttributes.slice(
+        (currentPage - 1) * PAGE_SIZE,
+        currentPage * PAGE_SIZE,
+      ),
+    [filteredAttributes, currentPage],
   );
 
-  function updateAttributes(next: ProductAttribute[]) {
-    setAttributes(next);
-    saveAttributes(next);
-  }
+  // =========================
+  // FORM
+  // =========================
 
   function resetForm() {
     setEditing(null);
@@ -146,104 +263,149 @@ export default function AttributesPage() {
     setEditing(attribute);
     setName(attribute.name);
     setSlug(attribute.slug);
-    setValuesText(attribute.values.map((item) => item.value).join('\n'));
+    setValuesText(
+      attribute.values?.map((item) => item.value).join('\n') ?? '',
+    );
     setSlugTouched(true);
     setFormError('');
     setModalOpen(true);
   }
 
   function closeModal() {
+    if (saving) return;
+
     setModalOpen(false);
     resetForm();
   }
 
-  function handleSubmit(event: FormEvent<HTMLFormElement>) {
+  function handleNameChange(value: string) {
+    setName(value);
+
+    if (!slugTouched) {
+      setSlug(createSlug(value));
+    }
+  }
+
+  function handleSlugChange(value: string) {
+    setSlugTouched(true);
+    setSlug(createSlug(value));
+  }
+
+  function validateForm(
+    cleanName: string,
+    cleanSlug: string,
+    cleanValues: string[],
+  ): boolean {
+    if (!cleanName || !cleanSlug) {
+      setFormError('Vui lòng nhập tên và slug hợp lệ.');
+      return false;
+    }
+
+    const duplicateSlug = attributes.some(
+      (item) =>
+        item.slug.toLowerCase() === cleanSlug.toLowerCase() &&
+        item.id !== editing?.id,
+    );
+
+    if (duplicateSlug) {
+      setFormError('Slug này đã được sử dụng.');
+      return false;
+    }
+
+    const normalizedValues = cleanValues.map((value) =>
+      value.toLocaleLowerCase('vi'),
+    );
+
+    if (new Set(normalizedValues).size !== normalizedValues.length) {
+      setFormError(
+        'Các giá trị trong cùng thuộc tính không được trùng nhau.',
+      );
+      return false;
+    }
+
+    return true;
+  }
+
+  async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
     const cleanName = name.trim();
     const cleanSlug = createSlug(slug || cleanName);
-    const cleanValues = valuesText
-      .split('\n')
-      .map((value) => value.trim())
-      .filter(Boolean);
 
-    if (!cleanName || !cleanSlug) {
-      setFormError('Vui lòng nhập tên và slug hợp lệ.');
-      return;
-    }
-
-    if (
-      attributes.some(
-        (item) =>
-          item.slug.toLowerCase() === cleanSlug.toLowerCase() &&
-          item.id !== editing?.id,
-      )
-    ) {
-      setFormError('Slug này đã được sử dụng.');
-      return;
-    }
-
-    const normalizedValues = cleanValues.map((value) => value.toLocaleLowerCase('vi'));
-
-    if (new Set(normalizedValues).size !== normalizedValues.length) {
-      setFormError('Các giá trị trong cùng thuộc tính không được trùng nhau.');
-      return;
-    }
-
-    const now = new Date().toISOString();
-    const attributeId = editing?.id ?? `attr-${Date.now()}`;
-
-    const nextValues = cleanValues.map((value, index) => {
-      const previous = editing?.values.find(
-        (item) => item.value.toLocaleLowerCase('vi') === value.toLocaleLowerCase('vi'),
-      );
-
-      return {
-        id: previous?.id ?? `val-${Date.now()}-${index}`,
-        attributeId,
-        value,
-        slug: createSlug(value),
-        createdAt: previous?.createdAt ?? now,
-        updatedAt: now,
-      };
-    });
-
-    const nextAttribute: ProductAttribute = {
-      id: attributeId,
-      name: cleanName,
-      slug: cleanSlug,
-      values: nextValues,
-      createdAt: editing?.createdAt ?? now,
-      updatedAt: now,
-    };
-
-    if (editing) {
-      updateAttributes(
-        attributes.map((item) =>
-          item.id === editing.id ? nextAttribute : item,
-        ),
-      );
-    } else {
-      updateAttributes([nextAttribute, ...attributes]);
-      setPage(1);
-    }
-
-    closeModal();
-  }
-
-  function handleDelete() {
-    if (!deleting) return;
-
-    const next = attributes.filter((item) => item.id !== deleting.id);
-    updateAttributes(next);
-    setDeleting(null);
-    setPage((current) =>
-      Math.min(
-        current,
-        Math.max(1, Math.ceil(next.length / PAGE_SIZE)),
+    const cleanValues = Array.from(
+      new Set(
+        valuesText
+          .split(/[\n,]+/)
+          .map((value) => value.trim())
+          .filter(Boolean),
       ),
     );
+
+    setFormError('');
+
+    if (!validateForm(cleanName, cleanSlug, cleanValues)) {
+      return;
+    }
+
+    const payload: AttributeFormData = {
+      name: cleanName,
+      slug: cleanSlug,
+      values: cleanValues,
+    };
+
+    setSaving(true);
+
+    try {
+      if (editing) {
+        await attributesService.update(editing.id, payload);
+      } else {
+        await attributesService.create(payload);
+      }
+
+      setModalOpen(false);
+      resetForm();
+
+      await loadAttributes();
+
+      if (!editing) {
+        setPage(1);
+      }
+    } catch (error) {
+      console.error('Failed to save attribute:', error);
+      setFormError(
+        'Không thể lưu thuộc tính. Vui lòng kiểm tra dữ liệu và thử lại.',
+      );
+    } finally {
+      setSaving(false);
+    }
   }
+
+  // =========================
+  // DELETE
+  // =========================
+
+  async function handleDelete() {
+    if (!deleting) return;
+
+    setDeletingLoading(true);
+
+    try {
+      await attributesService.remove(deleting.id);
+
+      setDeleting(null);
+
+      await loadAttributes();
+    } catch (error) {
+      console.error('Failed to delete attribute:', error);
+      setPageError('Không thể xóa thuộc tính. Vui lòng thử lại.');
+    } finally {
+      setDeletingLoading(false);
+    }
+  }
+
+  // =========================
+  // TABLE COLUMNS
+  // =========================
 
   const columns: DataTableColumn<ProductAttribute>[] = [
     {
@@ -257,10 +419,12 @@ export default function AttributesPage() {
               className="text-accent-primary"
             />
           </div>
+
           <div className="min-w-0">
             <p className="truncate text-sm font-semibold text-text-primary">
               {attribute.name}
             </p>
+
             <p className="mt-0.5 truncate text-xs text-text-muted">
               {attribute.slug}
             </p>
@@ -271,32 +435,37 @@ export default function AttributesPage() {
     {
       key: 'values',
       header: 'GIÁ TRỊ',
-      render: (attribute) => (
-        <div className="flex max-w-105 flex-wrap gap-1.5">
-          {attribute.values.length ? (
-            <>
-              {attribute.values.slice(0, 4).map((item) => (
-                <span
-                  key={item.id}
-                  title={item.value}
-                  className="max-w-28 truncate rounded-md border border-border-default bg-bg-elevated px-2 py-1 text-xs text-text-secondary"
-                >
-                  {item.value}
-                </span>
-              ))}
-              {attribute.values.length > 4 && (
-                <span className="rounded-md bg-accent-primary/10 px-2 py-1 text-xs font-medium text-accent-primary">
-                  +{attribute.values.length - 4}
-                </span>
-              )}
-            </>
-          ) : (
-            <span className="text-xs text-text-muted">
-              Chưa có giá trị
-            </span>
-          )}
-        </div>
-      ),
+      render: (attribute) => {
+        const values = attribute.values ?? [];
+
+        return (
+          <div className="flex max-w-105 flex-wrap gap-1.5">
+            {values.length ? (
+              <>
+                {values.slice(0, 4).map((item) => (
+                  <span
+                    key={item.id}
+                    title={item.value}
+                    className="max-w-28 truncate rounded-md border border-border-default bg-bg-elevated px-2 py-1 text-xs text-text-secondary"
+                  >
+                    {item.value}
+                  </span>
+                ))}
+
+                {values.length > 4 && (
+                  <span className="rounded-md bg-accent-primary/10 px-2 py-1 text-xs font-medium text-accent-primary">
+                    +{values.length - 4}
+                  </span>
+                )}
+              </>
+            ) : (
+              <span className="text-xs text-text-muted">
+                Chưa có giá trị
+              </span>
+            )}
+          </div>
+        );
+      },
     },
     {
       key: 'count',
@@ -305,7 +474,7 @@ export default function AttributesPage() {
       className: 'text-center',
       render: (attribute) => (
         <span className="inline-flex min-w-8 items-center justify-center rounded-md bg-bg-elevated px-2 py-1 text-xs font-semibold text-text-primary">
-          {attribute.values.length}
+          {attribute.values?.length ?? 0}
         </span>
       ),
     },
@@ -334,6 +503,7 @@ export default function AttributesPage() {
           >
             <Pencil size={16} />
           </Button>
+
           <Button
             type="button"
             variant="icon"
@@ -347,6 +517,10 @@ export default function AttributesPage() {
       ),
     },
   ];
+
+  // =========================
+  // RENDER
+  // =========================
 
   return (
     <div className="min-h-full bg-bg-app p-4 text-text-primary sm:p-5 xl:p-6">
@@ -369,12 +543,14 @@ export default function AttributesPage() {
             icon={SlidersHorizontal}
             accent="primary"
           />
+
           <StatCard
             label="Tổng giá trị"
             value={totalValues.toLocaleString('vi-VN')}
             icon={Tags}
             accent="cyan"
           />
+
           <StatCard
             label="Đã có giá trị"
             value={`${attributesWithValues}/${attributes.length}`}
@@ -389,6 +565,7 @@ export default function AttributesPage() {
               <h2 className="text-base font-semibold text-text-primary">
                 Danh sách thuộc tính
               </h2>
+
               <p className="mt-1 text-xs text-text-muted">
                 {filteredAttributes.length} thuộc tính phù hợp
               </p>
@@ -397,6 +574,7 @@ export default function AttributesPage() {
             <div className="grid min-w-0 grid-cols-1 gap-2 sm:grid-cols-3 xl:w-170">
               <label className="flex h-10 min-w-0 items-center gap-2 rounded-lg border border-border-default bg-bg-app px-3 focus-within:border-accent-primary sm:col-span-3 xl:col-span-1">
                 <Search size={16} className="shrink-0 text-text-muted" />
+
                 <input
                   value={search}
                   onChange={(event) => {
@@ -406,6 +584,7 @@ export default function AttributesPage() {
                   placeholder="Tìm thuộc tính..."
                   className="min-w-0 flex-1 bg-transparent text-sm text-text-primary outline-none placeholder:text-text-muted"
                 />
+
                 {search && (
                   <button
                     type="button"
@@ -423,6 +602,7 @@ export default function AttributesPage() {
 
               <label className="min-w-0">
                 <span className="sr-only">Lọc giá trị</span>
+
                 <select
                   value={filter}
                   onChange={(event) => {
@@ -439,13 +619,17 @@ export default function AttributesPage() {
 
               <label className="relative min-w-0">
                 <span className="sr-only">Sắp xếp</span>
+
                 <ArrowDownAZ
                   size={14}
                   className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-text-muted"
                 />
+
                 <select
                   value={sort}
-                  onChange={(event) => setSort(event.target.value as SortValue)}
+                  onChange={(event) =>
+                    setSort(event.target.value as SortValue)
+                  }
                   className="h-10 w-full appearance-none rounded-lg border border-border-default bg-bg-app pl-8 pr-2 text-sm text-text-secondary outline-none focus:border-accent-primary"
                 >
                   <option value="name-asc">Tên A–Z</option>
@@ -463,12 +647,14 @@ export default function AttributesPage() {
               </strong>{' '}
               thuộc tính
             </span>
+
             <span>
               <strong className="text-text-primary">
                 {totalValues}
               </strong>{' '}
               giá trị
             </span>
+
             <span>
               <strong className="text-text-primary">
                 {attributes.length - attributesWithValues}
@@ -477,15 +663,38 @@ export default function AttributesPage() {
             </span>
           </div>
 
+          {pageError && (
+            <div
+              role="alert"
+              className="m-4 rounded-lg border border-status-danger/30 bg-status-danger/10 px-3 py-2 text-sm text-status-danger"
+            >
+              {pageError}
+              <button
+                type="button"
+                onClick={() => void loadAttributes()}
+                className="ml-2 font-semibold underline"
+              >
+                Tải lại
+              </button>
+            </div>
+          )}
+
           <div className="min-w-0 px-3 pb-2 sm:px-4">
-            <DataTable<ProductAttribute>
-              columns={columns}
-              data={paginatedAttributes}
-              getRowId={(attribute) => attribute.id}
-              emptyTitle="Không tìm thấy thuộc tính"
-              emptyDescription="Thử thay đổi từ khóa tìm kiếm hoặc bộ lọc."
-              className="min-w-0"
-            />
+            {loading ? (
+              <div className="flex min-h-36 items-center justify-center gap-3 text-sm text-text-secondary">
+                <span className="h-5 w-5 animate-spin rounded-full border-2 border-border-strong border-t-accent-primary" />
+                Đang tải danh sách thuộc tính...
+              </div>
+            ) : (
+              <DataTable<ProductAttribute>
+                columns={columns}
+                data={paginatedAttributes}
+                getRowId={(attribute) => attribute.id}
+                emptyTitle="Không tìm thấy thuộc tính"
+                emptyDescription="Thử thay đổi từ khóa tìm kiếm hoặc bộ lọc."
+                className="min-w-0"
+              />
+            )}
           </div>
 
           <div className="px-3 pb-4 sm:px-4">
@@ -494,13 +703,13 @@ export default function AttributesPage() {
               pageSize={PAGE_SIZE}
               total={filteredAttributes.length}
               onPageChange={setPage}
-              onPageSizeChange={() => setPage(1)}
               pageSizeOptions={[PAGE_SIZE]}
             />
           </div>
         </section>
       </div>
 
+      {/* CREATE / EDIT MODAL */}
       <Modal
         open={modalOpen}
         onClose={closeModal}
@@ -512,20 +721,15 @@ export default function AttributesPage() {
             <span className="mb-1.5 block text-sm font-medium text-text-secondary">
               Tên thuộc tính <span className="text-status-danger">*</span>
             </span>
+
             <input
               required
               maxLength={100}
               value={name}
-              onChange={(event) => {
-                const nextName = event.target.value;
-                setName(nextName);
-
-                if (!slugTouched) {
-                  setSlug(createSlug(nextName));
-                }
-              }}
+              onChange={(event) => handleNameChange(event.target.value)}
               placeholder="Ví dụ: Màu sắc"
-              className="h-10 w-full rounded-lg border border-border-default bg-bg-app px-3 text-sm text-text-primary outline-none placeholder:text-text-muted focus:border-accent-primary"
+              disabled={saving}
+              className="h-10 w-full rounded-lg border border-border-default bg-bg-app px-3 text-sm text-text-primary outline-none placeholder:text-text-muted focus:border-accent-primary disabled:opacity-60"
             />
           </label>
 
@@ -533,17 +737,17 @@ export default function AttributesPage() {
             <span className="mb-1.5 block text-sm font-medium text-text-secondary">
               Slug <span className="text-status-danger">*</span>
             </span>
+
             <input
               required
               maxLength={120}
               value={slug}
-              onChange={(event) => {
-                setSlugTouched(true);
-                setSlug(createSlug(event.target.value));
-              }}
+              onChange={(event) => handleSlugChange(event.target.value)}
               placeholder="mau-sac"
-              className="h-10 w-full rounded-lg border border-border-default bg-bg-app px-3 text-sm text-text-primary outline-none placeholder:text-text-muted focus:border-accent-primary"
+              disabled={saving}
+              className="h-10 w-full rounded-lg border border-border-default bg-bg-app px-3 text-sm text-text-primary outline-none placeholder:text-text-muted focus:border-accent-primary disabled:opacity-60"
             />
+
             <span className="mt-1 block text-xs text-text-muted">
               Tự tạo từ tên thuộc tính; có thể chỉnh sửa.
             </span>
@@ -553,13 +757,16 @@ export default function AttributesPage() {
             <span className="mb-1.5 block text-sm font-medium text-text-secondary">
               Giá trị thuộc tính
             </span>
+
             <textarea
               rows={5}
               value={valuesText}
               onChange={(event) => setValuesText(event.target.value)}
               placeholder={'Trắng\nĐen\nXám\nĐỏ'}
-              className="w-full resize-y rounded-lg border border-border-default bg-bg-app px-3 py-2.5 text-sm leading-6 text-text-primary outline-none placeholder:text-text-muted focus:border-accent-primary"
+              disabled={saving}
+              className="w-full resize-y rounded-lg border border-border-default bg-bg-app px-3 py-2.5 text-sm leading-6 text-text-primary outline-none placeholder:text-text-muted focus:border-accent-primary disabled:opacity-60"
             />
+
             <span className="mt-1 block text-xs leading-5 text-text-muted">
               Mỗi dòng là một giá trị riêng. Ví dụ, thuộc tính Màu sắc có
               thể gồm Trắng, Đen và Xám.
@@ -580,29 +787,35 @@ export default function AttributesPage() {
               type="button"
               variant="secondary"
               onClick={closeModal}
+              disabled={saving}
             >
               Hủy
             </Button>
-            <Button type="submit">
+
+            <Button type="submit" loading={saving} disabled={saving}>
               {editing ? 'Lưu thay đổi' : 'Thêm thuộc tính'}
             </Button>
           </div>
         </form>
       </Modal>
 
+      {/* DELETE CONFIRMATION */}
       <ConfirmDialog
         open={Boolean(deleting)}
         title="Xóa thuộc tính"
         description={
           deleting
-            ? `Bạn có chắc muốn xóa "${deleting.name}" cùng ${deleting.values.length} giá trị liên quan khỏi dữ liệu mẫu?`
+            ? `Bạn có chắc muốn xóa "${deleting.name}" cùng ${(deleting.values ?? []).length} giá trị liên quan? Thao tác này không thể hoàn tác.`
             : ''
         }
         confirmText="Xóa thuộc tính"
         cancelText="Hủy"
         variant="danger"
+        loading={deletingLoading}
         onConfirm={handleDelete}
-        onCancel={() => setDeleting(null)}
+        onCancel={() => {
+          if (!deletingLoading) setDeleting(null);
+        }}
       />
     </div>
   );

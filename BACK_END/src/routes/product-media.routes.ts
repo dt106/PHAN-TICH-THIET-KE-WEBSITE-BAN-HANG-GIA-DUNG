@@ -13,6 +13,9 @@ import {
 import validate from "../middlewares/validate.middleware";
 import authMiddleware from "../middlewares/auth.middleware";
 import roleMiddleware from "../middlewares/role.middleware";
+import {
+  uploadMultipleImagesMiddleware,
+} from "../middlewares/upload.middleware";
 
 import * as mediaController from "../controllers/product-media.controller";
 
@@ -95,6 +98,16 @@ router.delete(
   deleteBatchMediaValidator,
   validate,
   mediaController.deleteBatchMedia
+);
+// Upload một hoặc nhiều ảnh từ máy tính.
+router.post(
+  "/admin/products/:productId/media/upload",
+  authMiddleware,
+  roleMiddleware("admin"),
+  uploadMultipleImagesMiddleware.array("files", 20),
+  productIdParamValidator,
+  validate,
+  mediaController.uploadMediaFiles,
 );
 
 export default router;

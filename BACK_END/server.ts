@@ -4,7 +4,7 @@ import app from "./app";
 import connectDatabase from "./src/config/database";
 import * as models from "./src/models";
 
-const PORT = process.env.PORT || 5000;
+const PORT = process.env.PORT || 5001;
 
 const startServer = async () => {
   try {
@@ -34,7 +34,9 @@ const startServer = async () => {
       console.log("🚀 Tất cả collection đã sẵn sàng");
       console.log("=================================");
     } else {
-      console.log("ℹ️ Bỏ qua khởi tạo collection vì chưa kết nối được MongoDB.");
+      console.log(
+        "ℹ️ Bỏ qua khởi tạo collection vì chưa kết nối được MongoDB.",
+      );
     }
 
     // 3. Chạy server
@@ -43,28 +45,14 @@ const startServer = async () => {
       console.log("🚀 Server is running");
       console.log(`🌐 http://localhost:${PORT}`);
       console.log(
-        `🐞 Debugger: ws://127.0.0.1:9229 (Chrome DevTools / Cursor)`
+        `🐞 Debugger: ws://127.0.0.1:9229 (Chrome DevTools / Cursor)`,
       );
       console.log("=================================");
     });
-
     server.on("error", (error) => {
       console.error(`❌ Không mở được cổng ${PORT}:`, error);
       process.exit(1);
     });
-
-    // Graceful shutdown
-    const handleShutdown = async (signal: string) => {
-      console.log(`\n🛑 Nhận tín hiệu ${signal}. Đang đóng server và kết nối MongoDB...`);
-      server.close(async () => {
-        await mongoose.disconnect();
-        console.log("🔌 Server và kết nối MongoDB đã đóng hoàn tất.");
-        process.exit(0);
-      });
-    };
-
-    process.on("SIGINT", () => handleShutdown("SIGINT"));
-    process.on("SIGTERM", () => handleShutdown("SIGTERM"));
   } catch (error) {
     console.error("❌ Server startup failed:", error);
     process.exit(1);

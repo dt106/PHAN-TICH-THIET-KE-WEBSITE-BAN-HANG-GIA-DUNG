@@ -6,12 +6,12 @@ import heartIcon from "../../assets/icons/heart.svg";
 import searchIcon from "../../assets/icons/search.svg";
 import logo from "../../assets/images/logo.png";
 import { useCart } from "../../contexts/useCart.ts";
-import { showToast } from "../common/Toast/showToast.tsx";
 import styles from "./Header.module.css";
 
 const links = [
   { to: "/", label: "Home", end: true },
   { to: "/shop", label: "Shop" },
+  { to: "/tro-ly", label: "Tư vấn" },
   { to: "/about", label: "About" },
   { to: "/contact", label: "Contact" },
 ];
@@ -73,14 +73,9 @@ export function Header({ onOpenCart }: { onOpenCart: () => void }) {
               <img src={searchIcon} alt="" />
             </button>
           )}
-          <button
-            type="button"
-            className={styles.iconButton}
-            aria-label="Wishlist"
-            onClick={() => showToast("Saved to your wishlist.", "success")}
-          >
+          <Link to="/wishlist" className={styles.iconButton} aria-label="Yêu thích">
             <img src={heartIcon} alt="" />
-          </button>
+          </Link>
           <button
             type="button"
             className={styles.iconButton}

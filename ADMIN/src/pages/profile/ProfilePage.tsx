@@ -1,10 +1,16 @@
-
 import { useCallback, useEffect, useState } from 'react';
+import type { ReactNode } from 'react';
 import {
-  AlertCircle,
+  BadgeCheck,
+  Camera,
   CheckCircle2,
-  LoaderCircle,
-  RefreshCw,
+  Clock3,
+  Edit3,
+  Eye,
+  EyeOff,
+  KeyRound,
+  LockKeyhole,
+  Mail,
   ShieldCheck,
   UserRound,
   X,
@@ -13,31 +19,41 @@ import {
 import { useAuth } from '../../contexts/AuthContext';
 import {
   getAdminProfile,
-  requestAdminEmailOtp,
   updateAdminProfile,
-  verifyAdminEmailOtp,
   type AdminProfile,
 } from '../../services/profile/adminProfile.service';
+import { adminAuthService } from '../../services/auth/adminAuth.service';
 
-import ProfileInfoForm, {
-  type ProfileFormValues,
-} from './components/ProfileInfoForm';
-import ChangeEmailForm from './components/ChangeEmailForm';
+import ProfileInfoForm from '../../pages/profile/components/ProfileInfoForm';
+import ChangeEmailForm from '../../pages/profile/components/ChangeEmailForm';
+
+type ProfileFormValues = {
+  name: string;
+  phone: string;
+  avatarFile: File | null;
+};
+
+type PasswordFormValues = {
+  currentPassword: string;
+  newPassword: string;
+  confirmPassword: string;
+};
 
 type Notice = {
   type: 'success' | 'error';
+  title: string;
   message: string;
-} | null;
-
-const initialFormValues: ProfileFormValues = {
-  name: '',
-  phone: '',
-  avatarFile: null,
 };
 
-function toProfileFormValues(
-  profile: AdminProfile,
-): ProfileFormValues {
+type DialogType = 'profile' | 'email' | 'password' | null;
+
+const EMPTY_PASSWORD_VALUES: PasswordFormValues = {
+  currentPassword: '',
+  newPassword: '',
+  confirmPassword: '',
+};
+
+function toProfileFormValues(profile: AdminProfile): ProfileFormValues {
   return {
     name: profile.name ?? '',
     phone: profile.phone ?? '',
@@ -45,12 +61,11 @@ function toProfileFormValues(
   };
 }
 
+/**
+ * Ưu tiên message backend trả về trước message mặc định của Axios.
+ */
 function getErrorMessage(error: unknown): string {
-  if (error instanceof Error && error.message) {
-    return error.message;
-  }
-
-  if (typeof error === 'object' && error !== null && 'response' in error) {
+  if (error && typeof error === 'object' && 'response' in error) {
     const response = (
       error as {
         response?: {
@@ -62,106 +77,176 @@ function getErrorMessage(error: unknown): string {
       }
     ).response;
 
-    return (
-      response?.data?.message ??
-      response?.data?.error ??
-      'Thao tác thất bại. Vui lòng thử lại.'
-    );
+    const message = response?.data?.message ?? response?.data?.error;
+
+    if (message) return message;
+  }
+
+  if (error instanceof Error && error.message) {
+    return error.message;
   }
 
   return 'Đã xảy ra lỗi. Vui lòng thử lại.';
 }
 
 function getStatusLabel(status: AdminProfile['status']): string {
-  const labels: Record<AdminProfile['status'], string> = {
-    active: 'Đang hoạt động',
-    inactive: 'Không hoạt động',
-    blocked: 'Đã khóa',
-  };
-
-  return labels[status] ?? 'Không xác định';
+  switch (status) {
+    case 'active':
+      return 'Đang hoạt động';
+    case 'inactive':
+      return 'Ngừng hoạt động';
+    case 'blocked':
+      return 'Đã khóa';
+    default:
+      return 'Không xác định';
+  }
 }
 
 function getStatusClass(status: AdminProfile['status']): string {
-  const styles: Record<AdminProfile['status'], string> = {
-    active: 'border-[#65D928]/25 bg-[#65D928]/10 text-[#79E746]',
-    inactive: 'border-amber-500/25 bg-amber-500/10 text-amber-400',
-    blocked: 'border-red-500/25 bg-red-500/10 text-red-400',
-  };
-
-  return (
-    styles[status] ??
-    'border-[#303332] bg-[#2B2D2C] text-[#B5B7B6]'
-  );
+  switch (status) {
+    case 'active':
+      return 'border-accent-primary/25 bg-accent-primary/10 text-accent-primary';
+    case 'blocked':
+      return 'border-status-danger/25 bg-status-danger/10 text-status-danger';
+    default:
+      return 'border-border-default bg-bg-hover text-text-secondary';
+  }
 }
 
 export default function ProfilePage() {
   const { refreshUser } = useAuth();
 
   const [profile, setProfile] = useState<AdminProfile | null>(null);
-  const [profileForm, setProfileForm] =
-    useState<ProfileFormValues>(initialFormValues);
+
+  const [profileValues, setProfileValues] = useState<ProfileFormValues>({
+    name: '',
+    phone: '',
+    avatarFile: null,
+  });
+
+  const [passwordValues, setPasswordValues] =
+    useState<PasswordFormValues>(EMPTY_PASSWORD_VALUES);
 
   const [loading, setLoading] = useState(true);
+  const [dialog, setDialog] = useState<DialogType>(null);
+
   const [savingProfile, setSavingProfile] = useState(false);
   const [requestingOtp, setRequestingOtp] = useState(false);
   const [verifyingOtp, setVerifyingOtp] = useState(false);
-  const [notice, setNotice] = useState<Notice>(null);
+  const [changingPassword, setChangingPassword] = useState(false);
+
+  const [showCurrentPassword, setShowCurrentPassword] = useState(false);
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+
+  const [notice, setNotice] = useState<Notice | null>(null);
 
   const loadProfile = useCallback(async () => {
-    setLoading(true);
+    const user = await getAdminProfile();
 
-    try {
-      const result = await getAdminProfile();
+    setProfile(user);
+    setProfileValues(toProfileFormValues(user));
 
-      if (!result || typeof result !== 'object') {
-        throw new Error('Dữ liệu hồ sơ trả về không hợp lệ.');
-      }
-
-      setProfile(result);
-      setProfileForm(toProfileFormValues(result));
-      setNotice(null);
-    } catch (error) {
-      setProfile(null);
-      setNotice({
-        type: 'error',
-        message: getErrorMessage(error),
-      });
-    } finally {
-      setLoading(false);
-    }
+    return user;
   }, []);
 
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    void loadProfile();
-  }, [loadProfile]);
+    let cancelled = false;
 
-  const handleUpdateProfile = async (
-    values: ProfileFormValues,
-  ): Promise<void> => {
+    const fetchProfile = async () => {
+      try {
+        const user = await getAdminProfile();
+
+        if (cancelled) return;
+
+        setProfile(user);
+        setProfileValues(toProfileFormValues(user));
+      } catch (error) {
+        if (cancelled) return;
+
+        setNotice({
+          type: 'error',
+          title: 'Không thể tải hồ sơ',
+          message: getErrorMessage(error),
+        });
+      } finally {
+        if (!cancelled) {
+          setLoading(false);
+        }
+      }
+    };
+
+    void fetchProfile();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const isBusy =
+    savingProfile || requestingOtp || verifyingOtp || changingPassword;
+
+  const closeActionDialog = () => {
+    if (isBusy) return;
+    setDialog(null);
+  };
+
+  const handleOpenProfileDialog = () => {
+    if (!profile) return;
+
+    setProfileValues(toProfileFormValues(profile));
+    setNotice(null);
+    setDialog('profile');
+  };
+
+  const handleOpenEmailDialog = () => {
+    setNotice(null);
+    setDialog('email');
+  };
+
+  const handleOpenPasswordDialog = () => {
+    setPasswordValues(EMPTY_PASSWORD_VALUES);
+    setShowCurrentPassword(false);
+    setShowNewPassword(false);
+    setShowConfirmPassword(false);
+    setNotice(null);
+    setDialog('password');
+  };
+
+  const handleUpdateProfile = async () => {
+    if (savingProfile) return;
+
     setSavingProfile(true);
     setNotice(null);
 
     try {
       const updatedProfile = await updateAdminProfile({
-        name: values.name.trim(),
-        phone: values.phone.trim(),
-        avatarFile: values.avatarFile,
+        name: profileValues.name.trim(),
+        phone: profileValues.phone.trim(),
+        avatarFile: profileValues.avatarFile,
       });
 
       setProfile(updatedProfile);
-      setProfileForm(toProfileFormValues(updatedProfile));
+      setProfileValues(toProfileFormValues(updatedProfile));
+      setDialog(null);
 
-      await refreshUser();
+      let message = 'Thông tin tài khoản của bạn đã được cập nhật.';
+
+      try {
+        await refreshUser();
+      } catch {
+        message += ' Hồ sơ đã lưu, nhưng phiên đăng nhập chưa đồng bộ lại.';
+      }
 
       setNotice({
         type: 'success',
-        message: 'Cập nhật hồ sơ thành công.',
+        title: 'Cập nhật thành công',
+        message,
       });
     } catch (error) {
       setNotice({
         type: 'error',
+        title: 'Cập nhật thất bại',
         message: getErrorMessage(error),
       });
     } finally {
@@ -169,22 +254,18 @@ export default function ProfilePage() {
     }
   };
 
-  const handleRequestEmailOtp = async (
-    newEmail: string,
-  ): Promise<void> => {
+  const handleRequestEmailOtp = async (newEmail: string) => {
     setRequestingOtp(true);
     setNotice(null);
 
     try {
-      await requestAdminEmailOtp(newEmail.trim().toLowerCase());
-
-      setNotice({
-        type: 'success',
-        message: 'Đã gửi mã OTP đến email mới. Hãy kiểm tra hộp thư.',
+      await adminAuthService.requestChangeEmailOtp({
+        newEmail: newEmail.trim().toLowerCase(),
       });
     } catch (error) {
       setNotice({
         type: 'error',
+        title: 'Không thể gửi mã xác minh',
         message: getErrorMessage(error),
       });
 
@@ -194,31 +275,39 @@ export default function ProfilePage() {
     }
   };
 
-  const handleVerifyEmailOtp = async (
-    newEmail: string,
-    otp: string,
-  ): Promise<void> => {
+  const handleVerifyEmailOtp = async (newEmail: string, otp: string) => {
     setVerifyingOtp(true);
     setNotice(null);
 
     try {
-      const updatedProfile = await verifyAdminEmailOtp({
+      await adminAuthService.verifyChangeEmailOtp({
         newEmail: newEmail.trim().toLowerCase(),
         otp: otp.trim(),
       });
 
-      setProfile(updatedProfile);
-      setProfileForm(toProfileFormValues(updatedProfile));
+      const updatedProfile = await getAdminProfile();
 
-      await refreshUser();
+      setProfile(updatedProfile);
+      setProfileValues(toProfileFormValues(updatedProfile));
+      setDialog(null);
+
+      let message = 'Email tài khoản đã được thay đổi thành công.';
+
+      try {
+        await refreshUser();
+      } catch {
+        message += ' Hồ sơ đã cập nhật, nhưng phiên đăng nhập chưa đồng bộ lại.';
+      }
 
       setNotice({
         type: 'success',
-        message: 'Xác minh OTP và cập nhật email thành công.',
+        title: 'Đổi email thành công',
+        message,
       });
     } catch (error) {
       setNotice({
         type: 'error',
+        title: 'Không thể đổi email',
         message: getErrorMessage(error),
       });
 
@@ -228,236 +317,658 @@ export default function ProfilePage() {
     }
   };
 
+  const handleChangePassword = async () => {
+    if (changingPassword) return;
+
+    const currentPassword = passwordValues.currentPassword;
+    const newPassword = passwordValues.newPassword;
+    const confirmPassword = passwordValues.confirmPassword;
+
+    if (!currentPassword || !newPassword || !confirmPassword) {
+      setNotice({
+        type: 'error',
+        title: 'Thiếu thông tin',
+        message: 'Vui lòng nhập đầy đủ các trường mật khẩu.',
+      });
+      return;
+    }
+
+    if (newPassword.length < 8) {
+      setNotice({
+        type: 'error',
+        title: 'Mật khẩu chưa đủ mạnh',
+        message: 'Mật khẩu mới phải có ít nhất 8 ký tự.',
+      });
+      return;
+    }
+
+    if (newPassword === currentPassword) {
+      setNotice({
+        type: 'error',
+        title: 'Mật khẩu không hợp lệ',
+        message: 'Mật khẩu mới phải khác mật khẩu hiện tại.',
+      });
+      return;
+    }
+
+    if (newPassword !== confirmPassword) {
+      setNotice({
+        type: 'error',
+        title: 'Mật khẩu xác nhận không khớp',
+        message: 'Vui lòng nhập lại mật khẩu xác nhận chính xác.',
+      });
+      return;
+    }
+
+    setChangingPassword(true);
+    setNotice(null);
+
+    try {
+      // Backend nhận đúng hai field này.
+      await adminAuthService.changePassword({
+        currentPassword,
+        newPassword,
+        confirmPassword,
+
+      });
+
+      setPasswordValues(EMPTY_PASSWORD_VALUES);
+      setDialog(null);
+
+      setNotice({
+        type: 'success',
+        title: 'Đổi mật khẩu thành công',
+        message: 'Mật khẩu tài khoản quản trị đã được cập nhật.',
+      });
+    } catch (error) {
+      console.error('Change password error:', error);
+
+      setNotice({
+        type: 'error',
+        title: 'Đổi mật khẩu thất bại',
+        message: getErrorMessage(error),
+      });
+    } finally {
+      setChangingPassword(false);
+    }
+  };
+
+  const handleRetryLoadProfile = async () => {
+    setLoading(true);
+    setNotice(null);
+
+    try {
+      await loadProfile();
+    } catch (error) {
+      setNotice({
+        type: 'error',
+        title: 'Không thể tải hồ sơ',
+        message: getErrorMessage(error),
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
   if (loading) {
     return (
-      <div className="min-h-full bg-[#111111] p-5 sm:p-8">
-        <div className="mx-auto max-w-5xl space-y-6">
-          <div className="h-8 w-56 animate-pulse rounded-lg bg-[#2B2D2C]" />
-          <div className="h-44 animate-pulse rounded-2xl border border-[#303332] bg-[#1A1B1A]" />
-          <div className="h-64 animate-pulse rounded-2xl border border-[#303332] bg-[#1A1B1A]" />
-          <div className="h-64 animate-pulse rounded-2xl border border-[#303332] bg-[#1A1B1A]" />
-
-          <div className="flex items-center gap-2 text-sm text-[#858987]">
-            <LoaderCircle className="h-4 w-4 animate-spin" />
-            Đang tải hồ sơ quản trị...
-          </div>
-        </div>
+      <div className="mx-auto max-w-5xl space-y-5 p-4 sm:p-6">
+        <div className="h-8 w-48 animate-pulse rounded-lg bg-bg-hover" />
+        <div className="h-48 animate-pulse rounded-2xl border border-border-default bg-bg-surface" />
+        <div className="h-56 animate-pulse rounded-2xl border border-border-default bg-bg-surface" />
       </div>
     );
   }
 
   if (!profile) {
     return (
-      <div className="min-h-full bg-[#111111] p-5 sm:p-8">
-        <div className="mx-auto max-w-5xl rounded-2xl border border-[#303332] bg-[#1A1B1A] p-8 text-center">
-          <AlertCircle className="mx-auto h-12 w-12 text-red-400" />
+      <div className="mx-auto max-w-5xl p-4 sm:p-6">
+        <div className="rounded-2xl border border-border-default bg-bg-surface p-6 text-center sm:p-8">
+          <UserRound className="mx-auto mb-3 text-text-muted" size={32} />
 
-          <h1 className="mt-4 text-xl font-semibold text-[#F5F5F5]">
-            Không tải được hồ sơ
-          </h1>
+          <h2 className="text-lg font-semibold text-text-primary">
+            Chưa tải được thông tin tài khoản
+          </h2>
 
-          <p className="mx-auto mt-2 max-w-lg text-sm leading-6 text-[#B5B7B6]">
-            {notice?.message ??
-              'Không thể lấy thông tin tài khoản Admin từ máy chủ.'}
+          <p className="mt-2 text-sm text-text-secondary">
+            Vui lòng kiểm tra kết nối và thử tải lại hồ sơ.
           </p>
 
           <button
             type="button"
-            onClick={() => void loadProfile()}
-            className="mt-6 inline-flex h-10 items-center gap-2 rounded-lg bg-[#65D928] px-4 text-sm font-semibold text-[#111111] transition hover:bg-[#79E746] focus:outline-none focus:ring-2 focus:ring-[#65D928]/40"
+            onClick={handleRetryLoadProfile}
+            className="mt-5 inline-flex h-11 items-center justify-center rounded-lg bg-accent-primary px-4 text-sm font-semibold text-black transition hover:bg-accent-hover active:scale-[0.98]"
           >
-            <RefreshCw className="h-4 w-4" />
             Thử tải lại
           </button>
         </div>
+
+        {notice && (
+          <p className="mt-3 text-center text-sm text-status-danger">
+            {notice.message}
+          </p>
+        )}
       </div>
     );
   }
 
-  const displayName =
-    typeof profile.name === 'string' && profile.name.trim()
-      ? profile.name.trim()
-      : 'Admin';
-
-  const displayEmail =
-    typeof profile.email === 'string' ? profile.email : '';
-
   const avatarUrl =
-    typeof profile.avatar === 'string' && profile.avatar.trim()
-      ? profile.avatar
-      : null;
+    profile.avatar ||
+    `https://ui-avatars.com/api/?name=${encodeURIComponent(
+      profile.name || 'Admin',
+    )}&background=292B2A&color=65D928&bold=true`;
 
   return (
-    <div className="min-h-full bg-[#111111] px-4 py-6 sm:px-6 lg:px-8">
-      <div className="mx-auto max-w-5xl space-y-6">
-        {/* Tiêu đề trang */}
-        <header className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#65D928]">
-              Quản trị hệ thống
-            </p>
+    <div className="mx-auto max-w-5xl space-y-6 p-4 sm:p-6 lg:p-8">
+      <header>
+        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-accent-primary">
+          Account settings
+        </p>
 
-            <h1 className="mt-2 text-2xl font-bold tracking-tight text-[#F5F5F5] sm:text-3xl">
-              Hồ sơ cá nhân
-            </h1>
+        <h1 className="mt-2 text-2xl font-bold tracking-tight text-text-primary sm:text-3xl">
+          Hồ sơ cá nhân
+        </h1>
 
-            <p className="mt-2 text-sm leading-6 text-[#858987]">
-              Quản lý thông tin cá nhân và địa chỉ email của tài khoản Admin.
-            </p>
-          </div>
+        <p className="mt-2 text-sm text-text-secondary">
+          Quản lý thông tin và bảo mật tài khoản quản trị của bạn.
+        </p>
+      </header>
 
-          <span
-            className={`inline-flex w-fit items-center gap-2 rounded-full border px-3 py-2 text-xs font-semibold ${getStatusClass(profile.status)}`}
-          >
-            <span className="h-2 w-2 rounded-full bg-current" />
-            {getStatusLabel(profile.status)}
-          </span>
-        </header>
+      {/* Account overview */}
+      <section className="overflow-hidden rounded-2xl border border-border-default bg-bg-surface">
+        <div className="h-1 bg-gradient-to-r from-accent-primary via-accent-primary/50 to-transparent" />
 
-        {/* Thông báo */}
-        {notice && (
-          <div
-            role={notice.type === 'error' ? 'alert' : 'status'}
-            className={`flex items-start gap-3 rounded-xl border p-4 text-sm ${
-              notice.type === 'success'
-                ? 'border-[#65D928]/25 bg-[#65D928]/10 text-[#B8F59A]'
-                : 'border-red-500/25 bg-red-500/10 text-red-300'
-            }`}
-          >
-            {notice.type === 'success' ? (
-              <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0" />
-            ) : (
-              <AlertCircle className="mt-0.5 h-5 w-5 shrink-0" />
-            )}
+        <div className="flex flex-col gap-5 p-5 sm:flex-row sm:items-center sm:justify-between sm:p-7">
+          <div className="flex min-w-0 items-center gap-4">
+            <div className="relative shrink-0">
+              <img
+                src={avatarUrl}
+                alt="Ảnh đại diện"
+                className="h-20 w-20 rounded-2xl border border-border-default object-cover"
+              />
 
-            <p className="flex-1 leading-6">{notice.message}</p>
-
-            <button
-              type="button"
-              aria-label="Đóng thông báo"
-              onClick={() => setNotice(null)}
-              className="rounded-md p-1 opacity-70 transition hover:bg-white/5 hover:opacity-100"
-            >
-              <X className="h-4 w-4" />
-            </button>
-          </div>
-        )}
-
-        {/* Tổng quan tài khoản */}
-        <section className="overflow-hidden rounded-2xl border border-[#303332] bg-[#1A1B1A]">
-          <div className="flex flex-col gap-5 p-5 sm:flex-row sm:items-center sm:p-7">
-            <div className="flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden rounded-2xl border border-[#484B49] bg-[#2B2D2C]">
-              {avatarUrl ? (
-                <img
-                  src={avatarUrl}
-                  alt={`Ảnh đại diện ${displayName}`}
-                  className="h-full w-full object-cover"
-                />
-              ) : (
-                <UserRound className="h-9 w-9 text-[#858987]" />
-              )}
+              <span className="absolute -bottom-1 -right-1 flex h-7 w-7 items-center justify-center rounded-lg border-2 border-bg-surface bg-accent-primary text-black">
+                <ShieldCheck size={15} />
+              </span>
             </div>
 
-            <div className="min-w-0 flex-1">
-              <div className="flex flex-wrap items-center gap-3">
-                <h2 className="break-words text-xl font-semibold text-[#F5F5F5]">
-                  {displayName}
+            <div className="min-w-0">
+              <div className="flex flex-wrap items-center gap-2">
+                <h2 className="truncate text-xl font-semibold text-text-primary">
+                  {profile.name || 'Admin'}
                 </h2>
 
-                <span className="inline-flex items-center gap-1.5 rounded-md border border-[#1084A9]/25 bg-[#1084A9]/10 px-2.5 py-1 text-xs font-medium text-sky-300">
-                  <ShieldCheck className="h-3.5 w-3.5" />
-                  Administrator
+                <span
+                  className={`inline-flex items-center rounded-full border px-2.5 py-1 text-xs font-medium ${getStatusClass(
+                    profile.status,
+                  )}`}
+                >
+                  {getStatusLabel(profile.status)}
                 </span>
               </div>
 
-              <p className="mt-2 break-all text-sm text-[#B5B7B6]">
-                {displayEmail || 'Chưa cập nhật email'}
+              <p className="mt-1 truncate text-sm text-text-secondary">
+                {profile.email}
               </p>
 
-              <p className="mt-1 text-xs text-[#858987]">
-                Thông tin tài khoản quản trị đang đăng nhập.
-              </p>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 border-t border-[#303332] sm:grid-cols-2">
-            <div className="px-5 py-4 sm:px-7">
-              <p className="text-xs font-medium uppercase tracking-wider text-[#858987]">
-                Số điện thoại
-              </p>
-
-              <p className="mt-2 text-sm font-medium text-[#F5F5F5]">
-                {profile.phone || 'Chưa cập nhật'}
-              </p>
-            </div>
-
-            <div className="border-t border-[#303332] px-5 py-4 sm:border-l sm:border-t-0 sm:px-7">
-              <p className="text-xs font-medium uppercase tracking-wider text-[#858987]">
-                Trạng thái email
-              </p>
-
-              <p className="mt-2 text-sm font-medium text-[#F5F5F5]">
-                {profile.emailVerifiedAt
-                  ? `Đã xác minh · ${new Date(
-                      profile.emailVerifiedAt,
-                    ).toLocaleDateString('vi-VN')}`
-                  : 'Chưa có thông tin xác minh'}
+              <p className="mt-2 text-xs text-text-muted">
+                Tài khoản quản trị
               </p>
             </div>
           </div>
-        </section>
 
-        {/* Chỉnh sửa hồ sơ */}
-        <section className="space-y-4">
+          <button
+            type="button"
+            onClick={handleOpenProfileDialog}
+            className="inline-flex h-11 shrink-0 items-center justify-center gap-2 rounded-lg bg-accent-primary px-4 text-sm font-semibold text-black transition hover:bg-accent-hover active:scale-[0.98]"
+          >
+            <Edit3 size={16} />
+            Cập nhật tài khoản
+          </button>
+        </div>
+      </section>
+
+      {/* Account details */}
+      <section className="rounded-2xl border border-border-default bg-bg-surface">
+        <div className="flex items-center justify-between border-b border-border-default px-5 py-4 sm:px-6">
           <div>
-            <h2 className="text-lg font-semibold text-[#F5F5F5]">
-              Thông tin cá nhân
+            <h2 className="font-semibold text-text-primary">
+              Thông tin tài khoản
             </h2>
 
-            <p className="mt-1 text-sm text-[#858987]">
-              Cập nhật tên hiển thị, số điện thoại và ảnh đại diện.
+            <p className="mt-1 text-xs text-text-muted">
+              Thông tin hồ sơ hiện tại
             </p>
           </div>
 
+          <UserRound size={18} className="text-text-muted" />
+        </div>
+
+        <div className="grid gap-0 sm:grid-cols-2">
+          <InfoItem
+            icon={<UserRound size={17} />}
+            label="Họ và tên"
+            value={profile.name || 'Chưa cập nhật'}
+          />
+
+          <InfoItem
+            icon={<Mail size={17} />}
+            label="Email đăng nhập"
+            value={profile.email}
+            extra={
+              profile.emailVerifiedAt ? (
+                <span className="inline-flex items-center gap-1 text-xs font-medium text-accent-primary">
+                  <BadgeCheck size={14} />
+                  Đã xác minh
+                </span>
+              ) : (
+                <span className="inline-flex items-center gap-1 text-xs text-amber-400">
+                  <Clock3 size={14} />
+                  Chưa xác minh
+                </span>
+              )
+            }
+          />
+
+          <InfoItem
+            icon={<Camera size={17} />}
+            label="Số điện thoại"
+            value={profile.phone || 'Chưa cập nhật'}
+          />
+
+          <InfoItem
+            icon={<ShieldCheck size={17} />}
+            label="Vai trò"
+            value="Quản trị viên"
+          />
+        </div>
+      </section>
+
+      {/* Security settings */}
+      <section className="space-y-4 rounded-2xl border border-border-default bg-bg-surface p-5 sm:p-6">
+        <div>
+          <h2 className="font-semibold text-text-primary">
+            Bảo mật tài khoản
+          </h2>
+
+          <p className="mt-1 text-sm text-text-secondary">
+            Quản lý email đăng nhập và mật khẩu tài khoản quản trị.
+          </p>
+        </div>
+
+        <div className="divide-y divide-border-default">
+          <SecurityAction
+            icon={<Mail size={18} />}
+            title="Email đăng nhập"
+            description="Cập nhật email và xác minh địa chỉ email mới."
+            buttonLabel="Đổi email"
+            onClick={handleOpenEmailDialog}
+          />
+
+          <SecurityAction
+            icon={<LockKeyhole size={18} />}
+            title="Mật khẩu"
+            description="Thay đổi mật khẩu để bảo vệ tài khoản quản trị."
+            buttonLabel="Đổi mật khẩu"
+            onClick={handleOpenPasswordDialog}
+          />
+        </div>
+      </section>
+
+      {/* Edit profile dialog */}
+      {dialog === 'profile' && (
+        <DialogShell
+          title="Cập nhật tài khoản"
+          description="Chỉnh sửa thông tin hồ sơ quản trị của bạn."
+          onClose={closeActionDialog}
+          busy={savingProfile}
+        >
           <ProfileInfoForm
             profile={profile}
-            values={profileForm}
-            onChange={setProfileForm}
-            onSubmit={() => {
-              void handleUpdateProfile(profileForm);
-            }}
+            values={profileValues}
+            onChange={setProfileValues}
+            onSubmit={handleUpdateProfile}
             loading={savingProfile}
           />
-        </section>
+        </DialogShell>
+      )}
 
-        {/* Đổi email */}
-        <section className="space-y-4">
-          <div>
-            <h2 className="text-lg font-semibold text-[#F5F5F5]">
-              Thay đổi email
-            </h2>
-
-            <p className="mt-1 text-sm text-[#858987]">
-              Xác minh địa chỉ email mới bằng mã OTP trước khi cập nhật.
-            </p>
-          </div>
-
+      {/* Change email dialog */}
+      {dialog === 'email' && (
+        <DialogShell
+          title="Đổi email"
+          description="Xác minh email mới bằng mã OTP để hoàn tất thay đổi."
+          onClose={closeActionDialog}
+          busy={requestingOtp || verifyingOtp}
+        >
           <ChangeEmailForm
-            currentEmail={displayEmail}
+            currentEmail={profile.email}
             emailVerified={Boolean(profile.emailVerifiedAt)}
             requesting={requestingOtp}
             verifying={verifyingOtp}
             onRequestOtp={handleRequestEmailOtp}
             onVerifyOtp={handleVerifyEmailOtp}
           />
-        </section>
+        </DialogShell>
+      )}
 
-        <footer className="border-t border-[#303332] pt-4">
-          <p className="text-center text-xs leading-5 text-[#858987]">
-            Thông tin hồ sơ được tải từ tài khoản Admin đang đăng nhập.
+      {/* Change password dialog */}
+      {dialog === 'password' && (
+        <DialogShell
+          title="Đổi mật khẩu"
+          description="Nhập mật khẩu hiện tại và thiết lập mật khẩu mới."
+          onClose={closeActionDialog}
+          busy={changingPassword}
+        >
+          <form
+            onSubmit={(event) => {
+              event.preventDefault();
+              void handleChangePassword();
+            }}
+            className="space-y-4"
+          >
+            <PasswordField
+              label="Mật khẩu hiện tại"
+              value={passwordValues.currentPassword}
+              onChange={(value) =>
+                setPasswordValues((current) => ({
+                  ...current,
+                  currentPassword: value,
+                }))
+              }
+              visible={showCurrentPassword}
+              onToggleVisibility={() =>
+                setShowCurrentPassword((current) => !current)
+              }
+              autoComplete="current-password"
+              placeholder="Nhập mật khẩu hiện tại"
+            />
+
+            <PasswordField
+              label="Mật khẩu mới"
+              value={passwordValues.newPassword}
+              onChange={(value) =>
+                setPasswordValues((current) => ({
+                  ...current,
+                  newPassword: value,
+                }))
+              }
+              visible={showNewPassword}
+              onToggleVisibility={() =>
+                setShowNewPassword((current) => !current)
+              }
+              autoComplete="new-password"
+              placeholder="Nhập mật khẩu mới"
+            />
+
+            <PasswordField
+              label="Xác nhận mật khẩu mới"
+              value={passwordValues.confirmPassword}
+              onChange={(value) =>
+                setPasswordValues((current) => ({
+                  ...current,
+                  confirmPassword: value,
+                }))
+              }
+              visible={showConfirmPassword}
+              onToggleVisibility={() =>
+                setShowConfirmPassword((current) => !current)
+              }
+              autoComplete="new-password"
+              placeholder="Nhập lại mật khẩu mới"
+            />
+
+            {/* Hướng dẫn mật khẩu: chữ trơn, không viền, không nền riêng */}
+            <p className="text-sm leading-5 text-text-muted">
+              Mật khẩu nên có ít nhất 8 ký tự và không trùng mật khẩu hiện tại.
+            </p>
+
+            <div className="flex flex-col-reverse gap-2 pt-2 sm:flex-row sm:justify-end">
+              <button
+                type="button"
+                onClick={closeActionDialog}
+                disabled={changingPassword}
+                className="inline-flex h-10 items-center justify-center rounded-lg border border-border-default px-4 text-sm font-medium text-text-secondary transition hover:bg-bg-hover disabled:opacity-50"
+              >
+                Hủy
+              </button>
+
+              <button
+                type="submit"
+                disabled={changingPassword}
+                className="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-accent-primary px-4 text-sm font-semibold text-black transition hover:bg-accent-hover active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                <KeyRound size={16} />
+                {changingPassword ? 'Đang cập nhật...' : 'Cập nhật mật khẩu'}
+              </button>
+            </div>
+          </form>
+        </DialogShell>
+      )}
+
+      {/* Result dialog */}
+      {notice && (
+        <div
+          className="fixed inset-0 z-[110] flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm"
+          role="presentation"
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget) {
+              setNotice(null);
+            }
+          }}
+        >
+          <section
+            role="alertdialog"
+            aria-modal="true"
+            aria-labelledby="profile-notice-title"
+            aria-describedby="profile-notice-description"
+            className="w-full max-w-sm rounded-2xl border border-border-default bg-bg-surface p-6 shadow-2xl"
+          >
+            <div
+              className={`mx-auto flex h-14 w-14 items-center justify-center rounded-2xl ${notice.type === 'success'
+                ? 'bg-accent-primary/10 text-accent-primary'
+                : 'bg-status-danger/10 text-status-danger'
+                }`}
+            >
+              {notice.type === 'success' ? (
+                <CheckCircle2 size={28} />
+              ) : (
+                <X size={26} />
+              )}
+            </div>
+
+            <h2
+              id="profile-notice-title"
+              className="mt-4 text-center text-lg font-semibold text-text-primary"
+            >
+              {notice.title}
+            </h2>
+
+            <p
+              id="profile-notice-description"
+              className="mt-2 text-center text-sm leading-6 text-text-secondary"
+            >
+              {notice.message}
+            </p>
+
+            <button
+              type="button"
+              onClick={() => setNotice(null)}
+              className="mt-6 h-10 w-full rounded-lg bg-accent-primary px-4 text-sm font-semibold text-black transition hover:bg-accent-hover"
+            >
+              Đã hiểu
+            </button>
+          </section>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function SecurityAction({
+  icon,
+  title,
+  description,
+  buttonLabel,
+  onClick,
+}: {
+  icon: ReactNode;
+  title: string;
+  description: string;
+  buttonLabel: string;
+  onClick: () => void;
+}) {
+  return (
+    <div className="flex flex-col gap-3 py-4 sm:flex-row sm:items-center sm:justify-between">
+      <div className="flex min-w-0 items-start gap-3">
+        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-border-default bg-bg-elevated text-text-secondary">
+          {icon}
+        </div>
+
+        <div className="min-w-0">
+          <p className="text-sm font-medium text-text-primary">{title}</p>
+          <p className="mt-1 text-sm leading-5 text-text-secondary">
+            {description}
           </p>
-        </footer>
+        </div>
       </div>
+
+      <button
+        type="button"
+        onClick={onClick}
+        className="inline-flex h-10 shrink-0 items-center justify-center gap-2 rounded-lg border border-border-default px-4 text-sm font-medium text-text-primary transition hover:border-accent-primary/50 hover:bg-bg-hover"
+      >
+        {buttonLabel}
+      </button>
+    </div>
+  );
+}
+
+function PasswordField({
+  label,
+  value,
+  onChange,
+  visible,
+  onToggleVisibility,
+  autoComplete,
+  placeholder,
+}: {
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+  visible: boolean;
+  onToggleVisibility: () => void;
+  autoComplete: string;
+  placeholder: string;
+}) {
+  return (
+    <div>
+      <label className="mb-1.5 block text-sm font-medium text-text-secondary">
+        {label}
+      </label>
+
+      <div className="relative">
+        <input
+          type={visible ? 'text' : 'password'}
+          value={value}
+          onChange={(event) => onChange(event.target.value)}
+          autoComplete={autoComplete}
+          placeholder={placeholder}
+          className="h-11 w-full rounded-lg border border-border-default bg-bg-app px-3 pr-11 text-sm text-text-primary outline-none transition placeholder:text-text-muted focus:border-accent-primary focus:ring-2 focus:ring-accent-primary/10"
+        />
+
+        <button
+          type="button"
+          onClick={onToggleVisibility}
+          aria-label={visible ? 'Ẩn mật khẩu' : 'Hiện mật khẩu'}
+          className="absolute right-1 top-1/2 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-md text-text-muted transition hover:bg-bg-hover hover:text-text-primary"
+        >
+          {visible ? <EyeOff size={17} /> : <Eye size={17} />}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function InfoItem({
+  icon,
+  label,
+  value,
+  extra,
+}: {
+  icon: ReactNode;
+  label: string;
+  value: string;
+  extra?: ReactNode;
+}) {
+  return (
+    <div className="flex min-w-0 gap-3 border-b border-border-default p-5 last:border-b-0 sm:p-6 [&:nth-child(odd)]:sm:border-r [&:nth-last-child(-n+2)]:sm:border-b-0">
+      <div className="mt-0.5 text-text-muted">{icon}</div>
+
+      <div className="min-w-0 flex-1">
+        <p className="text-xs font-medium text-text-muted">{label}</p>
+
+        <p className="mt-1 break-words text-sm font-medium text-text-primary">
+          {value}
+        </p>
+
+        {extra && <div className="mt-2">{extra}</div>}
+      </div>
+    </div>
+  );
+}
+
+function DialogShell({
+  title,
+  description,
+  onClose,
+  busy,
+  children,
+}: {
+  title: string;
+  description: string;
+  onClose: () => void;
+  busy: boolean;
+  children: ReactNode;
+}) {
+  return (
+    <div
+      className="fixed inset-0 z-[100] flex items-center justify-center overflow-y-auto bg-black/70 p-4 backdrop-blur-sm"
+      onMouseDown={(event) => {
+        if (event.target === event.currentTarget && !busy) {
+          onClose();
+        }
+      }}
+    >
+      <section
+        role="dialog"
+        aria-modal="true"
+        className="w-full max-w-xl rounded-2xl border border-border-default bg-bg-surface shadow-2xl"
+      >
+        <div className="flex items-start justify-between gap-4 border-b border-border-default px-5 py-4 sm:px-6">
+          <div>
+            <h2 className="text-lg font-semibold text-text-primary">
+              {title}
+            </h2>
+
+            <p className="mt-1 text-sm text-text-secondary">
+              {description}
+            </p>
+          </div>
+
+          <button
+            type="button"
+            onClick={onClose}
+            disabled={busy}
+            aria-label="Đóng dialog"
+            className="rounded-lg p-2 text-text-muted transition hover:bg-bg-hover hover:text-text-primary disabled:opacity-50"
+          >
+            <X size={18} />
+          </button>
+        </div>
+
+        <div className="p-5 sm:p-6">{children}</div>
+      </section>
     </div>
   );
 }

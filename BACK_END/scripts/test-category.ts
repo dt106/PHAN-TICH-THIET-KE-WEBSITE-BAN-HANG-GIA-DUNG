@@ -104,8 +104,8 @@ const main = async (): Promise<void> => {
   expect(
     "Tạo danh mục gốc 'Đồ Gia Dụng Bếp'",
     createParent.status === 201 &&
-      createParent.json.data?.slug === PARENT_SLUG &&
-      createParent.json.data?.isActive === true,
+    createParent.json.data?.slug === PARENT_SLUG &&
+    createParent.json.data?.isActive === true,
     `status=${createParent.status}, slug=${createParent.json.data?.slug}`
   );
   const parentId = createParent.json.data?.id as string;
@@ -166,8 +166,8 @@ const main = async (): Promise<void> => {
   expect(
     "GET public danh sách chỉ chứa danh mục đang active",
     publicList.status === 200 &&
-      publicSlugs.includes(PARENT_SLUG) &&
-      publicSlugs.includes(CHILD_SLUG),
+    publicSlugs.includes(PARENT_SLUG) &&
+    publicSlugs.includes(CHILD_SLUG),
     `status=${publicList.status}, total=${publicList.json.pagination?.total}`
   );
 
@@ -240,7 +240,7 @@ const main = async (): Promise<void> => {
   expect(
     "Cập nhật danh mục thành công",
     updateCategory.status === 200 &&
-      updateCategory.json.data?.description === "Nồi cơm điện thông minh",
+    updateCategory.json.data?.description === "Nồi cơm điện thông minh",
     `status=${updateCategory.status}`
   );
 
@@ -315,8 +315,8 @@ const main = async (): Promise<void> => {
   expect(
     "Xóa lá rồi xóa cha thành công (dọn dữ liệu)",
     deleteGrandchild.status === 200 &&
-      deleteChild.status === 200 &&
-      deleteParent.status === 200,
+    deleteChild.status === 200 &&
+    deleteParent.status === 200,
     `grandchild=${deleteGrandchild.status}, child=${deleteChild.status}, parent=${deleteParent.status}`
   );
 

@@ -1,13 +1,3 @@
-/**
- * FILE: ADMIN/src/contexts/AuthContext.tsx
- *
- * NHIỆM VỤ:
- * - Quản lý trạng thái đăng nhập Admin trên toàn ứng dụng.
- * - Khôi phục phiên khi tải lại trang.
- * - Xác minh token qua API /admin/me.
- * - Đồng bộ đăng nhập, đăng xuất và phiên hết hạn.
- */
-
 import {
   createContext,
   useCallback,
@@ -18,23 +8,25 @@ import {
   type ReactNode,
 } from 'react';
 
-import {
-  authToken,
-} from '../services/api/httpClient';
+import { authToken } from '../services/api/httpClient';
 
 import {
   adminAuthService,
   type AdminLoginPayload,
 } from '../services/auth/adminAuth.service';
 
+import { getAdminProfile } from '../services/profile/adminProfile.service';
+
 export interface AdminUser {
   _id?: string;
   id?: string;
   name?: string;
   email?: string;
-  phone?: string;
-  avatar?: string;
+  phone?: string | null;
+  avatar?: string | null;
   role?: string;
+  status?: string;
+  emailVerifiedAt?: string | null;
   [key: string]: unknown;
 }
 
@@ -53,52 +45,17 @@ interface AuthContextValue {
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 
 /**
- * Chuẩn hóa response API:
- * - { data: { user: {...} } }
- * - { data: { admin: {...} } }
- * - { user: {...} }
- * - { data: {...userFields} }
+ * Chuyển AdminProfile trả về từ profile service
+ * thành AdminUser dùng trong AuthContext.
  */
-function extractObject(response: unknown): Record<string, unknown> {
-  if (!response || typeof response !== 'object') {
-    return {};
+function toAdminUser(profile: unknown): AdminUser {
+  if (!profile || typeof profile !== 'object') {
+    throw new Error(
+      'API thông tin Admin không trả về dữ liệu tài khoản hợp lệ.',
+    );
   }
 
-  const root = response as Record<string, unknown>;
-  const data =
-    root.data && typeof root.data === 'object'
-      ? (root.data as Record<string, unknown>)
-      : root;
-
-  const candidate = data.user ?? data.admin ?? data;
-
-  if (!candidate || typeof candidate !== 'object') {
-    return {};
-  }
-
-  return candidate as Record<string, unknown>;
-}
-
-function extractToken(response: unknown): string | null {
-  if (!response || typeof response !== 'object') {
-    return null;
-  }
-
-  const root = response as Record<string, unknown>;
-  const data =
-    root.data && typeof root.data === 'object'
-      ? (root.data as Record<string, unknown>)
-      : root;
-
-  const token = data.accessToken ?? data.access_token ?? data.token;
-
-  return typeof token === 'string' && token.trim()
-    ? token
-    : null;
-}
-
-function toAdminUser(response: unknown): AdminUser {
-  const candidate = extractObject(response);
+  const candidate = profile as Record<string, unknown>;
 
   if (
     typeof candidate.email !== 'string' &&
@@ -113,17 +70,50 @@ function toAdminUser(response: unknown): AdminUser {
   return candidate as AdminUser;
 }
 
-export function AuthProvider({ children }: { children: ReactNode }) {
+/**
+ * Trích token từ response đăng nhập.
+ * Hỗ trợ các cấu trúc response phổ biến.
+ */
+function extractToken(response: unknown): string | null {
+  if (!response || typeof response !== 'object') {
+    return null;
+  }
+
+  const root = response as Record<string, unknown>;
+
+  const data =
+    root.data && typeof root.data === 'object'
+      ? (root.data as Record<string, unknown>)
+      : root;
+
+  const token =
+    data.accessToken ??
+    data.access_token ??
+    data.token;
+
+  return typeof token === 'string' && token.trim()
+    ? token
+    : null;
+}
+
+export function AuthProvider({
+  children,
+}: {
+  children: ReactNode;
+}) {
   const [user, setUser] = useState<AdminUser | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
+  /**
+   * Xóa token và user hiện tại ở frontend.
+   */
   const clearLocalSession = useCallback(() => {
     authToken.clear();
     setUser(null);
   }, []);
 
   /**
-   * Gọi lại khi cần đồng bộ hồ sơ Admin từ backend.
+   * Đồng bộ thông tin Admin từ backend qua /admin/me.
    */
   const refreshUser = useCallback(async (): Promise<AdminUser> => {
     const token = authToken.get();
@@ -134,10 +124,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
 
     try {
-      const response = await adminAuthService.getMe();
-      const currentUser = toAdminUser(response);
+      // getAdminProfile trả về AdminProfile trực tiếp.
+      const profile = await getAdminProfile();
+      const currentUser = toAdminUser(profile);
 
-      // Chỉ cho tài khoản Admin vào khu vực quản trị.
       if (
         typeof currentUser.role === 'string' &&
         currentUser.role !== 'admin'
@@ -154,7 +144,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [clearLocalSession]);
 
   /**
-   * Khôi phục phiên khi ứng dụng khởi động hoặc tải lại trang.
+   * Khôi phục phiên khi ứng dụng khởi động.
+   * Không gọi setState đồng bộ trực tiếp trong effect.
    */
   useEffect(() => {
     let active = true;
@@ -169,11 +160,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
 
       try {
-        const response = await adminAuthService.getMe();
+        const profile = await getAdminProfile();
 
         if (!active) return;
 
-        const currentUser = toAdminUser(response);
+        const currentUser = toAdminUser(profile);
 
         if (
           typeof currentUser.role === 'string' &&
@@ -205,12 +196,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   /**
    * Đăng nhập:
    * 1. Gọi API login.
-   * 2. Lưu token.
-   * 3. Xác minh token bằng API /me.
-   * 4. Chỉ hoàn tất khi lấy được thông tin tài khoản.
+   * 2. Lấy token.
+   * 3. Lưu token theo remember me.
+   * 4. Xác minh token qua /admin/me.
    */
   const login = useCallback(
-    async (payload: AdminLoginPayload, remember: boolean) => {
+    async (
+      payload: AdminLoginPayload,
+      remember: boolean,
+    ): Promise<void> => {
       const response = await adminAuthService.login(payload);
       const token = extractToken(response);
 
@@ -237,10 +231,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   );
 
   /**
-   * Đăng xuất luôn xóa trạng thái phía frontend,
-   * kể cả khi API logout thất bại.
+   * Đăng xuất:
+   * Luôn xóa session frontend kể cả khi API logout thất bại.
    */
-  const logout = useCallback(async () => {
+  const logout = useCallback(async (): Promise<void> => {
     try {
       await adminAuthService.logout();
     } finally {
@@ -256,7 +250,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       clearLocalSession();
     };
 
-    window.addEventListener('admin:unauthorized', handleUnauthorized);
+    window.addEventListener(
+      'admin:unauthorized',
+      handleUnauthorized,
+    );
 
     return () => {
       window.removeEventListener(
@@ -290,7 +287,9 @@ export function useAuth(): AuthContextValue {
   const context = useContext(AuthContext);
 
   if (!context) {
-    throw new Error('useAuth phải được sử dụng bên trong AuthProvider.');
+    throw new Error(
+      'useAuth phải được sử dụng bên trong AuthProvider.',
+    );
   }
 
   return context;

@@ -1,17 +1,16 @@
 import { createContext } from "react";
-
-export type CartLine = {
-  slug: string;
-  quantity: number;
-};
+import type { CartItem } from "../types/api.ts";
 
 export type CartContextValue = {
-  lines: CartLine[];
+  items: CartItem[];
+  subtotal: number;
   count: number;
-  add: (slug: string, quantity?: number) => void;
-  setQuantity: (slug: string, quantity: number) => void;
-  remove: (slug: string) => void;
-  clear: () => void;
+  loading: boolean;
+  refresh: () => Promise<void>;
+  add: (productId: string, variantId?: string, quantity?: number) => Promise<void>;
+  setQuantity: (id: string, quantity: number) => Promise<void>;
+  remove: (id: string) => Promise<void>;
+  clear: () => Promise<void>;
 };
 
 export const CartContext = createContext<CartContextValue | null>(null);
