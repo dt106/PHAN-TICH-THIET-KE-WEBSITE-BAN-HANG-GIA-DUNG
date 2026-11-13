@@ -1,0 +1,555 @@
+﻿========== ORDERS FRONTEND DEPENDENCIES ==========
+
+====================================================================================================
+FILE: src/types/order.types.ts
+====================================================================================================
+
+export type OrderStatus =
+  | 'pending'
+  | 'confirmed'
+  | 'processing'
+  | 'shipping'
+  | 'completed'
+  | 'cancelled'
+  | 'returned';
+
+export type PaymentStatus =
+  | 'pending'
+  | 'paid'
+  | 'failed'
+  | 'refunded';
+
+export type PaymentMethod =
+  | 'COD'
+  | 'BANK'
+  | 'MOMO'
+  | 'VNPAY'
+  | 'ZALOPAY';
+
+export interface Order {
+  id: number;
+  order_number: string;
+
+  user_id: number | null;
+  coupon_id: number | null;
+
+  customer_name: string;
+  customer_email: string;
+  customer_phone: string;
+
+  shipping_address: string;
+  shipping_ward: string | null;
+  shipping_district: string | null;
+  shipping_province: string | null;
+
+  subtotal: number;
+  discount_amount: number;
+  shipping_fee: number;
+  tax_amount: number;
+  total_amount: number;
+
+  payment_method: PaymentMethod;
+  payment_status: PaymentStatus;
+  status: OrderStatus;
+
+  note: string | null;
+
+  confirmed_at: string | null;
+  shipped_at: string | null;
+  completed_at: string | null;
+  cancelled_at: string | null;
+
+  created_at: string;
+  updated_at: string;
+}
+
+
+====================================================================================================
+FILE: src/types/order-item.types.ts
+====================================================================================================
+
+export interface OrderItem {
+  id: number;
+  order_id: number;
+
+  product_id: number;
+  variant_id: number | null;
+
+  product_name: string;
+  product_sku: string | null;
+
+  variant_sku: string | null;
+  variant_attributes: string | null;
+
+  quantity: number;
+
+  unit_price: number;
+  discount_amount: number;
+  total_price: number;
+
+  created_at: string | null;
+}
+
+
+====================================================================================================
+FILE: src/services/api/endpoints.ts
+====================================================================================================
+
+/**
+ * FILE: ADMIN/src/services/api/endpoints.ts
+ *
+ * Quáº£n lĂ½ táº­p trung cĂ¡c API endpoint.
+ */
+
+export const API_ENDPOINTS = {
+  auth: {
+    login: '/admin/auth/login',
+    forgotPassword: '/admin/auth/forgot-password',
+    resetPassword: '/admin/auth/reset-password',
+    changePassword: '/admin/auth/change-password',
+    me: '/admin/auth/me',
+    profile: '/admin/auth/profile',
+    requestChangeEmailOtp: '/admin/auth/change-email/request-otp',
+    verifyChangeEmailOtp: '/admin/auth/change-email/verify',
+    logout: '/admin/auth/logout',
+  },
+
+  customers: {
+    list: '/admin/customers',
+    detail: (id: string) => `/admin/customers/${encodeURIComponent(id)}`,
+    status: (id: string) => `/admin/customers/${encodeURIComponent(id)}/status`,
+  },
+
+  products: {
+    // Public API
+    list: '/products',
+    detail: (id: string) => `/products/${encodeURIComponent(id)}`,
+    featured: '/products/featured',
+    related: (id: string) => `/products/related/${encodeURIComponent(id)}`,
+    bySlug: (slug: string) => `/products/slug/${encodeURIComponent(slug)}`,
+
+    // Admin API
+    adminList: '/admin/products/all',
+    adminDetail: (id: string) =>
+      `/admin/products/${encodeURIComponent(id)}`,
+    create: '/admin/products',
+    update: (id: string) =>
+      `/admin/products/${encodeURIComponent(id)}`,
+    status: (id: string) =>
+      `/admin/products/${encodeURIComponent(id)}/status`,
+    featuredStatus: (id: string) =>
+      `/admin/products/${encodeURIComponent(id)}/featured`,
+    delete: (id: string) =>
+      `/admin/products/${encodeURIComponent(id)}`,
+  },
+
+  dashboard: {
+    overview: '/admin/dashboard/overview',
+    revenue: '/admin/dashboard/revenue',
+    orders: '/admin/dashboard/orders',
+    products: '/admin/dashboard/products',
+    customers: '/admin/dashboard/customers',
+  },
+
+  categories: {
+    base: '/categories',
+  },
+
+  brands: {
+    // Public
+    base: '/brands',
+
+    // Admin
+    adminList: '/admin/brands/all',
+    adminDetail: (id: string) =>
+      `/admin/brands/${encodeURIComponent(id)}`,
+    create: '/admin/brands',
+    update: (id: string) =>
+      `/admin/brands/${encodeURIComponent(id)}`,
+    status: (id: string) =>
+      `/admin/brands/${encodeURIComponent(id)}/status`,
+    delete: (id: string) =>
+      `/admin/brands/${encodeURIComponent(id)}`,
+  },
+
+  attributes: {
+    // Public
+    base: '/attributes',
+    detail: (id: string) =>
+      `/attributes/${encodeURIComponent(id)}`,
+
+    // Admin
+    adminBase: '/admin/attributes',
+    create: '/admin/attributes',
+    update: (id: string) =>
+      `/admin/attributes/${encodeURIComponent(id)}`,
+    delete: (id: string) =>
+      `/admin/attributes/${encodeURIComponent(id)}`,
+
+    createValue: (id: string) =>
+      `/admin/attributes/${encodeURIComponent(id)}/values`,
+
+    updateValue: (valueId: string) =>
+      `/admin/attributes/values/${encodeURIComponent(valueId)}`,
+
+    deleteValue: (valueId: string) =>
+      `/admin/attributes/values/${encodeURIComponent(valueId)}`,
+  },
+
+  attributeValues: {
+    base: '/attribute-values',
+  },
+
+  productVariants: {
+    adminListByProduct: (productId: string) =>
+      `/admin/products/${encodeURIComponent(productId)}/variants`,
+
+    adminCreateByProduct: (productId: string) =>
+      `/admin/products/${encodeURIComponent(productId)}/variants`,
+
+    adminUpdate: (id: string) =>
+      `/admin/variants/${encodeURIComponent(id)}`,
+
+    adminUpdateStock: (id: string) =>
+      `/admin/variants/${encodeURIComponent(id)}/stock`,
+
+    adminUpdateStatus: (id: string) =>
+      `/admin/variants/${encodeURIComponent(id)}/status`,
+
+    adminDelete: (id: string) =>
+      `/admin/variants/${encodeURIComponent(id)}`,
+  },
+
+  productMedia: {
+    // Láº¥y danh sĂ¡ch media theo sáº£n pháº©m.
+    adminListByProduct: (productId: string) =>
+      `/admin/products/${encodeURIComponent(productId)}/media`,
+
+    // Táº¡o má»™t media báº±ng URL.
+    adminCreateByProduct: (productId: string) =>
+      `/admin/products/${encodeURIComponent(productId)}/media`,
+
+    // Táº¡o nhiá»u media báº±ng URL.
+    adminCreateBatchByProduct: (productId: string) =>
+      `/admin/products/${encodeURIComponent(productId)}/media/batch`,
+
+    // Upload má»™t hoáº·c nhiá»u áº£nh tá»« mĂ¡y tĂ­nh.
+    adminUploadByProduct: (productId: string) =>
+      `/admin/products/${encodeURIComponent(productId)}/media/upload`,
+
+    // Cáº­p nháº­t media.
+    adminUpdate: (id: string) =>
+      `/admin/media/${encodeURIComponent(id)}`,
+
+    // Äáº·t áº£nh chĂ­nh.
+    adminSetPrimary: (id: string) =>
+      `/admin/media/${encodeURIComponent(id)}/primary`,
+
+    // Cáº­p nháº­t thá»© tá»± media.
+    adminUpdateSortOrder: (productId: string) =>
+      `/admin/products/${encodeURIComponent(productId)}/media/sort-order`,
+
+    // XĂ³a má»™t media.
+    adminDelete: (id: string) =>
+      `/admin/media/${encodeURIComponent(id)}`,
+
+    // XĂ³a toĂ n bá»™ media cá»§a sáº£n pháº©m.
+    adminDeleteByProduct: (productId: string) =>
+      `/admin/products/${encodeURIComponent(productId)}/media`,
+  },
+
+  variantAttributes: {
+    base: '/variant-attributes',
+  },
+
+  inventory: {
+    base: '/admin/inventory',
+  },
+
+  orders: {
+    base: '/admin/orders',
+  },
+
+  orderItems: {
+    base: '/admin/order-items',
+  },
+
+  payments: {
+    base: '/admin/payments',
+  },
+
+  coupons: {
+    base: '/coupons',
+  },
+
+  reviews: {
+    base: '/admin/reviews',
+  },
+
+  conversations: {
+    base: '/admin/conversations',
+  },
+
+  notifications: {
+    base: '/admin/notifications',
+  },
+
+  announcements: {
+    base: '/admin/announcements',
+  },
+} as const;
+
+
+====================================================================================================
+FILE: src/services/api/httpClient.ts
+====================================================================================================
+/**
+ * FILE: ADMIN/src/services/api/httpClient.ts
+ *
+ * HTTP client dĂ¹ng chung cho toĂ n bá»™ Admin.
+ * KhĂ´ng Ä‘áº·t logic nghiá»‡p vá»¥ cá»§a tá»«ng trang táº¡i Ä‘Ă¢y.
+ */
+
+import type { QueryParams, RequestOptions } from './api.types';
+
+// Äá»‹a chá»‰ Backend API
+const API_BASE_URL = (
+  import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000/api'
+).replace(/\/+$/, '');
+
+const TOKEN_KEY = 'admin_access_token';
+
+/**
+ * Lá»—i API tĂ¹y chá»‰nh.
+ * GiĂºp cĂ¡c service vĂ  page Ä‘á»c Ä‘Æ°á»£c thĂ´ng bĂ¡o lá»—i vĂ  HTTP status.
+ */
+export class ApiError extends Error {
+  status: number;
+  data: unknown;
+
+  constructor(message: string, status: number, data?: unknown) {
+    super(message);
+    this.name = 'ApiError';
+    this.status = status;
+    this.data = data;
+  }
+}
+
+/**
+ * Quáº£n lĂ½ token Ä‘Äƒng nháº­p Admin.
+ *
+ * - localStorage: ghi nhá»› Ä‘Äƒng nháº­p.
+ * - sessionStorage: chá»‰ lÆ°u trong phiĂªn trĂ¬nh duyá»‡t hiá»‡n táº¡i.
+ */
+export const authToken = {
+  // Äá»c token tá»« cáº£ hai nÆ¡i.
+  get(): string | null {
+    return (
+      localStorage.getItem(TOKEN_KEY) ??
+      sessionStorage.getItem(TOKEN_KEY)
+    );
+  },
+
+  // LÆ°u token lĂ¢u dĂ i khi chá»n "Ghi nhá»› Ä‘Äƒng nháº­p".
+  set(token: string): void {
+    localStorage.removeItem(TOKEN_KEY);
+    sessionStorage.removeItem(TOKEN_KEY);
+
+    localStorage.setItem(TOKEN_KEY, token);
+  },
+
+  // Chá»‰ lÆ°u token trong phiĂªn trĂ¬nh duyá»‡t hiá»‡n táº¡i.
+  setSession(token: string): void {
+    localStorage.removeItem(TOKEN_KEY);
+    sessionStorage.removeItem(TOKEN_KEY);
+
+    sessionStorage.setItem(TOKEN_KEY, token);
+  },
+
+  // XĂ³a token á»Ÿ cáº£ hai nÆ¡i khi Ä‘Äƒng xuáº¥t.
+  clear(): void {
+    localStorage.removeItem(TOKEN_KEY);
+    sessionStorage.removeItem(TOKEN_KEY);
+  },
+};
+
+/**
+ * Táº¡o URL API vĂ  gáº¯n query params náº¿u cĂ³.
+ */
+function buildUrl(path: string, params?: QueryParams): string {
+  const normalizedPath = path.replace(/^\/+/, '');
+  const url = new URL(`${API_BASE_URL}/${normalizedPath}`);
+
+  if (params) {
+    Object.entries(params).forEach(([key, value]) => {
+      if (value !== undefined && value !== null && value !== '') {
+        url.searchParams.set(key, String(value));
+      }
+    });
+  }
+
+  return url.toString();
+}
+
+/**
+ * HĂ m gá»­i request dĂ¹ng chung cho cĂ¡c phÆ°Æ¡ng thá»©c HTTP.
+ */
+async function request<T>(
+  method: string,
+  path: string,
+  body?: unknown,
+  options: RequestOptions = {},
+): Promise<T> {
+  const headers = new Headers(options.headers);
+  const token = authToken.get();
+
+  // Tá»± Ä‘á»™ng Ä‘Ă­nh kĂ¨m JWT náº¿u Ä‘Ă£ Ä‘Äƒng nháº­p.
+  if (token) {
+    headers.set('Authorization', `Bearer ${token}`);
+  }
+
+  let requestBody: BodyInit | undefined;
+
+  if (body instanceof FormData) {
+    // Äá»ƒ trĂ¬nh duyá»‡t tá»± táº¡o multipart boundary.
+    requestBody = body;
+  } else if (body !== undefined) {
+    headers.set('Content-Type', 'application/json');
+    requestBody = JSON.stringify(body);
+  }
+
+  let response: Response;
+
+  try {
+    response = await fetch(buildUrl(path, options.params), {
+      method,
+      headers,
+      body: requestBody,
+      signal: options.signal,
+    });
+  } catch (error) {
+    // KhĂ´ng chuyá»ƒn lá»—i há»§y request thĂ nh lá»—i káº¿t ná»‘i.
+    if (error instanceof Error && error.name === 'AbortError') {
+      throw error;
+    }
+
+    throw new ApiError(
+      'KhĂ´ng thá»ƒ káº¿t ná»‘i Ä‘áº¿n mĂ¡y chá»§. Kiá»ƒm tra backend vĂ  Ä‘á»‹a chá»‰ API.',
+      0,
+      error,
+    );
+  }
+
+  // Äá»c dá»¯ liá»‡u pháº£n há»“i tá»« Backend.
+  const contentType = response.headers.get('content-type') || '';
+  let responseData: unknown = null;
+
+  if (response.status !== 204) {
+    if (contentType.includes('application/json')) {
+      responseData = await response.json().catch(() => null);
+    } else {
+      responseData = await response.text().catch(() => '');
+    }
+  }
+
+  // Chuáº©n hĂ³a lá»—i tráº£ vá» tá»« Backend.
+  if (!response.ok) {
+    const payload =
+      responseData && typeof responseData === 'object'
+        ? (responseData as Record<string, unknown>)
+        : undefined;
+
+    const message =
+      (typeof payload?.message === 'string' && payload.message) ||
+      (typeof payload?.error === 'string' && payload.error) ||
+      `YĂªu cáº§u tháº¥t báº¡i (HTTP ${response.status}).`;
+
+    throw new ApiError(message, response.status, responseData);
+  }
+
+  return responseData as T;
+}
+
+/**
+ * CĂ¡c phÆ°Æ¡ng thá»©c HTTP dĂ¹ng chung.
+ */
+export const httpClient = {
+  get<T>(path: string, options?: RequestOptions): Promise<T> {
+    return request<T>('GET', path, undefined, options);
+  },
+
+  post<T>(
+    path: string,
+    body?: unknown,
+    options?: RequestOptions,
+  ): Promise<T> {
+    return request<T>('POST', path, body, options);
+  },
+
+  put<T>(
+    path: string,
+    body?: unknown,
+    options?: RequestOptions,
+  ): Promise<T> {
+    return request<T>('PUT', path, body, options);
+  },
+
+  patch<T>(
+    path: string,
+    body?: unknown,
+    options?: RequestOptions,
+  ): Promise<T> {
+    return request<T>('PATCH', path, body, options);
+  },
+
+  delete<T>(path: string, options?: RequestOptions): Promise<T> {
+    return request<T>('DELETE', path, undefined, options);
+  },
+};
+
+
+====================================================================================================
+FILE: src/services/api/api.types.ts
+====================================================================================================
+
+/**
+ * FILE: ADMIN/src/services/api/api.types.ts
+ *
+ * Kiá»ƒu dá»¯ liá»‡u dĂ¹ng chung cho káº¿t quáº£ API.
+ */
+
+export interface ApiResponse<T> {
+  success: boolean;
+  message?: string;
+  data: T;
+}
+
+export interface PaginationMeta {
+  page: number;
+  limit: number;
+  total: number;
+  totalPages: number;
+}
+
+export interface PaginatedResponse<T> {
+  success: boolean;
+  message?: string;
+  data: T[];
+  pagination?: PaginationMeta;
+}
+
+export type QueryValue =
+  | string
+  | number
+  | boolean
+  | null
+  | undefined;
+
+export type QueryParams = Record<string, QueryValue>;
+
+export interface RequestOptions {
+  params?: QueryParams;
+  headers?: HeadersInit;
+  signal?: AbortSignal;
+}
+

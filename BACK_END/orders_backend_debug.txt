@@ -1,0 +1,354 @@
+
+
+==================================================
+FILE: ..\BACK_END\src\routes\admin\admin.order.routes.ts
+==================================================
+import { Router } from "express";
+import authMiddleware from "../../middlewares/auth.middleware";
+import roleMiddleware from "../../middlewares/role.middleware";
+import validate from "../../middlewares/validate.middleware";
+import {
+  orderIdParamValidator,
+  adminOrdersQueryValidator,
+  updateOrderStatusValidator,
+} from "../../validators/order.validator";
+import * as orderController from "../../controllers/order.controller";
+
+const router = Router();
+
+router.use(authMiddleware, roleMiddleware("admin"));
+
+router.get("/", adminOrdersQueryValidator, validate, orderController.getAllOrdersAdmin);
+
+router.get("/:id", orderIdParamValidator, validate, orderController.getOrderDetailAdmin);
+
+router.put(
+  "/:id/status",
+  updateOrderStatusValidator,
+  validate,
+  orderController.updateOrderStatusAdmin
+);
+
+export default router;
+
+
+
+==================================================
+FILE: ..\BACK_END\src\routes\admin.routes.ts
+==================================================
+/**
+ * =========================================================
+ * FILE: BACK_END/src/routes/admin.routes.ts
+ * =========================================================
+ *
+ * MỤC ĐÍCH:
+ * - Khai báo API dành cho Admin.
+ * - Kết nối Admin Validator.
+ * - Kết nối Middleware xác thực và upload.
+ * - Kết nối Admin Controller.
+ *
+ * QUY TẮC:
+ * - Admin vẫn sử dụng User Model.
+ * - Phân biệt bằng role = "admin".
+ * - Các API yêu cầu đăng nhập phải có JWT.
+ * - Controller/service phải kiểm tra role admin.
+ * - Đổi email sử dụng OTP hiện có.
+ *
+ * =========================================================
+ */
+
+import { Router } from "express";
+
+/**
+ * =========================================================
+ * VALIDATOR
+ * =========================================================
+ */
+
+import {
+  adminLoginValidator,
+  adminForgotPasswordValidator,
+  adminResetPasswordValidator,
+  adminChangePasswordValidator,
+  adminRequestChangeEmailValidator,
+  adminVerifyChangeEmailValidator,
+  adminUpdateProfileValidator,
+} from "../validators/admin.validator";
+
+import validate from "../middlewares/validate.middleware";
+
+/**
+ * =========================================================
+ * MIDDLEWARE
+ * =========================================================
+ */
+
+import authMiddleware from "../middlewares/auth.middleware";
+
+// Đối chiếu export thực tế của file upload.middleware.ts.
+// Nếu file export tên khác, sửa lại dòng import này.
+import uploadMiddleware from "../middlewares/upload.middleware";
+
+/**
+ * =========================================================
+ * CONTROLLER
+ * =========================================================
+ */
+
+import {
+  adminLogin,
+  adminForgotPassword,
+  adminResetPassword,
+  adminChangePassword,
+  adminGetCurrentUser,
+  adminRequestChangeEmail,
+  adminVerifyChangeEmail,
+  adminUpdateProfile,
+  adminLogout,
+} from "../controllers/admin.controller";
+
+/**
+ * =========================================================
+ * ROUTER
+ * =========================================================
+ */
+
+const router = Router();
+
+/**
+ * =========================================================
+ * 1. ADMIN LOGIN
+ * =========================================================
+ *
+ * POST /api/admin/login
+ *
+ * Body:
+ * {
+ *   "email": "admin@gmail.com",
+ *   "password": "Admin@123456"
+ * }
+ *
+ * Không cần JWT.
+ *
+ * =========================================================
+ */
+
+router.post(
+  "/login",
+  adminLoginValidator,
+  validate,
+  adminLogin,
+);
+
+/**
+ * =========================================================
+ * 2. ADMIN FORGOT PASSWORD
+ * =========================================================
+ *
+ * POST /api/admin/forgot-password
+ *
+ * Body:
+ * {
+ *   "email": "admin@gmail.com"
+ * }
+ *
+ * Không cần JWT.
+ *
+ * =========================================================
+ */
+
+router.post(
+  "/forgot-password",
+  adminForgotPasswordValidator,
+  validate,
+  adminForgotPassword,
+);
+
+/**
+ * =========================================================
+ * 3. ADMIN RESET PASSWORD
+ * =========================================================
+ *
+ * POST /api/admin/reset-password
+ *
+ * Body:
+ * {
+ *   "email": "admin@gmail.com",
+ *   "otp": "123456",
+ *   "newPassword": "Admin@New123456"
+ * }
+ *
+ * Không cần JWT.
+ *
+ * =========================================================
+ */
+
+router.post(
+  "/reset-password",
+  adminResetPasswordValidator,
+  validate,
+  adminResetPassword,
+);
+
+/**
+ * =========================================================
+ * 4. ADMIN CHANGE PASSWORD
+ * =========================================================
+ *
+ * POST /api/admin/change-password
+ *
+ * Header:
+ * Authorization: Bearer <admin_token>
+ *
+ * Body:
+ * {
+ *   "currentPassword": "Admin@123456",
+ *   "newPassword": "Admin@New123456"
+ * }
+ *
+ * =========================================================
+ */
+
+router.post(
+  "/change-password",
+  authMiddleware,
+  adminChangePasswordValidator,
+  validate,
+  adminChangePassword,
+);
+
+/**
+ * =========================================================
+ * 5. ADMIN GET CURRENT USER
+ * =========================================================
+ *
+ * GET /api/admin/me
+ *
+ * Header:
+ * Authorization: Bearer <admin_token>
+ *
+ * =========================================================
+ */
+
+router.get(
+  "/me",
+  authMiddleware,
+  adminGetCurrentUser,
+);
+
+/**
+ * =========================================================
+ * 6. ADMIN REQUEST CHANGE EMAIL
+ * =========================================================
+ *
+ * POST /api/admin/change-email/request-otp
+ *
+ * Header:
+ * Authorization: Bearer <admin_token>
+ *
+ * Body:
+ * {
+ *   "newEmail": "admin.new@gmail.com"
+ * }
+ *
+ * Controller/service chịu trách nhiệm gửi OTP.
+ *
+ * =========================================================
+ */
+
+router.post(
+  "/change-email/request-otp",
+  authMiddleware,
+  adminRequestChangeEmailValidator,
+  validate,
+  adminRequestChangeEmail,
+);
+
+/**
+ * =========================================================
+ * 7. ADMIN VERIFY CHANGE EMAIL
+ * =========================================================
+ *
+ * POST /api/admin/change-email/verify
+ *
+ * Header:
+ * Authorization: Bearer <admin_token>
+ *
+ * Body:
+ * {
+ *   "newEmail": "admin.new@gmail.com",
+ *   "otp": "123456"
+ * }
+ *
+ * =========================================================
+ */
+
+router.post(
+  "/change-email/verify",
+  authMiddleware,
+  adminVerifyChangeEmailValidator,
+  validate,
+  adminVerifyChangeEmail,
+);
+
+/**
+ * =========================================================
+ * 8. ADMIN UPDATE PROFILE
+ * =========================================================
+ *
+ * PATCH /api/admin/profile
+ *
+ * Header:
+ * Authorization: Bearer <admin_token>
+ *
+ * Có thể cập nhật:
+ * - name
+ * - phone
+ * - avatar
+ *
+ * Đổi email phải sử dụng API OTP riêng.
+ *
+ * =========================================================
+ */
+
+router.patch(
+  "/profile",
+  authMiddleware,
+  uploadMiddleware.single("avatar"),
+  adminUpdateProfileValidator,
+  validate,
+  adminUpdateProfile,
+);
+
+/**
+ * =========================================================
+ * 9. ADMIN LOGOUT
+ * =========================================================
+ *
+ * POST /api/admin/logout
+ *
+ * Header:
+ * Authorization: Bearer <admin_token>
+ *
+ * =========================================================
+ */
+
+router.post(
+  "/logout",
+  authMiddleware,
+  adminLogout,
+);
+
+/**
+ * =========================================================
+ * EXPORT ROUTER
+ * =========================================================
+ */
+
+export default router;
+
+
+==================================================
+FILE: ..\BACK_END\src\controllers\admin\admin.order.controller.ts
+==================================================
+KHONG TIM THAY FILE - CAN KIEM TRA DUONG DAN

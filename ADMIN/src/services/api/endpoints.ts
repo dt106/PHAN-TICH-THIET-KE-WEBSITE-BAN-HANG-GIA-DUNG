@@ -171,10 +171,12 @@ export const API_ENDPOINTS = {
   },
 
   orders: {
+    // GET /admin/orders
     base: '/admin/orders',
   },
 
   orderItems: {
+    // GET /admin/order-items
     base: '/admin/order-items',
   },
 
