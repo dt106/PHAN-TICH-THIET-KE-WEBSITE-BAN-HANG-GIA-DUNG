@@ -47,12 +47,10 @@ export const API_ENDPOINTS = {
       `/admin/products/${encodeURIComponent(id)}`,
   },
 
+
   dashboard: {
-    overview: '/admin/dashboard/overview',
-    revenue: '/admin/dashboard/revenue',
-    orders: '/admin/dashboard/orders',
-    products: '/admin/dashboard/products',
-    customers: '/admin/dashboard/customers',
+    overview: '/admin/statistics/overview',
+    users: '/admin/statistics/users',
   },
 
   categories: {
