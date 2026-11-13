@@ -1,12 +1,14 @@
 
-import { useState, type ReactNode } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import {
+  AlertCircle,
   ArrowLeft,
   CalendarDays,
   CheckCircle2,
   Eye,
   EyeOff,
+  LoaderCircle,
   Mail,
   MessageSquareText,
   Package,
@@ -14,15 +16,20 @@ import {
   Star,
   Trash2,
   UserRound,
+  X,
 } from 'lucide-react';
 
 import StatusBadge from '../../components/shared/StatusBadge';
 import { Button } from '../../components/ui/buttons/Button';
 import { Card } from '../../components/ui/data-display/Card';
-import { reviewsMock } from '../../mocks/reviews.mock';
+
+import { reviewsService } from '../../services/reviews/reviews.service';
+
 import type { ReviewDetail } from '../../types/review.types';
 
-const formatDateTime = (value: string) => {
+const formatDateTime = (value: string | null | undefined) => {
+  if (!value) return 'Chưa có dữ liệu';
+
   const date = new Date(value);
 
   if (Number.isNaN(date.getTime())) return '—';
@@ -31,6 +38,12 @@ const formatDateTime = (value: string) => {
     dateStyle: 'medium',
     timeStyle: 'short',
   }).format(date);
+};
+
+const getErrorMessage = (error: unknown) => {
+  return error instanceof Error
+    ? error.message
+    : 'Đã xảy ra lỗi khi xử lý yêu cầu.';
 };
 
 function Stars({ rating }: { rating: number }) {
@@ -67,7 +80,10 @@ function InfoRow({
 }) {
   return (
     <div className="grid grid-cols-1 gap-1 border-b border-border-default py-3 last:border-0 sm:grid-cols-[125px_minmax(0,1fr)] sm:gap-3">
-      <span className="text-sm text-text-muted">{label}</span>
+      <span className="text-sm text-text-muted">
+        {label}
+      </span>
+
       <div className="min-w-0 break-words text-sm text-text-primary">
         {children}
       </div>
@@ -79,19 +95,54 @@ export default function ReviewDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
 
-  const [revision, setRevision] = useState(0);
-  const [failedImages, setFailedImages] = useState<string[]>([]);
-
-  const review: ReviewDetail | undefined = reviewsMock.find(
-    (item) => String(item.id) === String(id),
+  const [review, setReview] = useState<ReviewDetail | null>(
+    null,
   );
 
-const goBack = () => {
-  navigate(-1);
-};
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [actionLoading, setActionLoading] = useState(false);
+  const [failedImages, setFailedImages] = useState<string[]>([]);
 
-  const changeVisibility = () => {
-    if (!review) return;
+  useEffect(() => {
+    if (!id) return;
+
+    const controller = new AbortController();
+
+    const loadReview = async () => {
+      setLoading(true);
+      setError('');
+
+      try {
+        const result = await reviewsService.getReviewById(id);
+
+        if (!controller.signal.aborted) {
+          setReview(result.review);
+          setFailedImages([]);
+        }
+      } catch (requestError) {
+        if (controller.signal.aborted) return;
+
+        setError(getErrorMessage(requestError));
+        setReview(null);
+      } finally {
+        if (!controller.signal.aborted) {
+          setLoading(false);
+        }
+      }
+    };
+
+    void loadReview();
+
+    return () => controller.abort();
+  }, [id]);
+
+  const goBack = () => {
+    navigate('/admin/reviews');
+  };
+
+  const changeVisibility = async () => {
+    if (!review || actionLoading) return;
 
     const nextValue = !review.is_approved;
 
@@ -103,17 +154,33 @@ const goBack = () => {
 
     if (!confirmed) return;
 
-    const target = reviewsMock.find((item) => item.id === review.id);
-    if (!target) return;
+    setActionLoading(true);
+    setError('');
 
-    target.is_approved = nextValue;
-    target.updated_at = new Date().toISOString();
+    try {
+      await reviewsService.updateReviewApproval(
+        review.id,
+        nextValue,
+      );
 
-    setRevision((value) => value + 1);
+      setReview((current) =>
+        current
+          ? {
+            ...current,
+            is_approved: nextValue,
+            updated_at: new Date().toISOString(),
+          }
+          : current,
+      );
+    } catch (requestError) {
+      setError(getErrorMessage(requestError));
+    } finally {
+      setActionLoading(false);
+    }
   };
 
-  const deleteReview = () => {
-    if (!review) return;
+  const deleteReview = async () => {
+    if (!review || actionLoading) return;
 
     const confirmed = window.confirm(
       `Xóa vĩnh viễn đánh giá #${review.id} của ${review.customer.name}? Thao tác này không thể hoàn tác.`,
@@ -121,17 +188,34 @@ const goBack = () => {
 
     if (!confirmed) return;
 
-    const index = reviewsMock.findIndex(
-      (item) => item.id === review.id,
-    );
+    setActionLoading(true);
+    setError('');
 
-    if (index < 0) return;
+    try {
+      await reviewsService.deleteReview(review.id);
 
-    reviewsMock.splice(index, 1);
-    navigate('/admin/reviews', { replace: true });
+      navigate('/admin/reviews', { replace: true });
+    } catch (requestError) {
+      setError(getErrorMessage(requestError));
+      setActionLoading(false);
+    }
   };
 
-  // Trường hợp ID trên URL không tồn tại trong dữ liệu.
+  if (loading) {
+    return (
+      <div className="flex min-h-[55vh] flex-col items-center justify-center gap-3">
+        <LoaderCircle
+          size={32}
+          className="animate-spin text-accent-primary"
+        />
+
+        <p className="text-sm text-text-secondary">
+          Đang tải chi tiết đánh giá...
+        </p>
+      </div>
+    );
+  }
+
   if (!review) {
     return (
       <div className="mx-auto max-w-xl py-16 text-center">
@@ -144,7 +228,8 @@ const goBack = () => {
         </h1>
 
         <p className="mt-2 text-sm text-text-secondary">
-          Đánh giá không tồn tại hoặc đã bị xóa.
+          {error ||
+            'Đánh giá không tồn tại hoặc đã bị xóa.'}
         </p>
 
         <div className="mt-6">
@@ -159,7 +244,31 @@ const goBack = () => {
 
   return (
     <div className="min-w-0 space-y-6 pb-8">
-      {/* Tiêu đề và hai nút thao tác phía trên */}
+      {error && (
+        <div
+          role="alert"
+          className="flex items-start gap-3 rounded-xl border border-status-danger/30 bg-status-danger/5 p-4"
+        >
+          <AlertCircle
+            size={18}
+            className="mt-0.5 shrink-0 text-status-danger"
+          />
+
+          <p className="min-w-0 flex-1 text-sm text-text-primary">
+            {error}
+          </p>
+
+          <button
+            type="button"
+            onClick={() => setError('')}
+            aria-label="Đóng thông báo"
+            className="text-text-muted hover:text-text-primary"
+          >
+            <X size={16} />
+          </button>
+        </div>
+      )}
+
       <header className="flex flex-col justify-between gap-4 sm:flex-row sm:items-start">
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-3">
@@ -167,7 +276,7 @@ const goBack = () => {
               Chi tiết đánh giá
             </h1>
 
-            <span className="rounded-lg border border-border-default bg-bg-surface px-3 py-1 font-mono text-sm text-text-secondary">
+            <span className="max-w-full break-all rounded-lg border border-border-default bg-bg-surface px-3 py-1 font-mono text-sm text-text-secondary">
               #{review.id}
             </span>
           </div>
@@ -180,32 +289,56 @@ const goBack = () => {
         <div className="flex flex-wrap gap-2">
           <Button variant="secondary" onClick={goBack}>
             <ArrowLeft size={16} className="mr-2" />
-            Quay lại danh sách
+            Quay lại
           </Button>
 
-          <Button variant="secondary" onClick={changeVisibility}>
-            {review.is_approved ? (
-              <>
-                <EyeOff size={16} className="mr-2" />
-                Ẩn đánh giá
-              </>
+          <Button
+            variant="secondary"
+            disabled={actionLoading}
+            onClick={() => void changeVisibility()}
+          >
+            {actionLoading ? (
+              <LoaderCircle
+                size={16}
+                className="mr-2 animate-spin"
+              />
+            ) : review.is_approved ? (
+              <EyeOff size={16} className="mr-2" />
             ) : (
-              <>
-                <Eye size={16} className="mr-2" />
-                Hiển thị lại
-              </>
+              <Eye size={16} className="mr-2" />
             )}
+
+            {review.is_approved
+              ? 'Ẩn đánh giá'
+              : 'Hiển thị lại'}
+          </Button>
+
+          <Button
+            variant="secondary"
+            disabled={actionLoading}
+            onClick={() => void deleteReview()}
+          >
+            <Trash2
+              size={16}
+              className="mr-2 text-status-danger"
+            />
+            Xóa đánh giá
           </Button>
         </div>
       </header>
 
-      {/* Trạng thái và thời gian */}
       <Card className="border border-border-default bg-bg-surface p-5">
         <div className="flex flex-col justify-between gap-4 lg:flex-row lg:items-center">
           <div className="flex flex-wrap items-center gap-3">
             <StatusBadge
-              status={review.is_approved ? 'Đang hiển thị' : 'Đang ẩn'}
-              variant={review.is_approved ? 'success' : 'neutral'}
+              status={
+                review.is_approved
+                  ? 'Đang hiển thị'
+                  : 'Đang ẩn'
+              }
+              variant={
+                review.is_approved ? 'success' : 'neutral'
+              }
             />
 
             {review.is_verified_purchase && (
@@ -231,7 +364,6 @@ const goBack = () => {
       </Card>
 
       <div className="grid grid-cols-1 items-start gap-6 xl:grid-cols-[minmax(0,1.6fr)_minmax(320px,1fr)]">
-        {/* Cột nội dung đánh giá và sản phẩm */}
         <div className="min-w-0 space-y-6">
           <Card className="min-w-0 border border-border-default bg-bg-surface p-5 sm:p-6">
             <div className="flex items-center gap-3">
@@ -243,6 +375,7 @@ const goBack = () => {
                 <h2 className="font-semibold text-text-primary">
                   Nội dung đánh giá
                 </h2>
+
                 <p className="mt-1 text-xs text-text-muted">
                   Phản hồi đầy đủ của khách hàng
                 </p>
@@ -254,11 +387,13 @@ const goBack = () => {
             </div>
 
             <h3 className="mt-5 break-words text-xl font-semibold text-text-primary">
-              {review.title?.trim() || 'Đánh giá không có tiêu đề'}
+              {review.title?.trim() ||
+                'Đánh giá không có tiêu đề'}
             </h3>
 
             <p className="mt-4 whitespace-pre-wrap break-words text-sm leading-7 text-text-secondary">
-              {review.content?.trim() || 'Khách hàng không để lại nội dung.'}
+              {review.content?.trim() ||
+                'Khách hàng không để lại nội dung.'}
             </p>
 
             <div className="mt-6 border-t border-border-default pt-5">
@@ -309,7 +444,11 @@ const goBack = () => {
                 </div>
               ) : (
                 <div className="flex flex-col items-center rounded-xl border border-dashed border-border-default bg-bg-app/50 px-4 py-8 text-center">
-                  <Package size={25} className="text-text-muted" />
+                  <Package
+                    size={25}
+                    className="text-text-muted"
+                  />
+
                   <p className="mt-3 text-sm text-text-secondary">
                     Không có hình ảnh đính kèm
                   </p>
@@ -328,8 +467,9 @@ const goBack = () => {
                 <h2 className="font-semibold text-text-primary">
                   Sản phẩm được đánh giá
                 </h2>
+
                 <p className="mt-1 text-xs text-text-muted">
-                  Thông tin từ bảng products
+                  Thông tin sản phẩm được backend cung cấp
                 </p>
               </div>
             </div>
@@ -344,7 +484,10 @@ const goBack = () => {
                     className="h-full w-full object-cover"
                   />
                 ) : (
-                  <Package size={30} className="text-text-muted" />
+                  <Package
+                    size={30}
+                    className="text-text-muted"
+                  />
                 )}
               </div>
 
@@ -354,35 +497,25 @@ const goBack = () => {
                 </h3>
 
                 <InfoRow label="Product ID">
-                  {review.product.id}
+                  {review.product.id || 'Chưa có dữ liệu'}
                 </InfoRow>
 
                 <InfoRow label="SKU">
-                  {review.product.sku}
+                  Chưa có dữ liệu
                 </InfoRow>
 
                 <InfoRow label="Slug">
-                  {review.product.slug}
+                  {review.product.slug || 'Chưa có dữ liệu'}
                 </InfoRow>
 
                 <InfoRow label="Trạng thái sản phẩm">
-                  <StatusBadge
-                    status={
-                      review.product.is_active
-                        ? 'Đang kinh doanh'
-                        : 'Ngừng kinh doanh'
-                    }
-                    variant={
-                      review.product.is_active ? 'success' : 'neutral'
-                    }
-                  />
+                  Chưa có dữ liệu
                 </InfoRow>
               </div>
             </div>
           </Card>
         </div>
 
-        {/* Cột khách hàng, đơn hàng và bản ghi */}
         <aside className="min-w-0 space-y-6">
           <Card className="min-w-0 border border-border-default bg-bg-surface p-5">
             <div className="mb-4 flex items-center gap-3">
@@ -394,8 +527,9 @@ const goBack = () => {
                 <h2 className="font-semibold text-text-primary">
                   Khách hàng
                 </h2>
+
                 <p className="mt-1 text-xs text-text-muted">
-                  Thông tin từ bảng users
+                  Thông tin được backend cung cấp
                 </p>
               </div>
             </div>
@@ -409,7 +543,9 @@ const goBack = () => {
                     className="h-full w-full object-cover"
                   />
                 ) : (
-                  review.customer.name.charAt(0).toLocaleUpperCase('vi')
+                  review.customer.name
+                    .charAt(0)
+                    .toLocaleUpperCase('vi')
                 )}
               </div>
 
@@ -417,8 +553,9 @@ const goBack = () => {
                 <p className="break-words font-semibold text-text-primary">
                   {review.customer.name}
                 </p>
-                <p className="mt-1 text-xs text-text-muted">
-                  Customer ID: {review.customer.id}
+
+                <p className="mt-1 break-all text-xs text-text-muted">
+                  Customer ID: {review.customer.id || '—'}
                 </p>
               </div>
             </div>
@@ -435,26 +572,11 @@ const goBack = () => {
               </InfoRow>
 
               <InfoRow label="Điện thoại">
-                {review.customer.phone || 'Chưa cập nhật'}
+                {review.customer.phone || 'Chưa có dữ liệu'}
               </InfoRow>
 
               <InfoRow label="Tài khoản">
-                <StatusBadge
-                  status={
-                    review.customer.status === 'active'
-                      ? 'Hoạt động'
-                      : review.customer.status === 'blocked'
-                        ? 'Đã khóa'
-                        : 'Không hoạt động'
-                  }
-                  variant={
-                    review.customer.status === 'active'
-                      ? 'success'
-                      : review.customer.status === 'blocked'
-                        ? 'danger'
-                        : 'neutral'
-                  }
-                />
+                Chưa có dữ liệu
               </InfoRow>
             </div>
           </Card>
@@ -469,8 +591,9 @@ const goBack = () => {
                 <h2 className="font-semibold text-text-primary">
                   Đơn hàng liên quan
                 </h2>
+
                 <p className="mt-1 text-xs text-text-muted">
-                  Thông tin từ bảng orders
+                  Thông tin đơn hàng được backend cung cấp
                 </p>
               </div>
             </div>
@@ -478,39 +601,31 @@ const goBack = () => {
             {review.order ? (
               <>
                 <div className="rounded-xl border border-border-default bg-bg-app p-4">
-                  <p className="text-xs text-text-muted">Mã đơn hàng</p>
-                  <p className="mt-2 break-words font-mono text-lg font-semibold text-text-primary">
-                    {review.order.order_number}
+                  <p className="text-xs text-text-muted">
+                    Mã đơn hàng
                   </p>
-                  <p className="mt-2 text-xs text-text-muted">
+
+                  <p className="mt-2 break-all font-mono text-lg font-semibold text-text-primary">
+                    {review.order.order_number ??
+                      review.order.id}
+                  </p>
+
+                  <p className="mt-2 break-all text-xs text-text-muted">
                     Order ID: {review.order.id}
                   </p>
                 </div>
 
                 <div className="mt-3">
                   <InfoRow label="Trạng thái đơn">
-                    <StatusBadge
-                      status={review.order.status}
-                      variant={
-                        review.order.status === 'completed'
-                          ? 'success'
-                          : review.order.status === 'cancelled'
-                            ? 'danger'
-                            : 'neutral'
-                      }
-                    />
+                    Chưa có dữ liệu
                   </InfoRow>
 
                   <InfoRow label="Tổng đơn hàng">
-                    {new Intl.NumberFormat('vi-VN', {
-                      style: 'currency',
-                      currency: 'VND',
-                      maximumFractionDigits: 0,
-                    }).format(review.order.total_amount)}
+                    Chưa có dữ liệu
                   </InfoRow>
 
                   <InfoRow label="Ngày đặt">
-                    {formatDateTime(review.order.created_at)}
+                    Chưa có dữ liệu
                   </InfoRow>
                 </div>
               </>
@@ -520,11 +635,13 @@ const goBack = () => {
                   size={25}
                   className="mx-auto text-text-muted"
                 />
+
                 <p className="mt-3 text-sm font-medium text-text-primary">
                   Không liên kết đơn hàng
                 </p>
+
                 <p className="mt-1 text-xs leading-5 text-text-muted">
-                  Trường order_id của đánh giá này đang là NULL.
+                  Đánh giá này không có orderId.
                 </p>
               </div>
             )}
@@ -536,15 +653,26 @@ const goBack = () => {
             </h2>
 
             <div className="mt-3">
-              <InfoRow label="Review ID">{review.id}</InfoRow>
-              <InfoRow label="Product ID">{review.product_id}</InfoRow>
-              <InfoRow label="User ID">{review.user_id}</InfoRow>
+              <InfoRow label="Review ID">
+                {review.id}
+              </InfoRow>
+
+              <InfoRow label="Product ID">
+                {review.product_id || '—'}
+              </InfoRow>
+
+              <InfoRow label="User ID">
+                {review.user_id || '—'}
+              </InfoRow>
+
               <InfoRow label="Order ID">
                 {review.order_id ?? 'NULL'}
               </InfoRow>
+
               <InfoRow label="Ngày tạo">
                 {formatDateTime(review.created_at)}
               </InfoRow>
+
               <InfoRow label="Cập nhật">
                 {formatDateTime(review.updated_at)}
               </InfoRow>

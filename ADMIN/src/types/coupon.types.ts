@@ -1,26 +1,65 @@
-
 export type CouponDiscountType = 'percentage' | 'fixed';
 
 export interface Coupon {
-  id: number;
+  id: string;
+  _id?: string;
+
   code: string;
   name: string;
   description: string | null;
 
-  discount_type: CouponDiscountType;
-  discount_value: number;
+  discountType: CouponDiscountType;
+  discountValue: number;
 
-  minimum_order_amount: number;
-  maximum_discount_amount: number | null;
+  minimumOrderAmount: number;
+  maximumDiscountAmount: number | null;
 
-  usage_limit: number | null;
-  used_count: number;
-  per_user_limit: number | null;
+  usageLimit: number | null;
+  usedCount: number;
+  perUserLimit: number | null;
 
-  starts_at: string | null;
-  expires_at: string | null;
+  startsAt: string | null;
+  expiresAt: string | null;
 
-  is_active: boolean;
-  created_at: string;
-  updated_at: string;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+
+  totalDiscountAmountGiven?: number;
+}
+
+export interface CouponPayload {
+  code: string;
+  name: string;
+  description: string | null;
+  discountType: CouponDiscountType;
+  discountValue: number;
+  minimumOrderAmount: number;
+  maximumDiscountAmount: number | null;
+  usageLimit: number | null;
+  perUserLimit: number | null;
+  startsAt: string | null;
+  expiresAt: string | null;
+  isActive: boolean;
+}
+
+export type CouponUpdatePayload = Omit<CouponPayload, 'code'>;
+
+export interface CouponUsage {
+  id: string;
+  couponId: string;
+  userId: {
+    _id: string;
+    name: string;
+    email: string;
+    phone?: string;
+  } | string;
+  orderId: {
+    _id: string;
+    orderNumber: string;
+    totalAmount: number;
+    status: string;
+  } | string;
+  discountAmount: number;
+  usedAt: string;
 }

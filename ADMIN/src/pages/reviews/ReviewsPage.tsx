@@ -1,12 +1,17 @@
-import { useMemo, useState } from 'react';
+
+import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
+  AlertCircle,
+  CheckCircle2,
   Eye,
   EyeOff,
+  LoaderCircle,
   MessageSquareText,
   Search,
   Star,
   Trash2,
+  X,
 } from 'lucide-react';
 
 import DataTable, {
@@ -16,16 +21,32 @@ import Pagination from '../../components/shared/Pagination';
 import StatusBadge from '../../components/shared/StatusBadge';
 import { Button } from '../../components/ui/buttons/Button';
 import { Card } from '../../components/ui/data-display/Card';
-import { reviewsMock } from '../../mocks/reviews.mock';
-import type { ReviewDetail } from '../../types/review.types';
+
+import { reviewsService } from '../../services/reviews/reviews.service';
+
+import type {
+  ReviewDetail,
+  ReviewId,
+  ReviewListParams,
+  ReviewPagination,
+  ReviewVisibility,
+} from '../../types/review.types';
 
 const PAGE_SIZE = 8;
 
-type Visibility = 'all' | 'visible' | 'hidden';
-type RatingFilter = 'all' | 'low' | 'middle' | 'high';
-type Period = 'all' | '7days' | '30days';
+type RatingFilter = 'all' | '1' | '2' | '3' | '4' | '5';
+type VerifiedFilter = 'all' | 'verified' | 'unverified';
+
+const EMPTY_PAGINATION: ReviewPagination = {
+  page: 1,
+  limit: PAGE_SIZE,
+  total: 0,
+  totalPages: 0,
+};
 
 const formatDate = (value: string) => {
+  if (!value) return '—';
+
   const date = new Date(value);
 
   return Number.isNaN(date.getTime())
@@ -35,6 +56,12 @@ const formatDate = (value: string) => {
       month: '2-digit',
       year: 'numeric',
     }).format(date);
+};
+
+const getErrorMessage = (error: unknown) => {
+  return error instanceof Error
+    ? error.message
+    : 'Đã xảy ra lỗi khi xử lý yêu cầu.';
 };
 
 function Stars({ rating }: { rating: number }) {
@@ -56,7 +83,10 @@ function Stars({ rating }: { rating: number }) {
           />
         ))}
       </span>
-      <span className="text-xs text-text-secondary">{rating}</span>
+
+      <span className="text-xs text-text-secondary">
+        {rating}
+      </span>
     </span>
   );
 }
@@ -64,103 +94,197 @@ function Stars({ rating }: { rating: number }) {
 export default function ReviewsPage() {
   const navigate = useNavigate();
 
-  const [revision, setRevision] = useState(0);
+  const [reviews, setReviews] = useState<ReviewDetail[]>([]);
+  const [pagination, setPagination] =
+    useState<ReviewPagination>(EMPTY_PAGINATION);
+
   const [keyword, setKeyword] = useState('');
-  const [visibility, setVisibility] = useState<Visibility>('all');
-  const [ratingFilter, setRatingFilter] = useState<RatingFilter>('all');
-  const [period, setPeriod] = useState<Period>('all');
+  const [debouncedKeyword, setDebouncedKeyword] = useState('');
+
+  const [visibility, setVisibility] =
+    useState<ReviewVisibility>('all');
+
+  const [ratingFilter, setRatingFilter] =
+    useState<RatingFilter>('all');
+
+  const [verifiedFilter, setVerifiedFilter] =
+    useState<VerifiedFilter>('all');
+
   const [page, setPage] = useState(1);
 
-  const reviews = useMemo(() => [...reviewsMock], [revision]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
 
+  const [actionId, setActionId] =
+    useState<ReviewId | null>(null);
+
+  const [refreshKey, setRefreshKey] = useState(0);
+
+  // Debounce tìm kiếm.
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      setDebouncedKeyword(keyword.trim());
+    }, 350);
+
+    return () => window.clearTimeout(timer);
+  }, [keyword]);
+
+  // Tải danh sách đánh giá từ backend.
+  useEffect(() => {
+    let cancelled = false;
+
+    const loadReviews = async () => {
+      setLoading(true);
+      setError('');
+
+      const params: ReviewListParams = {
+        page,
+        limit: PAGE_SIZE,
+        sortBy: 'createdAt',
+        sortOrder: 'desc',
+      };
+
+      if (debouncedKeyword) {
+        params.keyword = debouncedKeyword;
+      }
+
+      if (visibility === 'visible') {
+        params.isApproved = true;
+      }
+
+      if (visibility === 'hidden') {
+        params.isApproved = false;
+      }
+
+      if (ratingFilter !== 'all') {
+        params.rating = Number(ratingFilter);
+      }
+
+      if (verifiedFilter === 'verified') {
+        params.isVerifiedPurchase = true;
+      }
+
+      if (verifiedFilter === 'unverified') {
+        params.isVerifiedPurchase = false;
+      }
+
+      try {
+        const result = await reviewsService.getReviews(params);
+
+        if (cancelled) return;
+
+        setReviews(result.reviews);
+        setPagination(result.pagination);
+      } catch (requestError) {
+        if (cancelled) return;
+
+        setError(getErrorMessage(requestError));
+        setReviews([]);
+        setPagination(EMPTY_PAGINATION);
+      } finally {
+        if (!cancelled) {
+          setLoading(false);
+        }
+      }
+    };
+
+    void loadReviews();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    page,
+    debouncedKeyword,
+    visibility,
+    ratingFilter,
+    verifiedFilter,
+    refreshKey,
+  ]);
+
+  // Thống kê trên dữ liệu trang hiện tại.
   const stats = useMemo(() => {
     const total = reviews.length;
-    const visible = reviews.filter((review) => review.is_approved).length;
-    const hidden = total - visible;
-    const average = total
-      ? reviews.reduce((sum, review) => sum + review.rating, 0) / total
-      : 0;
-    const lowRating = reviews.filter((review) => review.rating <= 2).length;
 
-    return { total, visible, hidden, average, lowRating };
+    const visible = reviews.filter(
+      (review) => review.is_approved,
+    ).length;
+
+    const hidden = total - visible;
+
+    const average = total
+      ? reviews.reduce(
+        (sum, review) => sum + review.rating,
+        0,
+      ) / total
+      : 0;
+
+    const lowRating = reviews.filter(
+      (review) => review.rating <= 2,
+    ).length;
+
+    const verified = reviews.filter(
+      (review) => review.is_verified_purchase,
+    ).length;
+
+    return {
+      total,
+      visible,
+      hidden,
+      average,
+      lowRating,
+      verified,
+    };
   }, [reviews]);
 
-  const distribution = [5, 4, 3, 2, 1].map((rating) => ({
-    rating,
-    count: reviews.filter((review) => review.rating === rating).length,
-  }));
-
-  const filtered = useMemo(() => {
-    const query = keyword.trim().toLocaleLowerCase('vi');
-    const now = Date.now();
-    const days =
-      period === '7days' ? 7 : period === '30days' ? 30 : null;
-
-    return reviews.filter((review) => {
-      const matchesQuery =
-        !query ||
-        [
-          String(review.id),
-          review.title ?? '',
-          review.content ?? '',
-          review.customer.name,
-          review.customer.email,
-          review.product.name,
-          review.product.sku,
-          review.order?.order_number ?? '',
-        ].some((value) => value.toLocaleLowerCase('vi').includes(query));
-
-      const matchesVisibility =
-        visibility === 'all' ||
-        (visibility === 'visible' && review.is_approved) ||
-        (visibility === 'hidden' && !review.is_approved);
-
-      const matchesRating =
-        ratingFilter === 'all' ||
-        (ratingFilter === 'low' && review.rating <= 2) ||
-        (ratingFilter === 'middle' && review.rating === 3) ||
-        (ratingFilter === 'high' && review.rating >= 4);
-
-      const createdAt = new Date(review.created_at).getTime();
-      const matchesPeriod =
-        days === null ||
-        (!Number.isNaN(createdAt) &&
-          createdAt >= now - days * 24 * 60 * 60 * 1000);
-
-      return (
-        matchesQuery &&
-        matchesVisibility &&
-        matchesRating &&
-        matchesPeriod
-      );
-    });
-  }, [reviews, keyword, visibility, ratingFilter, period]);
-
-  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
-  const currentPage = Math.min(page, totalPages);
-
-  const pageRows = filtered.slice(
-    (currentPage - 1) * PAGE_SIZE,
-    currentPage * PAGE_SIZE,
+  const distribution = useMemo(
+    () =>
+      [5, 4, 3, 2, 1].map((rating) => ({
+        rating,
+        count: reviews.filter(
+          (review) => review.rating === rating,
+        ).length,
+      })),
+    [reviews],
   );
 
-  const changeVisibility = (review: ReviewDetail) => {
+  // Ẩn hoặc hiển thị đánh giá.
+  const changeVisibility = async (review: ReviewDetail) => {
+    if (actionId !== null) return;
+
     const nextValue = !review.is_approved;
+
     const action = nextValue ? 'hiển thị lại' : 'ẩn';
 
-    if (!window.confirm(`Bạn có chắc muốn ${action} đánh giá #${review.id}?`)) {
+    if (
+      !window.confirm(
+        `Bạn có chắc muốn ${action} đánh giá #${review.id}?`,
+      )
+    ) {
       return;
     }
 
-    const target = reviewsMock.find((item) => item.id === review.id);
-    if (!target) return;
+    setActionId(review.id);
+    setError('');
 
-    target.is_approved = nextValue;
-    target.updated_at = new Date().toISOString();
-    setRevision((value) => value + 1);
+    try {
+      await reviewsService.updateReviewApproval(
+        review.id,
+        nextValue,
+      );
+
+      setRefreshKey((value) => value + 1);
+    } catch (requestError) {
+      setError(getErrorMessage(requestError));
+    } finally {
+      setActionId(null);
+    }
   };
 
-  const removeReview = (review: ReviewDetail) => {
+  // Xóa đánh giá.
+  const removeReview = async (review: ReviewDetail) => {
+    if (actionId !== null) return;
+
     if (
       !window.confirm(
         `Xóa đánh giá #${review.id} của ${review.customer.name}? Thao tác này không thể hoàn tác.`,
@@ -169,22 +293,35 @@ export default function ReviewsPage() {
       return;
     }
 
-    const index = reviewsMock.findIndex((item) => item.id === review.id);
-    if (index < 0) return;
+    setActionId(review.id);
+    setError('');
 
-    reviewsMock.splice(index, 1);
-    setRevision((value) => value + 1);
-    setPage(1);
+    try {
+      await reviewsService.deleteReview(review.id);
+
+      if (reviews.length === 1 && page > 1) {
+        setPage((current) => current - 1);
+      } else {
+        setRefreshKey((value) => value + 1);
+      }
+    } catch (requestError) {
+      setError(getErrorMessage(requestError));
+    } finally {
+      setActionId(null);
+    }
   };
 
+  // Xóa điều kiện lọc.
   const resetFilters = () => {
     setKeyword('');
+    setDebouncedKeyword('');
     setVisibility('all');
     setRatingFilter('all');
-    setPeriod('all');
+    setVerifiedFilter('all');
     setPage(1);
   };
 
+  // Cấu hình cột bảng.
   const columns: DataTableColumn<ReviewDetail>[] = [
     {
       key: 'review',
@@ -194,15 +331,21 @@ export default function ReviewsPage() {
       render: (review) => (
         <button
           type="button"
-          onClick={() => navigate(`/admin/reviews/${review.id}`)}
+          onClick={() =>
+            navigate(`/admin/reviews/${review.id}`)
+          }
           className="block max-w-[360px] text-left"
         >
           <span className="block font-semibold text-text-primary transition-colors hover:text-accent-primary">
-            {review.title?.trim() || 'Đánh giá không có tiêu đề'}
+            {review.title?.trim() ||
+              'Đánh giá không có tiêu đề'}
           </span>
+
           <span className="mt-1 block line-clamp-2 text-sm text-text-secondary">
-            {review.content?.trim() || 'Không có nội dung đánh giá.'}
+            {review.content?.trim() ||
+              'Không có nội dung đánh giá.'}
           </span>
+
           <span className="mt-2 block">
             <Stars rating={review.rating} />
           </span>
@@ -218,11 +361,14 @@ export default function ReviewsPage() {
           <p className="font-medium text-text-primary">
             {review.customer.name}
           </p>
+
           <p className="mt-1 break-all text-xs text-text-muted">
             {review.customer.email}
           </p>
+
           {review.is_verified_purchase && (
-            <span className="mt-1 inline-block rounded-md bg-accent-primary/10 px-2 py-0.5 text-xs text-accent-primary">
+            <span className="mt-1 inline-flex items-center gap-1 rounded-md bg-accent-primary/10 px-2 py-0.5 text-xs text-accent-primary">
+              <CheckCircle2 size={12} />
               Đã mua hàng
             </span>
           )}
@@ -236,26 +382,19 @@ export default function ReviewsPage() {
       render: (review) => (
         <div className="flex min-w-0 items-center gap-3">
           <div className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-border-default bg-bg-elevated">
-            {review.product.image ? (
-              <img
-                src={review.product.image}
-                alt={review.product.name}
-                loading="lazy"
-                className="h-full w-full object-cover"
-              />
-            ) : (
-              <MessageSquareText
-                size={17}
-                className="text-text-muted"
-              />
-            )}
+            <MessageSquareText
+              size={17}
+              className="text-text-muted"
+            />
           </div>
+
           <div className="min-w-0">
             <p className="line-clamp-2 text-sm text-text-primary">
               {review.product.name}
             </p>
+
             <p className="mt-1 text-xs text-text-muted">
-              SKU: {review.product.sku}
+              SKU: Chưa có dữ liệu
             </p>
           </div>
         </div>
@@ -267,7 +406,9 @@ export default function ReviewsPage() {
       className: 'min-w-[145px]',
       render: (review) => (
         <span className="font-mono text-xs text-text-secondary">
-          {review.order?.order_number ?? 'Không liên kết'}
+          {review.order?.order_number ??
+            review.order?.id ??
+            'Không liên kết'}
         </span>
       ),
     },
@@ -287,8 +428,14 @@ export default function ReviewsPage() {
       className: 'min-w-[125px]',
       render: (review) => (
         <StatusBadge
-          status={review.is_approved ? 'Đang hiển thị' : 'Đang ẩn'}
-          variant={review.is_approved ? 'success' : 'neutral'}
+          status={
+            review.is_approved
+              ? 'Đang hiển thị'
+              : 'Đang ẩn'
+          }
+          variant={
+            review.is_approved ? 'success' : 'neutral'
+          }
         />
       ),
     },
@@ -297,50 +444,80 @@ export default function ReviewsPage() {
       header: 'THAO TÁC',
       className: 'min-w-[140px]',
       headerClassName: 'text-right',
-      render: (review) => (
-        <div className="flex items-center justify-end gap-1">
-          <Button
-            variant="icon"
-            title="Xem chi tiết"
-            aria-label="Xem chi tiết"
-            onClick={() => navigate(`/admin/reviews/${review.id}`)}
-          >
-            <Eye size={16} />
-          </Button>
+      render: (review) => {
+        const busy = actionId === review.id;
 
-          <Button
-            variant="icon"
-            title={review.is_approved ? 'Ẩn đánh giá' : 'Hiển thị lại'}
-            aria-label={review.is_approved ? 'Ẩn đánh giá' : 'Hiển thị lại'}
-            onClick={() => changeVisibility(review)}
-          >
-            {review.is_approved ? <EyeOff size={16} /> : <Eye size={16} />}
-          </Button>
+        return (
+          <div className="flex items-center justify-end gap-1">
+            <Button
+              variant="icon"
+              title="Xem chi tiết"
+              aria-label="Xem chi tiết"
+              disabled={actionId !== null}
+              onClick={() =>
+                navigate(`/admin/reviews/${review.id}`)
+              }
+            >
+              <Eye size={16} />
+            </Button>
 
-          <Button
-            variant="icon"
-            title="Xóa đánh giá"
-            aria-label="Xóa đánh giá"
-            onClick={() => removeReview(review)}
-          >
-            <Trash2 size={16} className="text-status-danger" />
-          </Button>
-        </div>
-      ),
+            <Button
+              variant="icon"
+              title={
+                review.is_approved
+                  ? 'Ẩn đánh giá'
+                  : 'Hiển thị lại'
+              }
+              aria-label={
+                review.is_approved
+                  ? 'Ẩn đánh giá'
+                  : 'Hiển thị lại'
+              }
+              disabled={actionId !== null}
+              onClick={() => void changeVisibility(review)}
+            >
+              {busy ? (
+                <LoaderCircle
+                  size={16}
+                  className="animate-spin"
+                />
+              ) : review.is_approved ? (
+                <EyeOff size={16} />
+              ) : (
+                <Eye size={16} />
+              )}
+            </Button>
+
+            <Button
+              variant="icon"
+              title="Xóa đánh giá"
+              aria-label="Xóa đánh giá"
+              disabled={actionId !== null}
+              onClick={() => void removeReview(review)}
+            >
+              <Trash2
+                size={16}
+                className="text-status-danger"
+              />
+            </Button>
+          </div>
+        );
+      },
     },
   ];
 
   return (
-    <main className="mx-auto w-full min-w-0 max-w-[1600px] space-y-5 p-4 pb-8 sm:p-5 sm:pb-8 xl:p-6 xl:pb-8">
-      {/* Page header */}
+    <main className="mx-auto w-full min-w-0 max-w-[1600px] space-y-5 p-4 pb-8 sm:p-5 xl:p-6">
       <header className="flex flex-col justify-between gap-3 sm:flex-row sm:items-center">
         <div className="min-w-0">
           <p className="text-xs font-semibold uppercase tracking-[0.16em] text-accent-primary">
             CUSTOMER EXPERIENCE
           </p>
+
           <h1 className="mt-2 text-2xl font-bold text-text-primary">
             Quản lý đánh giá
           </h1>
+
           <p className="mt-1 text-sm leading-6 text-text-secondary">
             Quản lý phản hồi sản phẩm và trải nghiệm khách hàng.
           </p>
@@ -352,15 +529,41 @@ export default function ReviewsPage() {
             className="text-accent-primary"
           />
           Tổng số:
-          <strong className="text-text-primary">{stats.total}</strong>
+          <strong className="text-text-primary">
+            {pagination.total}
+          </strong>
         </span>
       </header>
 
-      {/* Statistics */}
+      {error && (
+        <div
+          role="alert"
+          className="flex items-start gap-3 rounded-xl border border-status-danger/30 bg-status-danger/5 p-4"
+        >
+          <AlertCircle
+            size={18}
+            className="mt-0.5 shrink-0 text-status-danger"
+          />
+
+          <p className="min-w-0 flex-1 text-sm text-text-primary">
+            {error}
+          </p>
+
+          <button
+            type="button"
+            onClick={() => setError('')}
+            aria-label="Đóng thông báo"
+            className="text-text-muted transition-colors hover:text-text-primary"
+          >
+            <X size={16} />
+          </button>
+        </div>
+      )}
+
       <section className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
         {[
           {
-            label: 'Điểm trung bình',
+            label: 'Điểm trung bình trang này',
             value: stats.average.toFixed(1),
             suffix: '/ 5',
           },
@@ -375,7 +578,7 @@ export default function ReviewsPage() {
             suffix: 'đánh giá',
           },
           {
-            label: 'Đánh giá thấp (1–2 sao)',
+            label: 'Đánh giá thấp · 1–2 sao',
             value: String(stats.lowRating),
             suffix: 'đánh giá',
           },
@@ -384,25 +587,31 @@ export default function ReviewsPage() {
             key={item.label}
             className="border border-border-default bg-bg-surface p-4 sm:p-5"
           >
-            <p className="text-sm text-text-secondary">{item.label}</p>
+            <p className="text-sm text-text-secondary">
+              {item.label}
+            </p>
+
             <div className="mt-3 flex items-baseline gap-2">
               <span className="text-3xl font-bold text-text-primary">
                 {item.value}
               </span>
-              <span className="text-xs text-text-muted">{item.suffix}</span>
+
+              <span className="text-xs text-text-muted">
+                {item.suffix}
+              </span>
             </div>
           </Card>
         ))}
       </section>
 
-      {/* Rating overview */}
       <section className="grid grid-cols-1 gap-4 xl:grid-cols-2">
         <Card className="border border-border-default bg-bg-surface p-4 sm:p-5">
           <h2 className="font-semibold text-text-primary">
             Phân bố số sao
           </h2>
+
           <p className="mt-1 text-sm text-text-muted">
-            Chọn một mức sao để lọc danh sách.
+            Dữ liệu trong trang hiện tại. Chọn mức sao để lọc.
           </p>
 
           <div className="mt-5 space-y-3">
@@ -411,13 +620,7 @@ export default function ReviewsPage() {
                 key={rating}
                 type="button"
                 onClick={() => {
-                  setRatingFilter(
-                    rating >= 4
-                      ? 'high'
-                      : rating === 3
-                        ? 'middle'
-                        : 'low',
-                  );
+                  setRatingFilter(String(rating) as RatingFilter);
                   setPage(1);
                 }}
                 className="flex w-full items-center gap-3 rounded-md text-left transition-colors hover:bg-bg-hover/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary"
@@ -434,7 +637,9 @@ export default function ReviewsPage() {
                   <span
                     className="block h-full rounded-full bg-amber-400 transition-all"
                     style={{
-                      width: `${stats.total ? (count / stats.total) * 100 : 0
+                      width: `${stats.total
+                          ? (count / stats.total) * 100
+                          : 0
                         }%`,
                     }}
                   />
@@ -452,13 +657,17 @@ export default function ReviewsPage() {
           <h2 className="font-semibold text-text-primary">
             Tổng quan phản hồi
           </h2>
+
           <p className="mt-1 text-sm text-text-muted">
-            Tỷ lệ đánh giá tích cực và xác nhận mua hàng.
+            Thống kê trên dữ liệu trang hiện tại.
           </p>
 
           <div className="mt-5 space-y-4">
             <div className="flex items-center justify-between gap-3">
-              <span className="text-sm text-text-secondary">4–5 sao</span>
+              <span className="text-sm text-text-secondary">
+                4–5 sao
+              </span>
+
               <strong className="text-text-primary">
                 {distribution
                   .filter((item) => item.rating >= 4)
@@ -467,7 +676,10 @@ export default function ReviewsPage() {
             </div>
 
             <div className="flex items-center justify-between gap-3">
-              <span className="text-sm text-text-secondary">1–2 sao</span>
+              <span className="text-sm text-text-secondary">
+                1–2 sao
+              </span>
+
               <strong className="text-status-danger">
                 {stats.lowRating}
               </strong>
@@ -477,39 +689,41 @@ export default function ReviewsPage() {
               <span className="text-sm text-text-secondary">
                 Có xác nhận mua hàng
               </span>
+
               <strong className="text-text-primary">
-                {reviews.filter((item) => item.is_verified_purchase).length}
+                {stats.verified}
               </strong>
             </div>
           </div>
         </Card>
       </section>
 
-      {/* Reviews list */}
       <Card className="min-w-0 overflow-hidden border border-border-default bg-bg-surface">
         <div className="space-y-4 border-b border-border-default p-4 sm:p-5">
           <div>
             <h2 className="font-semibold text-text-primary">
               Danh sách đánh giá
             </h2>
+
             <p className="mt-1 text-sm text-text-muted">
-              {filtered.length} kết quả phù hợp
+              {pagination.total} kết quả phù hợp
             </p>
           </div>
 
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-[minmax(220px,1fr)_160px_165px_155px_auto]">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-[minmax(220px,1fr)_160px_155px_175px_auto]">
             <div className="relative min-w-0">
               <Search
                 size={16}
                 className="absolute left-3 top-1/2 -translate-y-1/2 text-text-muted"
               />
+
               <input
                 value={keyword}
                 onChange={(event) => {
                   setKeyword(event.target.value);
                   setPage(1);
                 }}
-                placeholder="Tìm đánh giá, khách, SKU, đơn hàng..."
+                placeholder="Tìm nội dung, khách hàng, sản phẩm..."
                 aria-label="Tìm kiếm đánh giá"
                 className="h-[42px] w-full rounded-xl border border-border-default bg-bg-app pl-9 pr-3 text-sm text-text-primary outline-none transition-colors placeholder:text-text-muted focus:border-accent-primary focus:ring-2 focus:ring-accent-primary/15"
               />
@@ -518,7 +732,9 @@ export default function ReviewsPage() {
             <select
               value={visibility}
               onChange={(event) => {
-                setVisibility(event.target.value as Visibility);
+                setVisibility(
+                  event.target.value as ReviewVisibility,
+                );
                 setPage(1);
               }}
               aria-label="Lọc trạng thái"
@@ -532,30 +748,36 @@ export default function ReviewsPage() {
             <select
               value={ratingFilter}
               onChange={(event) => {
-                setRatingFilter(event.target.value as RatingFilter);
+                setRatingFilter(
+                  event.target.value as RatingFilter,
+                );
                 setPage(1);
               }}
               aria-label="Lọc mức sao"
               className="h-[42px] w-full rounded-xl border border-border-default bg-bg-app px-3 text-sm text-text-primary outline-none transition-colors focus:border-accent-primary focus:ring-2 focus:ring-accent-primary/15"
             >
               <option value="all">Mọi mức sao</option>
-              <option value="low">Thấp · 1–2 sao</option>
-              <option value="middle">Trung bình · 3 sao</option>
-              <option value="high">Tốt · 4–5 sao</option>
+              <option value="5">5 sao</option>
+              <option value="4">4 sao</option>
+              <option value="3">3 sao</option>
+              <option value="2">2 sao</option>
+              <option value="1">1 sao</option>
             </select>
 
             <select
-              value={period}
+              value={verifiedFilter}
               onChange={(event) => {
-                setPeriod(event.target.value as Period);
+                setVerifiedFilter(
+                  event.target.value as VerifiedFilter,
+                );
                 setPage(1);
               }}
-              aria-label="Lọc thời gian"
+              aria-label="Lọc xác nhận mua hàng"
               className="h-[42px] w-full rounded-xl border border-border-default bg-bg-app px-3 text-sm text-text-primary outline-none transition-colors focus:border-accent-primary focus:ring-2 focus:ring-accent-primary/15"
             >
-              <option value="all">Mọi thời gian</option>
-              <option value="7days">7 ngày gần đây</option>
-              <option value="30days">30 ngày gần đây</option>
+              <option value="all">Mọi người mua</option>
+              <option value="verified">Đã mua hàng</option>
+              <option value="unverified">Chưa xác nhận</option>
             </select>
 
             <Button
@@ -568,21 +790,39 @@ export default function ReviewsPage() {
           </div>
         </div>
 
+        {loading && (
+          <div className="flex items-center justify-center gap-2 border-b border-border-default px-4 py-3 text-sm text-text-secondary">
+            <LoaderCircle
+              size={16}
+              className="animate-spin text-accent-primary"
+            />
+            Đang tải dữ liệu đánh giá...
+          </div>
+        )}
+
         <div className="min-w-0">
           <DataTable<ReviewDetail>
             columns={columns}
-            data={pageRows}
+            data={reviews}
             getRowId={(review) => String(review.id)}
-            emptyTitle="Không tìm thấy đánh giá"
-            emptyDescription="Thử thay đổi từ khóa hoặc điều kiện lọc."
+            emptyTitle={
+              loading
+                ? 'Đang tải dữ liệu'
+                : 'Không tìm thấy đánh giá'
+            }
+            emptyDescription={
+              error
+                ? 'Không thể tải danh sách. Vui lòng thử lại.'
+                : 'Thử thay đổi từ khóa hoặc điều kiện lọc.'
+            }
           />
         </div>
 
         <div className="border-t border-border-default px-4 py-4 sm:px-5">
           <Pagination
-            page={currentPage}
-            pageSize={PAGE_SIZE}
-            total={filtered.length}
+            page={pagination.page}
+            pageSize={pagination.limit}
+            total={pagination.total}
             onPageChange={setPage}
           />
         </div>

@@ -185,7 +185,21 @@ export const API_ENDPOINTS = {
   },
 
   coupons: {
-    base: '/coupons',
+    // Admin Coupons API
+    // GET/POST /admin/coupons
+    base: '/admin/coupons',
+
+    // GET/PUT/DELETE /admin/coupons/:id
+    detail: (id: string) =>
+      `/admin/coupons/${encodeURIComponent(id)}`,
+
+    // PATCH /admin/coupons/:id/status
+    status: (id: string) =>
+      `/admin/coupons/${encodeURIComponent(id)}/status`,
+
+    // GET /admin/coupons/:id/usages
+    usages: (id: string) =>
+      `/admin/coupons/${encodeURIComponent(id)}/usages`,
   },
 
   reviews: {
