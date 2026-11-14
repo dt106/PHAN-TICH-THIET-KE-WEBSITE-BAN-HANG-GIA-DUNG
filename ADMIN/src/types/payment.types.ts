@@ -8,24 +8,82 @@ export type PaymentMethod =
 
 export type PaymentStatus =
   | 'pending'
-  | 'processing'
   | 'paid'
   | 'failed'
   | 'refunded';
 
-export interface Payment {
-  id: number;
-  order_id: number;
+export interface PaymentOrder {
+  _id: string;
+  orderNumber?: string;
+  customerName?: string;
+  status?: string;
+}
 
-  payment_method: PaymentMethod;
-  transaction_code: string | null;
+export interface Payment {
+  _id: string;
+  orderId: PaymentOrder | string;
+
+  paymentMethod: PaymentMethod;
+  transactionCode?: string | null;
+  gatewayOrderId?: string | null;
 
   amount: number;
+  currency: string;
+  orderInfo?: string | null;
+  paymentUrl?: string | null;
+  expiredAt?: string | null;
+
   status: PaymentStatus;
+  gatewayResponse?: unknown;
+  failedReason?: string | null;
 
-  gateway_response: string | null;
-  paid_at: string | null;
+  refundAmount: number;
+  refundedAt?: string | null;
+  refundTransactionCode?: string | null;
 
-  created_at: string;
-  updated_at: string;
+  paidAt?: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface PaymentPagination {
+  page: number;
+  limit: number;
+  total: number;
+  totalPages: number;
+}
+
+export interface PaymentSummary {
+  totalPaidAmount: number;
+  totalPaidCount: number;
+  totalRefundedAmount: number;
+}
+
+export interface PaymentListResponse {
+  success: boolean;
+  message?: string;
+  data: Payment[];
+  pagination: PaymentPagination;
+  summary: PaymentSummary;
+}
+
+export interface PaymentRefundPayload {
+  amount?: number;
+  reason?: string;
+}
+
+export interface PaymentRefundResponse {
+  success: boolean;
+  message?: string;
+  data: Payment;
+}
+
+export interface PaymentListParams {
+  paymentMethod?: PaymentMethod;
+  status?: PaymentStatus;
+  orderId?: string;
+  from?: string;
+  to?: string;
+  page?: number;
+  limit?: number;
 }

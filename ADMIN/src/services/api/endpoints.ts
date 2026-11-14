@@ -47,12 +47,10 @@ export const API_ENDPOINTS = {
       `/admin/products/${encodeURIComponent(id)}`,
   },
 
+
   dashboard: {
-    overview: '/admin/dashboard/overview',
-    revenue: '/admin/dashboard/revenue',
-    orders: '/admin/dashboard/orders',
-    products: '/admin/dashboard/products',
-    customers: '/admin/dashboard/customers',
+    overview: '/admin/statistics/overview',
+    users: '/admin/statistics/users',
   },
 
   categories: {
@@ -171,10 +169,12 @@ export const API_ENDPOINTS = {
   },
 
   orders: {
+    // GET /admin/orders
     base: '/admin/orders',
   },
 
   orderItems: {
+    // GET /admin/order-items
     base: '/admin/order-items',
   },
 
@@ -183,7 +183,21 @@ export const API_ENDPOINTS = {
   },
 
   coupons: {
-    base: '/coupons',
+    // Admin Coupons API
+    // GET/POST /admin/coupons
+    base: '/admin/coupons',
+
+    // GET/PUT/DELETE /admin/coupons/:id
+    detail: (id: string) =>
+      `/admin/coupons/${encodeURIComponent(id)}`,
+
+    // PATCH /admin/coupons/:id/status
+    status: (id: string) =>
+      `/admin/coupons/${encodeURIComponent(id)}/status`,
+
+    // GET /admin/coupons/:id/usages
+    usages: (id: string) =>
+      `/admin/coupons/${encodeURIComponent(id)}/usages`,
   },
 
   reviews: {

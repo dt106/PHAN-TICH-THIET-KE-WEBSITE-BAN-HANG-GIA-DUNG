@@ -1,36 +1,41 @@
 
-/**
- * FILE: ADMIN/src/services/payments/payments.service.ts
- *
- * API hoàn tiền/đối soát chỉ sử dụng nếu backend có route tương ứng.
- */
-
 import { httpClient } from '../api/httpClient';
 import { API_ENDPOINTS } from '../api/endpoints';
+
 import type { QueryParams } from '../api/api.types';
 
+import type {
+  PaymentListParams,
+  PaymentListResponse,
+  PaymentRefundPayload,
+  PaymentRefundResponse,
+} from '../../types/payment.types';
+
 export const paymentsService = {
-  getPayments(params?: QueryParams) {
-    return httpClient.get<unknown>(
+  /**
+   * GET /api/admin/payments
+   * Lấy danh sách thanh toán, bộ lọc, phân trang và thống kê.
+   */
+  getPayments(
+    params?: PaymentListParams,
+  ): Promise<PaymentListResponse> {
+    return httpClient.get<PaymentListResponse>(
       API_ENDPOINTS.payments.base,
-      { params },
+      {
+        params: params as QueryParams | undefined,
+      },
     );
   },
 
-  getPaymentById(id: string) {
-    return httpClient.get<unknown>(
-      `${API_ENDPOINTS.payments.base}/${encodeURIComponent(id)}`,
-    );
-  },
-
-  reconcilePayment(id: string) {
-    return httpClient.post<unknown>(
-      `${API_ENDPOINTS.payments.base}/${encodeURIComponent(id)}/reconcile`,
-    );
-  },
-
-  refundPayment(id: string, payload?: { amount?: number; reason?: string }) {
-    return httpClient.post<unknown>(
+  /**
+   * POST /api/admin/payments/:id/refund
+   * Hoàn tiền giao dịch.
+   */
+  refundPayment(
+    id: string,
+    payload?: PaymentRefundPayload,
+  ): Promise<PaymentRefundResponse> {
+    return httpClient.post<PaymentRefundResponse>(
       `${API_ENDPOINTS.payments.base}/${encodeURIComponent(id)}/refund`,
       payload,
     );

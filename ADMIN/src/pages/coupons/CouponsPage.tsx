@@ -1,5 +1,4 @@
-
-import { useMemo, useState, type FormEvent } from 'react';
+import { useEffect, useMemo, useState, type FormEvent } from 'react';
 import {
   CalendarDays,
   CheckCircle2,
@@ -14,9 +13,7 @@ import {
 } from 'lucide-react';
 
 import { Button } from '../../components/ui/buttons/Button';
-import {
-  Card,
-} from '../../components/ui/data-display/Card';
+import { Card } from '../../components/ui/data-display/Card';
 import Modal from '../../components/ui/overlays/Modal';
 
 import PageHeader from '../../components/shared/PageHeader';
@@ -29,10 +26,13 @@ import DataTable, {
 import Pagination from '../../components/shared/Pagination';
 import StatusBadge from '../../components/shared/StatusBadge';
 
-import { couponsMock } from '../../mocks/coupons.mock';
+import { couponsService } from '../../services/coupons/coupons.service';
+
 import type {
   Coupon,
   CouponDiscountType,
+  CouponPayload,
+  CouponUpdatePayload,
 } from '../../types/coupon.types';
 
 type StatusFilter = 'all' | 'active' | 'inactive' | 'upcoming' | 'expired';
@@ -41,15 +41,15 @@ type CouponFormValues = {
   code: string;
   name: string;
   description: string;
-  discount_type: CouponDiscountType;
-  discount_value: string;
-  minimum_order_amount: string;
-  maximum_discount_amount: string;
-  usage_limit: string;
-  per_user_limit: string;
-  starts_at: string;
-  expires_at: string;
-  is_active: boolean;
+  discountType: CouponDiscountType;
+  discountValue: string;
+  minimumOrderAmount: string;
+  maximumDiscountAmount: string;
+  usageLimit: string;
+  perUserLimit: string;
+  startsAt: string;
+  expiresAt: string;
+  isActive: boolean;
 };
 
 const PAGE_SIZE_DEFAULT = 7;
@@ -58,15 +58,15 @@ const EMPTY_FORM: CouponFormValues = {
   code: '',
   name: '',
   description: '',
-  discount_type: 'percentage',
-  discount_value: '10',
-  minimum_order_amount: '0',
-  maximum_discount_amount: '',
-  usage_limit: '',
-  per_user_limit: '',
-  starts_at: '',
-  expires_at: '',
-  is_active: true,
+  discountType: 'percentage',
+  discountValue: '10',
+  minimumOrderAmount: '0',
+  maximumDiscountAmount: '',
+  usageLimit: '',
+  perUserLimit: '',
+  startsAt: '',
+  expiresAt: '',
+  isActive: true,
 };
 
 const formatMoney = (value: number) =>
@@ -113,27 +113,27 @@ const toIsoDate = (value: string) =>
 const getCouponStatus = (coupon: Coupon) => {
   const now = Date.now();
 
-  if (!coupon.is_active) {
+  if (!coupon.isActive) {
     return { label: 'Đã tắt', variant: 'neutral' as const };
   }
 
   if (
-    coupon.starts_at &&
-    new Date(coupon.starts_at).getTime() > now
+    coupon.startsAt &&
+    new Date(coupon.startsAt).getTime() > now
   ) {
     return { label: 'Sắp diễn ra', variant: 'info' as const };
   }
 
   if (
-    coupon.expires_at &&
-    new Date(coupon.expires_at).getTime() < now
+    coupon.expiresAt &&
+    new Date(coupon.expiresAt).getTime() < now
   ) {
     return { label: 'Hết hạn', variant: 'danger' as const };
   }
 
   if (
-    coupon.usage_limit !== null &&
-    coupon.used_count >= coupon.usage_limit
+    coupon.usageLimit !== null &&
+    coupon.usedCount >= coupon.usageLimit
   ) {
     return { label: 'Hết lượt', variant: 'warning' as const };
   }
@@ -142,9 +142,9 @@ const getCouponStatus = (coupon: Coupon) => {
 };
 
 const getDiscountLabel = (coupon: Coupon) =>
-  coupon.discount_type === 'percentage'
-    ? `${coupon.discount_value}%`
-    : formatMoney(coupon.discount_value);
+  coupon.discountType === 'percentage'
+    ? `${coupon.discountValue}%`
+    : formatMoney(coupon.discountValue);
 
 const getInitialForm = (coupon: Coupon | null): CouponFormValues => {
   if (!coupon) return { ...EMPTY_FORM };
@@ -153,20 +153,20 @@ const getInitialForm = (coupon: Coupon | null): CouponFormValues => {
     code: coupon.code,
     name: coupon.name,
     description: coupon.description ?? '',
-    discount_type: coupon.discount_type,
-    discount_value: String(coupon.discount_value),
-    minimum_order_amount: String(coupon.minimum_order_amount),
-    maximum_discount_amount:
-      coupon.maximum_discount_amount === null
+    discountType: coupon.discountType,
+    discountValue: String(coupon.discountValue),
+    minimumOrderAmount: String(coupon.minimumOrderAmount),
+    maximumDiscountAmount:
+      coupon.maximumDiscountAmount === null
         ? ''
-        : String(coupon.maximum_discount_amount),
-    usage_limit:
-      coupon.usage_limit === null ? '' : String(coupon.usage_limit),
-    per_user_limit:
-      coupon.per_user_limit === null ? '' : String(coupon.per_user_limit),
-    starts_at: toDateInput(coupon.starts_at),
-    expires_at: toDateInput(coupon.expires_at),
-    is_active: coupon.is_active,
+        : String(coupon.maximumDiscountAmount),
+    usageLimit:
+      coupon.usageLimit === null ? '' : String(coupon.usageLimit),
+    perUserLimit:
+      coupon.perUserLimit === null ? '' : String(coupon.perUserLimit),
+    startsAt: toDateInput(coupon.startsAt),
+    expiresAt: toDateInput(coupon.expiresAt),
+    isActive: coupon.isActive,
   };
 };
 
@@ -176,9 +176,12 @@ const inputClass =
 const labelClass = 'block text-sm font-medium text-text-secondary';
 
 export default function CouponsPage() {
-  const [coupons, setCoupons] = useState<Coupon[]>(() =>
-    couponsMock.map((item) => ({ ...item })),
-  );
+  const [coupons, setCoupons] = useState<Coupon[]>([]);
+
+  const [loading, setLoading] = useState(true);
+  const [pageError, setPageError] = useState('');
+  const [saving, setSaving] = useState(false);
+  const [actionId, setActionId] = useState<string | null>(null);
 
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
@@ -193,6 +196,42 @@ export default function CouponsPage() {
   const [form, setForm] = useState<CouponFormValues>({ ...EMPTY_FORM });
   const [formError, setFormError] = useState('');
 
+  // Tải toàn bộ danh sách coupon từ backend.
+  useEffect(() => {
+    let mounted = true;
+
+    const loadCoupons = async () => {
+      try {
+        setLoading(true);
+        setPageError('');
+
+        const result = await couponsService.getAllCoupons();
+
+        if (mounted) {
+          setCoupons(result.items);
+        }
+      } catch (error) {
+        if (mounted) {
+          setPageError(
+            error instanceof Error
+              ? error.message
+              : 'Không thể tải danh sách mã giảm giá.',
+          );
+        }
+      } finally {
+        if (mounted) {
+          setLoading(false);
+        }
+      }
+    };
+
+    void loadCoupons();
+
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
   const stats = useMemo(() => {
     const active = coupons.filter(
       (item) => getCouponStatus(item).label === 'Đang hoạt động',
@@ -203,7 +242,7 @@ export default function CouponsPage() {
     ).length;
 
     const totalUsed = coupons.reduce(
-      (sum, item) => sum + item.used_count,
+      (sum, item) => sum + item.usedCount,
       0,
     );
 
@@ -236,17 +275,22 @@ export default function CouponsPage() {
             ['Hết hạn', 'Hết lượt'].includes(status));
 
         const matchesType =
-          typeFilter === 'all' || coupon.discount_type === typeFilter;
+          typeFilter === 'all' || coupon.discountType === typeFilter;
 
         return matchesSearch && matchesStatus && matchesType;
       })
-      .sort((a, b) => b.id - a.id);
+      .sort(
+        (a, b) =>
+          new Date(b.createdAt).getTime() -
+          new Date(a.createdAt).getTime(),
+      );
   }, [coupons, search, statusFilter, typeFilter]);
 
   const totalPages = Math.max(
     1,
     Math.ceil(filteredCoupons.length / pageSize),
   );
+
   const safePage = Math.min(page, totalPages);
 
   const paginatedCoupons = filteredCoupons.slice(
@@ -274,6 +318,8 @@ export default function CouponsPage() {
   };
 
   const closeModal = () => {
+    if (saving) return;
+
     setModalOpen(false);
     setEditingCoupon(null);
     setFormError('');
@@ -291,49 +337,65 @@ export default function CouponsPage() {
     setPage(1);
   };
 
-  const toggleCoupon = (coupon: Coupon) => {
-    setCoupons((current) =>
-      current.map((item) =>
-        item.id === coupon.id
-          ? {
-              ...item,
-              is_active: !item.is_active,
-              updated_at: new Date().toISOString(),
-            }
-          : item,
-      ),
-    );
+  const toggleCoupon = async (coupon: Coupon) => {
+    try {
+      setActionId(coupon.id);
+      setPageError('');
+
+      const updatedCoupon = await couponsService.toggleCouponStatus(
+        coupon.id,
+      );
+
+      setCoupons((current) =>
+        current.map((item) =>
+          item.id === coupon.id ? updatedCoupon : item,
+        ),
+      );
+    } catch (error) {
+      setPageError(
+        error instanceof Error
+          ? error.message
+          : 'Không thể cập nhật trạng thái mã giảm giá.',
+      );
+    } finally {
+      setActionId(null);
+    }
   };
 
-  const saveCoupon = (event: FormEvent<HTMLFormElement>) => {
+  const saveCoupon = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setFormError('');
 
     const code = form.code.trim().toUpperCase();
     const name = form.name.trim();
-    const discountValue = Number(form.discount_value);
-    const minimum = Number(form.minimum_order_amount);
-    const maximum = form.maximum_discount_amount.trim()
-      ? Number(form.maximum_discount_amount)
-      : null;
-    const usageLimit = form.usage_limit.trim()
-      ? Number(form.usage_limit)
-      : null;
-    const perUserLimit = form.per_user_limit.trim()
-      ? Number(form.per_user_limit)
+    const discountValue = Number(form.discountValue);
+    const minimum = Number(form.minimumOrderAmount);
+
+    const maximum = form.maximumDiscountAmount.trim()
+      ? Number(form.maximumDiscountAmount)
       : null;
 
-    if (!code || !name) {
-      setFormError('Vui lòng nhập mã giảm giá và tên chương trình.');
+    const usageLimit = form.usageLimit.trim()
+      ? Number(form.usageLimit)
+      : null;
+
+    const perUserLimit = form.perUserLimit.trim()
+      ? Number(form.perUserLimit)
+      : null;
+
+    if (!editingCoupon && !code) {
+      setFormError('Vui lòng nhập mã giảm giá.');
+      return;
+    }
+
+    if (!name) {
+      setFormError('Vui lòng nhập tên chương trình.');
       return;
     }
 
     if (
-      coupons.some(
-        (item) =>
-          item.code.toUpperCase() === code &&
-          item.id !== editingCoupon?.id,
-      )
+      !editingCoupon &&
+      coupons.some((item) => item.code.toUpperCase() === code)
     ) {
       setFormError('Mã giảm giá này đã tồn tại.');
       return;
@@ -344,7 +406,7 @@ export default function CouponsPage() {
       return;
     }
 
-    if (form.discount_type === 'percentage' && discountValue > 100) {
+    if (form.discountType === 'percentage' && discountValue > 100) {
       setFormError('Giá trị giảm theo phần trăm không được vượt quá 100%.');
       return;
     }
@@ -378,7 +440,7 @@ export default function CouponsPage() {
     if (
       usageLimit !== null &&
       editingCoupon &&
-      usageLimit < editingCoupon.used_count
+      usageLimit < editingCoupon.usedCount
     ) {
       setFormError(
         'Tổng lượt sử dụng không thể nhỏ hơn số lượt đã sử dụng.',
@@ -387,54 +449,78 @@ export default function CouponsPage() {
     }
 
     if (
-      form.starts_at &&
-      form.expires_at &&
-      new Date(form.starts_at).getTime() >
-        new Date(form.expires_at).getTime()
+      form.startsAt &&
+      form.expiresAt &&
+      new Date(form.startsAt).getTime() >=
+      new Date(form.expiresAt).getTime()
     ) {
-      setFormError('Ngày bắt đầu phải trước ngày kết thúc.');
+      setFormError('Ngày kết thúc phải sau ngày bắt đầu.');
       return;
     }
 
-    const timestamp = new Date().toISOString();
-
-    const couponData = {
+    const payload: CouponPayload = {
       code,
       name,
       description: form.description.trim() || null,
-      discount_type: form.discount_type,
-      discount_value: discountValue,
-      minimum_order_amount: minimum,
-      maximum_discount_amount: maximum,
-      usage_limit: usageLimit,
-      per_user_limit: perUserLimit,
-      starts_at: toIsoDate(form.starts_at),
-      expires_at: toIsoDate(form.expires_at),
-      is_active: form.is_active,
-      updated_at: timestamp,
+      discountType: form.discountType,
+      discountValue,
+      minimumOrderAmount: minimum,
+      maximumDiscountAmount:
+        form.discountType === 'percentage' ? maximum : null,
+      usageLimit,
+      perUserLimit,
+      startsAt: toIsoDate(form.startsAt),
+      expiresAt: toIsoDate(form.expiresAt),
+      isActive: form.isActive,
     };
 
-    if (editingCoupon) {
-      setCoupons((current) =>
-        current.map((item) =>
-          item.id === editingCoupon.id
-            ? { ...item, ...couponData }
-            : item,
-        ),
+    try {
+      setSaving(true);
+
+      if (editingCoupon) {
+        const updatePayload: CouponUpdatePayload = {
+          name: payload.name,
+          description: payload.description,
+          discountType: payload.discountType,
+          discountValue: payload.discountValue,
+          minimumOrderAmount: payload.minimumOrderAmount,
+          maximumDiscountAmount: payload.maximumDiscountAmount,
+          usageLimit: payload.usageLimit,
+          perUserLimit: payload.perUserLimit,
+          startsAt: payload.startsAt,
+          expiresAt: payload.expiresAt,
+          isActive: payload.isActive,
+        };
+
+        const updatedCoupon = await couponsService.updateCoupon(
+          editingCoupon.id,
+          updatePayload,
+        );
+
+        setCoupons((current) =>
+          current.map((item) =>
+            item.id === editingCoupon.id ? updatedCoupon : item,
+          ),
+        );
+      } else {
+        const createdCoupon = await couponsService.createCoupon(payload);
+
+        setCoupons((current) => [createdCoupon, ...current]);
+        setPage(1);
+      }
+
+      setModalOpen(false);
+      setEditingCoupon(null);
+      setFormError('');
+    } catch (error) {
+      setFormError(
+        error instanceof Error
+          ? error.message
+          : 'Không thể lưu mã giảm giá.',
       );
-    } else {
-      const newCoupon: Coupon = {
-        id: Math.max(0, ...coupons.map((item) => item.id)) + 1,
-        ...couponData,
-        used_count: 0,
-        created_at: timestamp,
-      };
-
-      setCoupons((current) => [newCoupon, ...current]);
-      setPage(1);
+    } finally {
+      setSaving(false);
     }
-
-    closeModal();
   };
 
   const columns: DataTableColumn<Coupon>[] = [
@@ -446,8 +532,11 @@ export default function CouponsPage() {
           <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-accent-primary/20 bg-accent-primary/10 text-accent-primary">
             <Ticket size={19} />
           </div>
+
           <div className="min-w-0">
-            <p className="font-semibold text-text-primary">{coupon.code}</p>
+            <p className="font-semibold text-text-primary">
+              {coupon.code}
+            </p>
             <p className="mt-1 max-w-52 truncate text-xs text-text-muted">
               {coupon.name}
             </p>
@@ -463,11 +552,12 @@ export default function CouponsPage() {
           <p className="font-semibold text-accent-primary">
             {getDiscountLabel(coupon)}
           </p>
+
           <p className="mt-1 text-xs text-text-muted">
-            {coupon.discount_type === 'percentage'
-              ? coupon.maximum_discount_amount === null
+            {coupon.discountType === 'percentage'
+              ? coupon.maximumDiscountAmount === null
                 ? 'Không giới hạn mức giảm'
-                : `Tối đa ${formatMoney(coupon.maximum_discount_amount)}`
+                : `Tối đa ${formatMoney(coupon.maximumDiscountAmount)}`
               : 'Giảm tiền cố định'}
           </p>
         </div>
@@ -478,7 +568,7 @@ export default function CouponsPage() {
       header: 'ĐƠN TỐI THIỂU',
       render: (coupon) => (
         <span className="whitespace-nowrap text-sm text-text-secondary">
-          {formatMoney(coupon.minimum_order_amount)}
+          {formatMoney(coupon.minimumOrderAmount)}
         </span>
       ),
     },
@@ -486,22 +576,25 @@ export default function CouponsPage() {
       key: 'usage',
       header: 'LƯỢT SỬ DỤNG',
       render: (coupon) => {
-        const limit = coupon.usage_limit;
+        const limit = coupon.usageLimit;
+
         const progress =
           limit && limit > 0
-            ? Math.min(100, (coupon.used_count / limit) * 100)
+            ? Math.min(100, (coupon.usedCount / limit) * 100)
             : 0;
 
         return (
           <div className="min-w-28">
             <div className="flex items-center justify-between gap-2 text-xs">
               <span className="font-medium text-text-primary">
-                {formatNumber(coupon.used_count)}
+                {formatNumber(coupon.usedCount)}
               </span>
+
               <span className="text-text-muted">
                 {limit === null ? '∞' : formatNumber(limit)}
               </span>
             </div>
+
             <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-bg-elevated">
               <div
                 className="h-full rounded-full bg-accent-primary transition-all"
@@ -519,10 +612,11 @@ export default function CouponsPage() {
         <div className="min-w-36">
           <div className="flex items-center gap-2 text-sm text-text-secondary">
             <CalendarDays size={14} className="shrink-0 text-text-muted" />
-            {formatDate(coupon.starts_at)}
+            {formatDate(coupon.startsAt)}
           </div>
+
           <p className="mt-1 pl-6 text-xs text-text-muted">
-            đến {formatDate(coupon.expires_at)}
+            đến {formatDate(coupon.expiresAt)}
           </p>
         </div>
       ),
@@ -534,7 +628,10 @@ export default function CouponsPage() {
         const status = getCouponStatus(coupon);
 
         return (
-          <StatusBadge status={status.label} variant={status.variant} />
+          <StatusBadge
+            status={status.label}
+            variant={status.variant}
+          />
         );
       },
     },
@@ -554,17 +651,19 @@ export default function CouponsPage() {
           >
             <Edit2 size={16} />
           </Button>
+
           <Button
             type="button"
             variant="icon"
-            title={coupon.is_active ? 'Tắt mã' : 'Bật mã'}
-            aria-label={coupon.is_active ? 'Tắt mã' : 'Bật mã'}
-            onClick={() => toggleCoupon(coupon)}
+            title={coupon.isActive ? 'Tắt mã' : 'Bật mã'}
+            aria-label={coupon.isActive ? 'Tắt mã' : 'Bật mã'}
+            disabled={actionId === coupon.id}
+            onClick={() => void toggleCoupon(coupon)}
           >
             <Power
               size={16}
               className={
-                coupon.is_active
+                coupon.isActive
                   ? 'text-status-warning'
                   : 'text-accent-primary'
               }
@@ -597,18 +696,21 @@ export default function CouponsPage() {
             icon={Ticket}
             accent="primary"
           />
+
           <StatCard
             label="Đang hoạt động"
             value={formatNumber(stats.active)}
             icon={CheckCircle2}
             accent="cyan"
           />
+
           <StatCard
             label="Tổng lượt sử dụng"
             value={formatNumber(stats.totalUsed)}
             icon={Users}
             accent="purple"
           />
+
           <StatCard
             label="Hết hạn / hết lượt"
             value={formatNumber(stats.expired)}
@@ -624,6 +726,7 @@ export default function CouponsPage() {
                 <h2 className="font-semibold text-text-primary">
                   Danh sách mã giảm giá
                 </h2>
+
                 <p className="mt-1 text-sm text-text-muted">
                   Tìm kiếm, lọc và quản lý các chương trình ưu đãi.
                 </p>
@@ -634,7 +737,7 @@ export default function CouponsPage() {
                   size={16}
                   className="text-accent-primary"
                 />
-                Dữ liệu mô phỏng
+                Dữ liệu từ máy chủ
               </div>
             </div>
           </div>
@@ -691,6 +794,15 @@ export default function CouponsPage() {
             </FilterBar>
           </div>
 
+          {pageError && (
+            <div
+              role="alert"
+              className="m-4 rounded-lg border border-status-danger/30 bg-status-danger/10 px-4 py-3 text-sm text-status-danger"
+            >
+              {pageError}
+            </div>
+          )}
+
           <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border-default px-5 py-3">
             <p className="text-sm text-text-secondary">
               Tìm thấy{' '}
@@ -707,33 +819,43 @@ export default function CouponsPage() {
             )}
           </div>
 
-          <DataTable
-            columns={columns}
-            data={paginatedCoupons}
-            getRowId={(coupon) => coupon.id}
-            emptyTitle="Không tìm thấy mã giảm giá"
-            emptyDescription="Thử đổi từ khóa hoặc điều chỉnh bộ lọc."
-          />
+          {loading ? (
+            <div className="flex min-h-64 items-center justify-center">
+              <div className="flex flex-col items-center gap-3 text-text-muted">
+                <div className="h-8 w-8 animate-spin rounded-full border-2 border-border-default border-t-accent-primary" />
+                <p className="text-sm">Đang tải mã giảm giá...</p>
+              </div>
+            </div>
+          ) : (
+            <>
+              <DataTable
+                columns={columns}
+                data={paginatedCoupons}
+                getRowId={(coupon) => coupon.id}
+                emptyTitle="Không tìm thấy mã giảm giá"
+                emptyDescription="Thử đổi từ khóa hoặc điều chỉnh bộ lọc."
+              />
 
-          <div className="px-4 pb-4 sm:px-5">
-            <Pagination
-              page={safePage}
-              pageSize={pageSize}
-              total={filteredCoupons.length}
-              onPageChange={setPage}
-              onPageSizeChange={(size) => {
-                setPageSize(size);
-                setPage(1);
-              }}
-              pageSizeOptions={[7, 10, 20, 50]}
-            />
-          </div>
+              <div className="px-4 pb-4 sm:px-5">
+                <Pagination
+                  page={safePage}
+                  pageSize={pageSize}
+                  total={filteredCoupons.length}
+                  onPageChange={setPage}
+                  onPageSizeChange={(size) => {
+                    setPageSize(size);
+                    setPage(1);
+                  }}
+                  pageSizeOptions={[7, 10, 20, 50]}
+                />
+              </div>
+            </>
+          )}
         </Card>
 
         <p className="text-xs leading-5 text-text-muted">
           <Gift size={14} className="mr-1 inline-block" />
-          Dữ liệu đang chạy trên frontend. Thay đổi chỉ được lưu trong state
-          của trang và sẽ mất khi tải lại.
+          Dữ liệu được đồng bộ trực tiếp với máy chủ.
         </p>
       </div>
 
@@ -749,12 +871,16 @@ export default function CouponsPage() {
               <p className="text-xs font-semibold uppercase tracking-wider text-accent-primary">
                 Thông tin chương trình
               </p>
+
               <div className="mt-3 grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <label className={labelClass}>
-                  Mã giảm giá <span className="text-status-danger">*</span>
+                  Mã giảm giá{' '}
+                  <span className="text-status-danger">*</span>
+
                   <input
                     required
                     maxLength={50}
+                    disabled={Boolean(editingCoupon)}
                     value={form.code}
                     onChange={(event) =>
                       setForm((current) => ({
@@ -765,15 +891,20 @@ export default function CouponsPage() {
                       }))
                     }
                     placeholder="VD: WELCOME10"
-                    className={inputClass}
+                    className={`${inputClass} disabled:cursor-not-allowed disabled:opacity-60`}
                   />
+
                   <span className="mt-1 block text-xs font-normal text-text-muted">
-                    Không chứa khoảng trắng.
+                    {editingCoupon
+                      ? 'Mã giảm giá không thể thay đổi sau khi tạo.'
+                      : 'Chỉ dùng chữ, số, dấu gạch ngang và gạch dưới.'}
                   </span>
                 </label>
 
                 <label className={labelClass}>
-                  Tên chương trình <span className="text-status-danger">*</span>
+                  Tên chương trình{' '}
+                  <span className="text-status-danger">*</span>
+
                   <input
                     required
                     maxLength={150}
@@ -792,6 +923,7 @@ export default function CouponsPage() {
 
               <label className={`${labelClass} mt-4`}>
                 Mô tả chương trình
+
                 <textarea
                   rows={2}
                   value={form.description}
@@ -815,12 +947,13 @@ export default function CouponsPage() {
               <div className="mt-3 grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <label className={labelClass}>
                   Loại ưu đãi
+
                   <select
-                    value={form.discount_type}
+                    value={form.discountType}
                     onChange={(event) =>
                       setForm((current) => ({
                         ...current,
-                        discount_type: event.target.value as CouponDiscountType,
+                        discountType: event.target.value as CouponDiscountType,
                       }))
                     }
                     className={inputClass}
@@ -831,20 +964,22 @@ export default function CouponsPage() {
                 </label>
 
                 <label className={labelClass}>
-                  Giá trị giảm <span className="text-status-danger">*</span>
+                  Giá trị giảm{' '}
+                  <span className="text-status-danger">*</span>
+
                   <input
                     required
                     type="number"
                     min="0.01"
                     max={
-                      form.discount_type === 'percentage' ? 100 : undefined
+                      form.discountType === 'percentage' ? 100 : undefined
                     }
                     step="any"
-                    value={form.discount_value}
+                    value={form.discountValue}
                     onChange={(event) =>
                       setForm((current) => ({
                         ...current,
-                        discount_value: event.target.value,
+                        discountValue: event.target.value,
                       }))
                     }
                     className={inputClass}
@@ -853,33 +988,35 @@ export default function CouponsPage() {
 
                 <label className={labelClass}>
                   Đơn hàng tối thiểu (VNĐ)
+
                   <input
                     type="number"
                     min="0"
                     step="1"
-                    value={form.minimum_order_amount}
+                    value={form.minimumOrderAmount}
                     onChange={(event) =>
                       setForm((current) => ({
                         ...current,
-                        minimum_order_amount: event.target.value,
+                        minimumOrderAmount: event.target.value,
                       }))
                     }
                     className={inputClass}
                   />
                 </label>
 
-                {form.discount_type === 'percentage' && (
+                {form.discountType === 'percentage' && (
                   <label className={labelClass}>
                     Giảm tối đa (VNĐ)
+
                     <input
                       type="number"
                       min="0"
                       step="1"
-                      value={form.maximum_discount_amount}
+                      value={form.maximumDiscountAmount}
                       onChange={(event) =>
                         setForm((current) => ({
                           ...current,
-                          maximum_discount_amount: event.target.value,
+                          maximumDiscountAmount: event.target.value,
                         }))
                       }
                       placeholder="Không giới hạn"
@@ -890,15 +1027,16 @@ export default function CouponsPage() {
 
                 <label className={labelClass}>
                   Tổng lượt sử dụng
+
                   <input
                     type="number"
                     min="1"
                     step="1"
-                    value={form.usage_limit}
+                    value={form.usageLimit}
                     onChange={(event) =>
                       setForm((current) => ({
                         ...current,
-                        usage_limit: event.target.value,
+                        usageLimit: event.target.value,
                       }))
                     }
                     placeholder="Không giới hạn"
@@ -908,15 +1046,16 @@ export default function CouponsPage() {
 
                 <label className={labelClass}>
                   Giới hạn mỗi khách
+
                   <input
                     type="number"
                     min="1"
                     step="1"
-                    value={form.per_user_limit}
+                    value={form.perUserLimit}
                     onChange={(event) =>
                       setForm((current) => ({
                         ...current,
-                        per_user_limit: event.target.value,
+                        perUserLimit: event.target.value,
                       }))
                     }
                     placeholder="Không giới hạn"
@@ -934,17 +1073,19 @@ export default function CouponsPage() {
               <div className="mt-3 grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <label className={labelClass}>
                   Ngày giờ bắt đầu
+
                   <input
                     type="datetime-local"
-                    value={form.starts_at}
+                    value={form.startsAt}
                     onChange={(event) =>
                       setForm((current) => ({
                         ...current,
-                        starts_at: event.target.value,
+                        startsAt: event.target.value,
                       }))
                     }
                     className={inputClass}
                   />
+
                   <span className="mt-1 block text-xs font-normal text-text-muted">
                     Để trống nếu không giới hạn ngày bắt đầu.
                   </span>
@@ -952,18 +1093,20 @@ export default function CouponsPage() {
 
                 <label className={labelClass}>
                   Ngày giờ kết thúc
+
                   <input
                     type="datetime-local"
-                    min={form.starts_at || undefined}
-                    value={form.expires_at}
+                    min={form.startsAt || undefined}
+                    value={form.expiresAt}
                     onChange={(event) =>
                       setForm((current) => ({
                         ...current,
-                        expires_at: event.target.value,
+                        expiresAt: event.target.value,
                       }))
                     }
                     className={inputClass}
                   />
+
                   <span className="mt-1 block text-xs font-normal text-text-muted">
                     Để trống nếu không giới hạn ngày kết thúc.
                   </span>
@@ -973,19 +1116,21 @@ export default function CouponsPage() {
               <label className="mt-4 flex cursor-pointer items-start gap-3 rounded-xl border border-border-default bg-bg-app p-3.5">
                 <input
                   type="checkbox"
-                  checked={form.is_active}
+                  checked={form.isActive}
                   onChange={(event) =>
                     setForm((current) => ({
                       ...current,
-                      is_active: event.target.checked,
+                      isActive: event.target.checked,
                     }))
                   }
                   className="mt-0.5 h-4 w-4 accent-lime-500"
                 />
+
                 <span>
                   <span className="block text-sm font-medium text-text-primary">
                     Kích hoạt mã giảm giá
                   </span>
+
                   <span className="mt-1 block text-xs leading-5 text-text-muted">
                     Mã chỉ có thể sử dụng khi được bật, nằm trong thời hạn và
                     chưa vượt giới hạn lượt sử dụng.
@@ -1005,10 +1150,16 @@ export default function CouponsPage() {
           </div>
 
           <div className="flex flex-col-reverse gap-2 border-t border-border-default pt-4 sm:flex-row sm:justify-end">
-            <Button type="button" variant="secondary" onClick={closeModal}>
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={closeModal}
+              disabled={saving}
+            >
               Hủy
             </Button>
-            <Button type="submit">
+
+            <Button type="submit" loading={saving} disabled={saving}>
               {editingCoupon ? (
                 <>
                   <Edit2 size={16} />

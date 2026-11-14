@@ -1,9 +1,9 @@
-
 export type OrderStatus =
   | 'pending'
   | 'confirmed'
   | 'processing'
   | 'shipping'
+  | 'delivered'
   | 'completed'
   | 'cancelled'
   | 'returned';
@@ -21,39 +21,67 @@ export type PaymentMethod =
   | 'VNPAY'
   | 'ZALOPAY';
 
+/**
+ * Order document từ MongoDB.
+ * Backend trả về _id và các field camelCase.
+ */
 export interface Order {
-  id: number;
-  order_number: string;
+  _id: string;
 
-  user_id: number | null;
-  coupon_id: number | null;
+  orderNumber: string;
 
-  customer_name: string;
-  customer_email: string;
-  customer_phone: string;
+  userId: string | null;
+  couponId: string | null;
 
-  shipping_address: string;
-  shipping_ward: string | null;
-  shipping_district: string | null;
-  shipping_province: string | null;
+  customerName: string;
+  customerEmail: string;
+  customerPhone: string;
+
+  shippingAddress: string;
+  shippingWard: string | null;
+  shippingDistrict: string | null;
+  shippingProvince: string | null;
 
   subtotal: number;
-  discount_amount: number;
-  shipping_fee: number;
-  tax_amount: number;
-  total_amount: number;
+  discountAmount: number;
+  shippingFee: number;
+  taxAmount: number;
+  totalAmount: number;
 
-  payment_method: PaymentMethod;
-  payment_status: PaymentStatus;
+  paymentMethod: PaymentMethod;
+  paymentStatus: PaymentStatus;
   status: OrderStatus;
 
   note: string | null;
 
-  confirmed_at: string | null;
-  shipped_at: string | null;
-  completed_at: string | null;
-  cancelled_at: string | null;
+  confirmedAt: string | null;
+  shippedAt: string | null;
+  deliveredAt: string | null;
+  completedAt: string | null;
+  cancelledAt: string | null;
 
-  created_at: string;
-  updated_at: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface OrderListResponse {
+  success: boolean;
+  message?: string;
+  data: Order[];
+  pagination?: {
+    page: number;
+    limit: number;
+    total: number;
+    totalPages: number;
+  };
+  summary?: Record<string, unknown>;
+}
+
+export interface OrderDetailResponse {
+  success: boolean;
+  message?: string;
+  data: {
+    order: Order;
+    itemCount: number;
+  };
 }

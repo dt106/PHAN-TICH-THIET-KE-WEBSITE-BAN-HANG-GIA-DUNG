@@ -1,14 +1,14 @@
 
-import { useMemo, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-    Eye,
-    Search,
-    RotateCcw,
-    ShoppingCart,
-    Clock3,
-    Truck,
     Banknote,
+    Clock3,
+    Eye,
+    RotateCcw,
+    Search,
+    ShoppingCart,
+    Truck,
 } from 'lucide-react';
 
 import PageHeader from '../../components/shared/PageHeader';
@@ -20,7 +20,8 @@ import StatusBadge from '../../components/shared/StatusBadge';
 import Pagination from '../../components/shared/Pagination';
 import { Button } from '../../components/ui/buttons/Button';
 
-import { ordersMock } from '../../mocks/orders.mock';
+import { ordersService } from '../../services/orders/orders.service';
+
 import type {
     Order,
     OrderStatus,
@@ -38,24 +39,30 @@ type BadgeVariant =
     | 'purple'
     | 'neutral';
 
-const orderStatusLabels: Record<OrderStatus, string> = {
+type OrderWithOptionalId = Omit<Order, '_id'> & {
+    _id?: string;
+    id?: string | number;
+};
+
+const ORDER_STATUS_LABELS: Record<OrderStatus, string> = {
     pending: 'Chờ xác nhận',
     confirmed: 'Đã xác nhận',
     processing: 'Đang xử lý',
     shipping: 'Đang giao',
+    delivered: 'Đã giao hàng',
     completed: 'Hoàn thành',
     cancelled: 'Đã hủy',
     returned: 'Đã trả hàng',
 };
 
-const paymentStatusLabels: Record<PaymentStatus, string> = {
+const PAYMENT_STATUS_LABELS: Record<PaymentStatus, string> = {
     pending: 'Chưa thanh toán',
     paid: 'Đã thanh toán',
     failed: 'Thanh toán thất bại',
     refunded: 'Đã hoàn tiền',
 };
 
-const paymentMethodLabels: Record<PaymentMethod, string> = {
+const PAYMENT_METHOD_LABELS: Record<PaymentMethod, string> = {
     COD: 'COD',
     BANK: 'Chuyển khoản',
     MOMO: 'MoMo',
@@ -63,119 +70,202 @@ const paymentMethodLabels: Record<PaymentMethod, string> = {
     ZALOPAY: 'ZaloPay',
 };
 
-const orderStatusVariants: Record<OrderStatus, BadgeVariant> = {
+const ORDER_STATUS_VARIANTS: Record<OrderStatus, BadgeVariant> = {
     pending: 'warning',
     confirmed: 'info',
-    processing: 'info',
+    processing: 'purple',
     shipping: 'info',
+    delivered: 'success',
     completed: 'success',
     cancelled: 'danger',
-    returned: 'purple',
+    returned: 'neutral',
 };
 
-const paymentStatusVariants: Record<PaymentStatus, BadgeVariant> = {
+const PAYMENT_STATUS_VARIANTS: Record<PaymentStatus, BadgeVariant> = {
     pending: 'warning',
     paid: 'success',
     failed: 'danger',
     refunded: 'purple',
 };
 
-function formatCurrency(value: number): string {
-    return new Intl.NumberFormat('vi-VN', {
-        style: 'currency',
-        currency: 'VND',
-        maximumFractionDigits: 0,
-    }).format(value);
+const CURRENCY_FORMATTER = new Intl.NumberFormat('vi-VN', {
+    style: 'currency',
+    currency: 'VND',
+    maximumFractionDigits: 0,
+});
+
+const DATE_FORMATTER = new Intl.DateTimeFormat('vi-VN', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+});
+
+function formatCurrency(value?: number | null): string {
+    return CURRENCY_FORMATTER.format(value ?? 0);
 }
 
-function formatDate(value: string): string {
+function formatDate(value?: string | null): string {
+    if (!value) return '—';
+
     const date = new Date(value);
 
     if (Number.isNaN(date.getTime())) {
         return '—';
     }
 
-    return new Intl.DateTimeFormat('vi-VN', {
-        day: '2-digit',
-        month: '2-digit',
-        year: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit',
-    }).format(date);
+    return DATE_FORMATTER.format(date);
+}
+
+function normalizeOrder(order: OrderWithOptionalId): Order | null {
+    const id = order._id || order.id;
+
+    if (id === undefined || id === null || String(id).trim() === '') {
+        return null;
+    }
+
+    return {
+        ...order,
+        _id: String(id),
+    } as Order;
 }
 
 export default function OrdersPage() {
     const navigate = useNavigate();
 
+    const [orders, setOrders] = useState<Order[]>([]);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState('');
+
     const [search, setSearch] = useState('');
-    const [statusFilter, setStatusFilter] = useState<
-        OrderStatus | 'all'
-    >('all');
-    const [paymentFilter, setPaymentFilter] = useState<
-        PaymentStatus | 'all'
-    >('all');
-    const [methodFilter, setMethodFilter] = useState<
-        PaymentMethod | 'all'
-    >('all');
+    const [statusFilter, setStatusFilter] =
+        useState<OrderStatus | 'all'>('all');
+    const [paymentFilter, setPaymentFilter] =
+        useState<PaymentStatus | 'all'>('all');
+    const [methodFilter, setMethodFilter] =
+        useState<PaymentMethod | 'all'>('all');
+
     const [page, setPage] = useState(1);
+    const [totalOrders, setTotalOrders] = useState(0);
+    const [totalPages, setTotalPages] = useState(1);
 
-    const filteredOrders = useMemo(() => {
-        const keyword = search.trim().toLowerCase();
+    // Tải danh sách đơn hàng.
 
-        return ordersMock.filter((order) => {
-            const matchesSearch =
-                !keyword ||
-                order.order_number.toLowerCase().includes(keyword) ||
-                order.customer_name.toLowerCase().includes(keyword) ||
-                order.customer_phone.includes(keyword) ||
-                order.customer_email.toLowerCase().includes(keyword);
+    const fetchOrders = useCallback(
+        async (signal: { cancelled: boolean }) => {
+            try {
+                const response = await ordersService.getOrders({
+                    page,
+                    limit: PAGE_SIZE,
+                    search: search.trim() || undefined,
+                    status:
+                        statusFilter === 'all'
+                            ? undefined
+                            : statusFilter,
+                    paymentStatus:
+                        paymentFilter === 'all'
+                            ? undefined
+                            : paymentFilter,
+                    paymentMethod:
+                        methodFilter === 'all'
+                            ? undefined
+                            : methodFilter,
+                });
 
-            const matchesStatus =
-                statusFilter === 'all' ||
-                order.status === statusFilter;
+                if (signal.cancelled) return;
 
-            const matchesPayment =
-                paymentFilter === 'all' ||
-                order.payment_status === paymentFilter;
+                const rawOrders = Array.isArray(response.data)
+                    ? response.data
+                    : [];
 
-            const matchesMethod =
-                methodFilter === 'all' ||
-                order.payment_method === methodFilter;
+                const normalizedOrders = rawOrders
+                    .map((order) =>
+                        normalizeOrder(order as OrderWithOptionalId),
+                    )
+                    .filter((order): order is Order => order !== null);
 
-            return (
-                matchesSearch &&
-                matchesStatus &&
-                matchesPayment &&
-                matchesMethod
-            );
-        });
-    }, [search, statusFilter, paymentFilter, methodFilter]);
+                setOrders(normalizedOrders);
+                setTotalOrders(response.pagination?.total ?? 0);
+                setTotalPages(
+                    Math.max(1, response.pagination?.totalPages ?? 1),
+                );
+                setError('');
+            } catch (err) {
+                if (signal.cancelled) return;
 
-    const totalPages = Math.max(
-        1,
-        Math.ceil(filteredOrders.length / PAGE_SIZE),
+                setOrders([]);
+                setTotalOrders(0);
+                setTotalPages(1);
+
+                setError(
+                    err instanceof Error
+                        ? err.message
+                        : 'Không thể tải danh sách đơn hàng.',
+                );
+            } finally {
+                if (!signal.cancelled) {
+                    setLoading(false);
+                }
+            }
+        },
+        [
+            page,
+            search,
+            statusFilter,
+            paymentFilter,
+            methodFilter,
+        ],
     );
 
-    const currentPage = Math.min(page, totalPages);
+    useEffect(() => {
+        let cancelled = false;
 
-    const paginatedOrders = filteredOrders.slice(
-        (currentPage - 1) * PAGE_SIZE,
-        currentPage * PAGE_SIZE,
-    );
+        const load = async () => {
+            await Promise.resolve();
 
-    const pendingCount = ordersMock.filter(
+            if (cancelled) return;
+
+            void fetchOrders({
+                get cancelled() {
+                    return cancelled;
+                },
+            });
+        };
+
+        void load();
+
+        return () => {
+            cancelled = true;
+        };
+    }, [fetchOrders]);
+
+
+    // Thống kê trên trang hiện tại.
+    const pendingCount = orders.filter(
         (order) => order.status === 'pending',
     ).length;
 
-    const shippingCount = ordersMock.filter(
+    const shippingCount = orders.filter(
         (order) => order.status === 'shipping',
     ).length;
 
-    const totalRevenue = ordersMock
+    const completedRevenue = orders
         .filter((order) => order.status === 'completed')
-        .reduce((sum, order) => sum + order.total_amount, 0);
+        .reduce(
+            (total, order) => total + (order.totalAmount || 0),
+            0,
+        );
 
+    // Chuyển trang.
+    const handlePageChange = (nextPage: number) => {
+        setLoading(true);
+        setPage(nextPage);
+    };
+
+    // Đặt lại bộ lọc.
     const resetFilters = () => {
+        setLoading(true);
         setSearch('');
         setStatusFilter('all');
         setPaymentFilter('all');
@@ -183,6 +273,7 @@ export default function OrdersPage() {
         setPage(1);
     };
 
+    // Cấu hình cột.
     const columns: DataTableColumn<Order>[] = [
         {
             key: 'order',
@@ -191,10 +282,10 @@ export default function OrdersPage() {
             render: (order) => (
                 <div className="flex flex-col gap-1">
                     <span className="font-semibold text-text-primary">
-                        {order.order_number}
+                        {order.orderNumber || 'Chưa có mã đơn'}
                     </span>
                     <span className="text-xs text-text-muted">
-                        {formatDate(order.created_at)}
+                        {formatDate(order.createdAt)}
                     </span>
                 </div>
             ),
@@ -206,13 +297,13 @@ export default function OrdersPage() {
             render: (order) => (
                 <div className="flex flex-col gap-1">
                     <span className="font-medium text-text-primary">
-                        {order.customer_name}
+                        {order.customerName || 'Khách hàng'}
                     </span>
                     <span className="text-xs text-text-secondary">
-                        {order.customer_phone}
+                        {order.customerPhone || '—'}
                     </span>
-                    <span className="max-w-55 truncate text-xs text-text-muted">
-                        {order.customer_email}
+                    <span className="max-w-[220px] truncate text-xs text-text-muted">
+                        {order.customerEmail || '—'}
                     </span>
                 </div>
             ),
@@ -224,12 +315,12 @@ export default function OrdersPage() {
             render: (order) => (
                 <div className="flex flex-col gap-1">
                     <span className="font-semibold text-text-primary">
-                        {formatCurrency(order.total_amount)}
+                        {formatCurrency(order.totalAmount)}
                     </span>
 
-                    {order.discount_amount > 0 && (
+                    {order.discountAmount > 0 && (
                         <span className="text-xs text-text-muted">
-                            Giảm {formatCurrency(order.discount_amount)}
+                            Giảm {formatCurrency(order.discountAmount)}
                         </span>
                     )}
                 </div>
@@ -242,12 +333,20 @@ export default function OrdersPage() {
             render: (order) => (
                 <div className="flex flex-col items-start gap-2">
                     <span className="text-sm text-text-primary">
-                        {paymentMethodLabels[order.payment_method]}
+                        {PAYMENT_METHOD_LABELS[order.paymentMethod] ??
+                            order.paymentMethod ??
+                            '—'}
                     </span>
 
                     <StatusBadge
-                        status={paymentStatusLabels[order.payment_status]}
-                        variant={paymentStatusVariants[order.payment_status]}
+                        status={
+                            PAYMENT_STATUS_LABELS[order.paymentStatus] ??
+                            order.paymentStatus
+                        }
+                        variant={
+                            PAYMENT_STATUS_VARIANTS[order.paymentStatus] ??
+                            'neutral'
+                        }
                     />
                 </div>
             ),
@@ -258,8 +357,12 @@ export default function OrdersPage() {
             className: 'min-w-[155px]',
             render: (order) => (
                 <StatusBadge
-                    status={orderStatusLabels[order.status]}
-                    variant={orderStatusVariants[order.status]}
+                    status={
+                        ORDER_STATUS_LABELS[order.status] ?? order.status
+                    }
+                    variant={
+                        ORDER_STATUS_VARIANTS[order.status] ?? 'neutral'
+                    }
                 />
             ),
         },
@@ -270,14 +373,25 @@ export default function OrdersPage() {
             headerClassName: 'text-right',
             render: (order) => (
                 <div className="flex justify-end">
-                  <Button
-  type="button"
-  variant="ghost"
-  aria-label={`Xem đơn ${order.order_number}`}
-  onClick={() => navigate(`/orders/${order.id}`)}
->
-  <Eye size={17} />
-</Button>
+                    <Button
+                        type="button"
+                        variant="ghost"
+                        aria-label={`Xem đơn ${order.orderNumber}`}
+                        onClick={() => {
+                            if (!order._id) {
+                                setError(
+                                    'Đơn hàng không có ID hợp lệ, không thể xem chi tiết.',
+                                );
+                                return;
+                            }
+
+                            navigate(
+                                `/orders/${encodeURIComponent(order._id)}`,
+                            );
+                        }}
+                    >
+                        <Eye size={17} />
+                    </Button>
                 </div>
             ),
         },
@@ -290,11 +404,11 @@ export default function OrdersPage() {
                 description="Theo dõi đơn hàng, trạng thái xử lý và tình hình thanh toán."
             />
 
-            {/* Thống kê tổng quan */}
+            {/* Thống kê */}
             <section className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
                 <StatCard
                     label="Tổng đơn hàng"
-                    value={String(ordersMock.length)}
+                    value={String(totalOrders)}
                     icon={ShoppingCart}
                     accent="primary"
                 />
@@ -315,13 +429,13 @@ export default function OrdersPage() {
 
                 <StatCard
                     label="Doanh thu hoàn thành"
-                    value={formatCurrency(totalRevenue)}
+                    value={formatCurrency(completedRevenue)}
                     icon={Banknote}
                     accent="purple"
                 />
             </section>
 
-            {/* Bộ lọc và danh sách đơn hàng */}
+            {/* Danh sách đơn hàng */}
             <section className="overflow-hidden rounded-card border border-border-default bg-bg-surface">
                 <div className="flex flex-col gap-4 border-b border-border-default p-4 lg:p-5">
                     <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
@@ -339,14 +453,14 @@ export default function OrdersPage() {
                                 size={17}
                                 className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-text-muted"
                             />
-
                             <input
                                 value={search}
                                 onChange={(event) => {
+                                    setLoading(true);
                                     setSearch(event.target.value);
                                     setPage(1);
                                 }}
-                                placeholder="Mã đơn, tên, email, số điện thoại..."
+                                placeholder="Mã đơn, tên khách hàng, email..."
                                 aria-label="Tìm kiếm đơn hàng"
                                 className="h-11 w-full rounded-btn border border-border-default bg-bg-app pl-10 pr-3 text-sm text-text-primary outline-none transition placeholder:text-text-muted focus:border-accent-primary focus:ring-2 focus:ring-accent-primary/20"
                             />
@@ -357,6 +471,7 @@ export default function OrdersPage() {
                         <select
                             value={statusFilter}
                             onChange={(event) => {
+                                setLoading(true);
                                 setStatusFilter(
                                     event.target.value as OrderStatus | 'all',
                                 );
@@ -366,17 +481,19 @@ export default function OrdersPage() {
                             className="h-11 rounded-btn border border-border-default bg-bg-app px-3 text-sm text-text-primary outline-none transition focus:border-accent-primary focus:ring-2 focus:ring-accent-primary/20"
                         >
                             <option value="all">Tất cả trạng thái đơn</option>
-
-                            {Object.entries(orderStatusLabels).map(([value, label]) => (
-                                <option key={value} value={value}>
-                                    {label}
-                                </option>
-                            ))}
+                            {Object.entries(ORDER_STATUS_LABELS).map(
+                                ([value, label]) => (
+                                    <option key={value} value={value}>
+                                        {label}
+                                    </option>
+                                ),
+                            )}
                         </select>
 
                         <select
                             value={paymentFilter}
                             onChange={(event) => {
+                                setLoading(true);
                                 setPaymentFilter(
                                     event.target.value as PaymentStatus | 'all',
                                 );
@@ -386,17 +503,19 @@ export default function OrdersPage() {
                             className="h-11 rounded-btn border border-border-default bg-bg-app px-3 text-sm text-text-primary outline-none transition focus:border-accent-primary focus:ring-2 focus:ring-accent-primary/20"
                         >
                             <option value="all">Tất cả thanh toán</option>
-
-                            {Object.entries(paymentStatusLabels).map(([value, label]) => (
-                                <option key={value} value={value}>
-                                    {label}
-                                </option>
-                            ))}
+                            {Object.entries(PAYMENT_STATUS_LABELS).map(
+                                ([value, label]) => (
+                                    <option key={value} value={value}>
+                                        {label}
+                                    </option>
+                                ),
+                            )}
                         </select>
 
                         <select
                             value={methodFilter}
                             onChange={(event) => {
+                                setLoading(true);
                                 setMethodFilter(
                                     event.target.value as PaymentMethod | 'all',
                                 );
@@ -406,15 +525,17 @@ export default function OrdersPage() {
                             className="h-11 rounded-btn border border-border-default bg-bg-app px-3 text-sm text-text-primary outline-none transition focus:border-accent-primary focus:ring-2 focus:ring-accent-primary/20"
                         >
                             <option value="all">Tất cả phương thức</option>
-
-                            {Object.entries(paymentMethodLabels).map(([value, label]) => (
-                                <option key={value} value={value}>
-                                    {label}
-                                </option>
-                            ))}
+                            {Object.entries(PAYMENT_METHOD_LABELS).map(
+                                ([value, label]) => (
+                                    <option key={value} value={value}>
+                                        {label}
+                                    </option>
+                                ),
+                            )}
                         </select>
 
                         <Button
+                            type="button"
                             variant="secondary"
                             onClick={resetFilters}
                             className="w-full"
@@ -425,26 +546,74 @@ export default function OrdersPage() {
                     </div>
                 </div>
 
-                <DataTable
-                    columns={columns}
-                    data={paginatedOrders}
-                    getRowId={(order) => order.id}
-                    emptyTitle="Không tìm thấy đơn hàng"
-                    emptyDescription="Hãy thử thay đổi từ khóa hoặc điều kiện lọc."
-                />
+                {/* Thông báo lỗi */}
+                {error && (
+                    <div
+                        role="alert"
+                        className="m-4 flex items-start justify-between gap-3 rounded-xl border border-status-danger/30 bg-status-danger/10 p-4 text-sm text-status-danger"
+                    >
+                        <span>{error}</span>
+                        <button
+                            type="button"
+                            onClick={() => setError('')}
+                            className="shrink-0 font-medium hover:underline"
+                        >
+                            Đóng
+                        </button>
+                    </div>
+                )}
 
+                {/* Bảng dữ liệu */}
+                {loading ? (
+                    <div className="space-y-4 p-5">
+                        <div className="h-10 animate-pulse rounded-lg bg-bg-elevated" />
+                        <div className="h-14 animate-pulse rounded-lg bg-bg-elevated" />
+                        <div className="h-14 animate-pulse rounded-lg bg-bg-elevated" />
+                        <div className="h-14 animate-pulse rounded-lg bg-bg-elevated" />
+                    </div>
+                ) : (
+                    <DataTable
+                        columns={columns}
+                        data={orders}
+                        getRowId={(order) => order._id}
+                        emptyTitle={
+                            error
+                                ? 'Không thể tải đơn hàng'
+                                : 'Không tìm thấy đơn hàng'
+                        }
+                        emptyDescription={
+                            error
+                                ? 'Vui lòng kiểm tra kết nối API và thử lại.'
+                                : 'Hãy thử thay đổi từ khóa hoặc điều kiện lọc.'
+                        }
+                    />
+                )}
+
+                {/* Phân trang */}
                 <div className="border-t border-border-default p-4">
-
-                    <div className="p-4">
-                        <Pagination
-                            page={currentPage}
-                            pageSize={PAGE_SIZE}
-                            total={filteredOrders.length}
-                            onPageChange={setPage}
-                            pageSizeOptions={[7, 10, 20, 50]}
-                        />
+                    <div className="mb-3 text-xs text-text-muted">
+                        Đang hiển thị {orders.length} / {totalOrders} đơn hàng
+                        {' · '}
+                        Thống kê trạng thái và doanh thu tính trên trang hiện tại.
                     </div>
 
+                    <Pagination
+                        page={page}
+                        pageSize={PAGE_SIZE}
+                        total={totalOrders}
+                        onPageChange={handlePageChange}
+                        pageSizeOptions={[PAGE_SIZE]}
+                    />
+
+                    {page > totalPages && (
+                        <button
+                            type="button"
+                            className="mt-3 text-sm text-accent-primary hover:underline"
+                            onClick={() => handlePageChange(totalPages)}
+                        >
+                            Trở về trang hợp lệ
+                        </button>
+                    )}
                 </div>
             </section>
         </div>

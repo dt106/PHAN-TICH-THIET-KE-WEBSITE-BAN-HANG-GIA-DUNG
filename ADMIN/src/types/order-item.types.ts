@@ -1,22 +1,43 @@
 
+/**
+ * Order item document từ MongoDB.
+ */
 export interface OrderItem {
-  id: number;
-  order_id: number;
+  _id: string;
+  orderId: string;
 
-  product_id: number;
-  variant_id: number | null;
+  productId: string;
+  variantId: string | null;
 
-  product_name: string;
-  product_sku: string | null;
+  productName: string;
+  productSku: string | null;
 
-  variant_sku: string | null;
-  variant_attributes: string | null;
+  variantSku: string | null;
+  variantAttributes: string | null;
 
   quantity: number;
 
-  unit_price: number;
-  discount_amount: number;
-  total_price: number;
+  unitPrice: number;
+  discountAmount: number;
+  totalPrice: number;
 
-  created_at: string | null;
+  createdAt: string | null;
+}
+
+export interface OrderItemsResponse {
+  success: boolean;
+  message?: string;
+  data: OrderItem[];
+
+  pagination?: {
+    page: number;
+    limit: number;
+    total: number;
+    totalPages: number;
+  };
+
+  summary?: {
+    totalQuantity: number;
+    totalRevenue: number;
+  };
 }

@@ -1,10 +1,11 @@
 
-/** Khớp với bảng product_reviews trong MySQL. */
+export type ReviewId = string | number;
+
 export interface ProductReview {
-  id: number;
-  product_id: number;
-  user_id: number;
-  order_id: number | null;
+  id: ReviewId;
+  product_id: ReviewId;
+  user_id: ReviewId;
+  order_id: ReviewId | null;
   rating: number;
   title: string | null;
   content: string | null;
@@ -15,36 +16,32 @@ export interface ProductReview {
   updated_at: string;
 }
 
-/** Thông tin lấy từ bảng users. */
 export interface ReviewCustomer {
-  id: number;
+  id: ReviewId;
   name: string;
   email: string;
   phone: string | null;
   avatar: string | null;
-  status: 'active' | 'inactive' | 'blocked';
+  status: 'active' | 'inactive' | 'blocked' | null;
 }
 
-/** Thông tin lấy từ products và product_media. */
 export interface ReviewProduct {
-  id: number;
+  id: ReviewId;
   name: string;
   slug: string;
-  sku: string;
+  sku: string | null;
   image: string | null;
-  is_active: boolean;
+  is_active: boolean | null;
 }
 
-/** Thông tin lấy từ bảng orders. */
 export interface ReviewOrder {
-  id: number;
+  id: ReviewId;
   order_number: string;
-  status: string;
-  total_amount: number;
-  created_at: string;
+  status: string | null;
+  total_amount: number | null;
+  created_at: string | null;
 }
 
-/** View model dùng trong admin, không phải bảng database. */
 export interface ReviewDetail extends ProductReview {
   customer: ReviewCustomer;
   product: ReviewProduct;
@@ -55,3 +52,23 @@ export interface ReviewDetail extends ProductReview {
 export type ReviewVisibility = 'all' | 'visible' | 'hidden';
 export type ReviewRatingFilter = 'all' | 'low' | 'middle' | 'high';
 export type ReviewPeriod = 'all' | '7days' | '30days';
+
+export interface ReviewListParams {
+  [key: string]: string | number | boolean | undefined;
+
+  keyword?: string;
+  rating?: number;
+  isApproved?: boolean;
+  isVerifiedPurchase?: boolean;
+  page?: number;
+  limit?: number;
+  sortBy?: 'createdAt' | 'rating';
+  sortOrder?: 'asc' | 'desc';
+}
+
+export interface ReviewPagination {
+  page: number;
+  limit: number;
+  total: number;
+  totalPages: number;
+}
