@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Link, useLocation, useParams } from "react-router-dom";
 import { Button, showToast } from "../../components/common/index.ts";
 import { PageBanner } from "../../components/layout/PageBanner.tsx";
@@ -6,17 +6,17 @@ import { formatMoney } from "../../lib/money.ts";
 import { errorText } from "../../services/http.ts";
 import { orderService } from "../../services/order.service.ts";
 import type { BankTransferInfo, Order, OrderItem } from "../../types/api.ts";
-import { orderStatusLabel } from "./OrdersPage.tsx";
+import { orderStatusLabel, paymentStatusLabel } from "../../lib/orderLabel.ts";
 
 export function OrderDetailPage() {
   const { id = "" } = useParams();
   const location = useLocation();
-  const bank = (location.state as { bank?: BankTransferInfo | null } | null)?.bank;
+  const bankFromNav = (location.state as { bank?: BankTransferInfo | null } | null)?.bank;
   const [order, setOrder] = useState<Order | null>(null);
   const [items, setItems] = useState<OrderItem[]>([]);
   const [error, setError] = useState("");
 
-  function load() {
+  const load = useCallback(() => {
     Promise.all([orderService.getOrder(id), orderService.getOrderItems(id)])
       .then(([orderResult, itemResult]) => {
         setOrder(orderResult.data);
@@ -24,11 +24,11 @@ export function OrderDetailPage() {
         setError("");
       })
       .catch((reason: unknown) => setError(errorText(reason)));
-  }
+  }, [id]);
 
   useEffect(() => {
     load();
-  }, [id]);
+  }, [load]);
 
   async function run(action: () => Promise<unknown>, ok: string) {
     try {
@@ -58,7 +58,7 @@ export function OrderDetailPage() {
       <PageBanner title={order.orderNumber} />
       <div className="wrap" style={{ padding: "64px 0", display: "grid", gap: 12, maxWidth: 720 }}>
         <p>
-          {orderStatusLabel(order.status)} · Thanh toán {order.paymentStatus} · {order.paymentMethod}
+          {orderStatusLabel(order.status)} · Thanh toán {paymentStatusLabel(order.paymentStatus)} · {order.paymentMethod}
         </p>
         <p>
           {order.customerName} · {order.customerPhone}
@@ -77,13 +77,16 @@ export function OrderDetailPage() {
         <p>Tạm tính {formatMoney(order.subtotal)}</p>
         <p>Giảm {formatMoney(order.discountAmount)} · Phí ship {formatMoney(order.shippingFee)}</p>
         <strong>Tổng {formatMoney(order.totalAmount)}</strong>
-        {bank ? (
+        {(() => {
+          const bank = order.bankTransferInfo ?? bankFromNav;
+          return bank ? (
           <p>
             Chuyển khoản {bank.bankName} · {bank.accountNumber} · {bank.accountHolder}
             <br />
             Nội dung: {bank.transferContent}
           </p>
-        ) : null}
+          ) : null;
+        })()}
         <div style={{ display: "flex", gap: 12 }}>
           {canCancel ? (
             <Button variant="outline" onClick={() => void run(() => orderService.cancelOrder(order.id), "Đã hủy đơn.")}>

@@ -10,6 +10,7 @@ import { errorText } from "../../services/http.ts";
 import { paymentService, type MyPayment } from "../../services/payment.service.ts";
 import { statisticsService } from "../../services/statistics.service.ts";
 import type { CustomerOverview, UserAddress } from "../../types/api.ts";
+import { paymentStatusLabel } from "../../lib/orderLabel.ts";
 
 export function AccountPage() {
   const { user, logout, setUser } = useAuth();
@@ -156,7 +157,7 @@ export function AccountPage() {
             <ul>
               {payments.map((item) => (
                 <li key={item.id}>
-                  {item.order?.orderNumber ?? item.id} · {item.paymentMethod} · {item.status} · {formatMoney(item.amount)}
+                  {item.order?.orderNumber ?? item.id} · {item.paymentMethod} · {paymentStatusLabel(item.status)} · {formatMoney(item.amount)}
                 </li>
               ))}
             </ul>

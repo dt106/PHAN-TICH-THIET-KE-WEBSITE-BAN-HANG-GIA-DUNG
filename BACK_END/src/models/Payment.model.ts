@@ -45,7 +45,6 @@ const paymentSchema = new Schema<IPayment>(
     },
     transactionCode: {
       type: String,
-      default: null,
       unique: true,
       sparse: true,
       index: true,

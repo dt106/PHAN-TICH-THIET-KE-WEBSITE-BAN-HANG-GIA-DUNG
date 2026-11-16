@@ -348,6 +348,7 @@ export const getMyPayments = async (
 
   return payments.map((payment) => ({
     ...payment,
+    id: payment._id.toString(),
     order: orderMap.get(payment.orderId.toString())
       ? {
           orderNumber: orderMap.get(payment.orderId.toString())!.orderNumber,

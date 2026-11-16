@@ -13,6 +13,7 @@
 
 // import {
 import {
+  assertGeminiConfigured,
   gemini,
   GEMINI_MODEL,
 } from "../config/gemini";
@@ -376,6 +377,7 @@ const response = await retryOnGeminiOverload(() =>
 export const aiProductSearchService = async (
   input: AIProductSearchInput,
 ) => {
+  assertGeminiConfigured();
   /**
    * BƯỚC 1: Dùng Gemini phân tích câu tìm kiếm.
    */

@@ -77,10 +77,20 @@
 .sizes,
 .colors {
   display: flex;
+  flex-wrap: wrap;
   gap: 12px;
 }
 
-.sizes button,
+.sizes button {
+  width: auto;
+  height: auto;
+  min-height: 36px;
+  padding: 8px 12px;
+  border: 1px solid #9f9f9f;
+  background: #fff;
+  cursor: pointer;
+}
+
 .colors button {
   width: 36px;
   height: 36px;

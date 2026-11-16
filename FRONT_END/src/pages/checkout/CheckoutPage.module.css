@@ -5,6 +5,33 @@
   padding: 64px 0 80px;
 }
 
+.layout > div:first-child {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 16px;
+}
+
+.layout label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.layout label:has(input[type="checkbox"]),
+.layout label:has(input[type="radio"]) {
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+}
+
+.layout select,
+.layout textarea,
+.layout input:not([type="checkbox"]):not([type="radio"]) {
+  width: 100%;
+  box-sizing: border-box;
+}
+
 .form {
   display: grid;
   grid-template-columns: 1fr 1fr;

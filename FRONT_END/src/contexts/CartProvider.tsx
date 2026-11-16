@@ -13,8 +13,15 @@ const empty: CartSummary = {
 
 export function CartProvider({ children }: { children: ReactNode }) {
   const { user } = useAuth();
+  const userId = user?.id ?? null;
   const [cart, setCart] = useState<CartSummary>(empty);
   const [loading, setLoading] = useState(false);
+  const [loadedFor, setLoadedFor] = useState<string | null>(userId);
+  if (loadedFor !== userId) {
+    setLoadedFor(userId);
+    setCart(empty);
+    setLoading(Boolean(userId));
+  }
 
   const refresh = useCallback(async () => {
     if (!user) {
@@ -31,12 +38,8 @@ export function CartProvider({ children }: { children: ReactNode }) {
   }, [user]);
 
   useEffect(() => {
+    if (!user) return;
     let cancelled = false;
-    if (!user) {
-      setCart(empty);
-      return;
-    }
-    setLoading(true);
     cartService.getCart()
       .then((result) => {
         if (!cancelled) setCart(result.data);
