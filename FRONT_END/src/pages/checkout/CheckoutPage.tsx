@@ -1,8 +1,6 @@
-import { useEffect, useRef, useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent, type ReactNode } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Button, TextInput, showToast } from "../../components/common/index.ts";
-import { FeatureBar } from "../../components/layout/FeatureBar.tsx";
-import { PageBanner } from "../../components/layout/PageBanner.tsx";
 import { useCart } from "../../contexts/useCart.ts";
 import { SHIPPING_FEE, formatMoney } from "../../lib/money.ts";
 import { addressService } from "../../services/address.service.ts";
@@ -13,11 +11,33 @@ import { paymentService } from "../../services/payment.service.ts";
 import type { CheckoutSummary, Coupon, PaymentMethod, UserAddress, CheckoutInput } from "../../types/api.ts";
 import styles from "./CheckoutPage.module.css";
 
-const methods: { id: PaymentMethod; label: string }[] = [
-  { id: "COD", label: "Thanh toán khi nhận hàng" },
-  { id: "BANK", label: "Chuyển khoản ngân hàng" },
-  { id: "VNPAY", label: "VNPay" },
+const iconProps = { width: 22, height: 22, fill: "none", stroke: "currentColor", strokeWidth: 1.8, viewBox: "0 0 24 24" };
+
+const methods: { id: PaymentMethod; label: string; hint: string; icon: ReactNode }[] = [
+  {
+    id: "COD",
+    label: "Thanh toán khi nhận hàng",
+    hint: "Trả tiền mặt cho nhân viên giao hàng.",
+    icon: (
+      <svg {...iconProps}>
+        <rect x="2" y="6" width="20" height="12" rx="2" />
+        <circle cx="12" cy="12" r="2.5" />
+      </svg>
+    ),
+  },
+  {
+    id: "MOMO",
+    label: "Ví MoMo",
+    hint: "Quét QR hoặc mở ứng dụng MoMo để thanh toán.",
+    icon: <span className={styles.momo}>MoMo</span>,
+  },
 ];
+
+const steps = ["Giỏ hàng", "Thanh toán", "Hoàn tất"];
+
+function formatAddress(item: UserAddress) {
+  return [item.addressLine, item.ward, item.district, item.province].filter(Boolean).join(", ");
+}
 
 export function CheckoutPage() {
   const { items, refresh } = useCart();
@@ -25,33 +45,63 @@ export function CheckoutPage() {
   const [addresses, setAddresses] = useState<UserAddress[]>([]);
   const [addressId, setAddressId] = useState("");
   const [coupons, setCoupons] = useState<Coupon[]>([]);
+  const [couponInput, setCouponInput] = useState("");
   const [couponCode, setCouponCode] = useState("");
   const [payment, setPayment] = useState<PaymentMethod>("COD");
   const [note, setNote] = useState("");
   const [summary, setSummary] = useState<CheckoutSummary | null>(null);
-  const [manual, setManual] = useState(false);
   const [busy, setBusy] = useState(false);
-  const formRef = useRef<HTMLFormElement>(null);
+
+  const manual = addressId === "";
+  const lines = items.filter((line) => line.isAvailable);
 
   useEffect(() => {
     addressService.getAddresses().then((result) => {
       setAddresses(result.data);
       const preferred = result.data.find((item) => item.isDefault) ?? result.data[0];
       if (preferred) setAddressId(preferred.id);
-      else setManual(true);
     }).catch((reason: unknown) => showToast(errorText(reason), "error"));
     couponService.getPublicCoupons().then((result) => setCoupons(result.data)).catch(() => undefined);
   }, []);
 
-  function payload(form?: FormData) {
+  useEffect(() => {
+    if (items.length === 0) return;
+    let active = true;
+    checkoutService
+      .previewCheckout({ couponCode: couponCode || undefined, shippingFee: SHIPPING_FEE })
+      .then((result) => {
+        if (active) setSummary(result.data);
+      })
+      .catch((reason: unknown) => {
+        if (!active) return;
+        showToast(errorText(reason), "error");
+        if (couponCode) setCouponCode("");
+      });
+    return () => {
+      active = false;
+    };
+  }, [items, couponCode]);
+
+  function applyCoupon(code: string) {
+    const value = code.trim().toUpperCase();
+    setCouponInput(value);
+    if (value) setCouponCode(value);
+  }
+
+  function removeCoupon() {
+    setCouponInput("");
+    setCouponCode("");
+  }
+
+  function payload(form: FormData) {
     const body: CheckoutInput & { paymentMethod: PaymentMethod } = {
-      couponCode: couponCode.trim() || undefined,
+      couponCode: couponCode || undefined,
       shippingFee: SHIPPING_FEE,
       paymentMethod: payment,
       note: note.trim() || undefined,
     };
-    if (!manual && addressId) return { ...body, addressId };
-    const read = (key: string) => String(form?.get(key) ?? "").trim();
+    if (!manual) return { ...body, addressId };
+    const read = (key: string) => String(form.get(key) ?? "").trim();
     return {
       ...body,
       customerName: read("customerName"),
@@ -63,50 +113,24 @@ export function CheckoutPage() {
     };
   }
 
-  async function preview() {
-    const form = formRef.current ? new FormData(formRef.current) : undefined;
-    setBusy(true);
-    try {
-      const result = await checkoutService.previewCheckout(payload(form));
-      setSummary(result.data);
-    } catch (reason) {
-      showToast(errorText(reason), "error");
-    } finally {
-      setBusy(false);
-    }
-  }
-
   async function place(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (items.length === 0) {
+    if (lines.length === 0) {
       showToast("Giỏ hàng trống.", "error");
       return;
     }
-    const form = new FormData(event.currentTarget);
+    const body = payload(new FormData(event.currentTarget));
     setBusy(true);
     try {
-      const body = payload(form);
-      const placed = await checkoutService.placeOrder(body);
-      const order = placed.data.order;
+      const { order } = (await checkoutService.placeOrder(body)).data;
       await refresh();
       if (payment === "COD") {
-        showToast("Đã đặt hàng.", "success");
-        navigate(`/orders/${order.id}`);
+        showToast("Đặt hàng thành công.", "success");
+        navigate(`/payment/result?order=${encodeURIComponent(order.orderNumber)}&status=placed&id=${order.id}`);
         return;
       }
-      const session = await paymentService.createPayment(order.id);
-      const url = session.data.paymentUrl;
-      if (url?.startsWith("http")) {
-        window.location.assign(url);
-        return;
-      }
-      if (url?.startsWith("mock:")) {
-        await paymentService.mockCompletePayment(order.orderNumber, true);
-        navigate(`/payment/result?order=${encodeURIComponent(order.orderNumber)}&status=success`);
-        return;
-      }
-      showToast("Đã tạo phiên thanh toán.", "success");
-      navigate(`/orders/${order.id}`, { state: { bank: session.data.bankTransferInfo } });
+      const next = await paymentService.startPayment(order.id, order.orderNumber);
+      if (next) navigate(next.path);
     } catch (reason) {
       showToast(errorText(reason), "error");
     } finally {
@@ -114,107 +138,232 @@ export function CheckoutPage() {
     }
   }
 
+  const subtotal = summary?.subtotal ?? lines.reduce((sum, line) => sum + line.lineTotal, 0);
+  const discount = summary?.discountAmount ?? 0;
+  const shippingFee = summary?.shippingFee ?? SHIPPING_FEE;
+  const total = summary?.totalAmount ?? subtotal + shippingFee;
+  const submitLabel = payment === "MOMO" ? "Thanh toán bằng MoMo" : "Đặt hàng";
+
+  if (items.length === 0) {
+    return (
+      <div className={`wrap ${styles.empty}`}>
+        <h1>Giỏ hàng đang trống</h1>
+        <p>Thêm vài món đồ gia dụng rồi quay lại thanh toán nhé.</p>
+        <Link to="/shop" className={styles.primaryLink}>Tiếp tục mua sắm</Link>
+      </div>
+    );
+  }
+
   return (
-    <>
-      <PageBanner title="Checkout" />
-      <form ref={formRef} className={`wrap ${styles.layout}`} onSubmit={place}>
-        <div>
-          <h2>Giao hàng</h2>
-          {addresses.length > 0 ? (
-            <label>
-              <input type="checkbox" checked={manual} onChange={(event) => setManual(event.target.checked)} />{" "}
-              Nhập địa chỉ mới, không lưu sổ
-            </label>
-          ) : null}
-          {!manual && addresses.length > 0 ? (
-            <label>
-              Địa chỉ đã lưu{" "}
-              <select value={addressId} onChange={(event) => setAddressId(event.target.value)}>
-                {addresses.map((item) => (
-                  <option key={item.id} value={item.id}>
-                    {item.recipientName} — {item.addressLine}, {item.province}
-                    {item.isDefault ? " (mặc định)" : ""}
-                  </option>
+    <div className={styles.page}>
+      <div className="wrap">
+        <ol className={styles.steps}>
+          {steps.map((label, index) => (
+            <li key={label} className={index <= 1 ? styles.stepDone : undefined}>
+              <span>{index + 1}</span>
+              {label}
+            </li>
+          ))}
+        </ol>
+
+        <form className={styles.layout} onSubmit={place}>
+          <div className={styles.main}>
+            <section className={styles.card}>
+              <h2 className={styles.cardTitle}>
+                <span className={styles.badge}>1</span>Thông tin giao hàng
+              </h2>
+              {addresses.length > 0 ? (
+                <div className={styles.options}>
+                  {addresses.map((item) => (
+                    <label key={item.id} className={styles.option} data-active={addressId === item.id}>
+                      <input
+                        type="radio"
+                        name="address"
+                        checked={addressId === item.id}
+                        onChange={() => setAddressId(item.id)}
+                      />
+                      <span className={styles.optionBody}>
+                        <strong>
+                          {item.recipientName} · {item.phone}
+                          {item.isDefault ? <em className={styles.tag}>Mặc định</em> : null}
+                        </strong>
+                        <small>{formatAddress(item)}</small>
+                      </span>
+                    </label>
+                  ))}
+                  <label className={styles.option} data-active={manual}>
+                    <input type="radio" name="address" checked={manual} onChange={() => setAddressId("")} />
+                    <span className={styles.optionBody}>
+                      <strong>Giao tới địa chỉ khác</strong>
+                      <small>Nhập địa chỉ mới cho đơn này.</small>
+                    </span>
+                  </label>
+                </div>
+              ) : null}
+              {manual ? (
+                <div className={styles.form}>
+                  <TextInput label="Người nhận" name="customerName" required minLength={2} fullWidth />
+                  <TextInput
+                    label="Số điện thoại"
+                    name="customerPhone"
+                    type="tel"
+                    required
+                    pattern="0\d{9}"
+                    title="Số điện thoại 10 số, bắt đầu bằng 0"
+                    fullWidth
+                  />
+                  <div className={styles.full}>
+                    <TextInput label="Địa chỉ (số nhà, đường)" name="shippingAddress" required minLength={5} fullWidth />
+                  </div>
+                  <TextInput label="Phường/xã" name="shippingWard" fullWidth />
+                  <TextInput label="Quận/huyện" name="shippingDistrict" fullWidth />
+                  <div className={styles.full}>
+                    <TextInput label="Tỉnh/thành" name="shippingProvince" fullWidth />
+                  </div>
+                </div>
+              ) : null}
+            </section>
+
+            <section className={styles.card}>
+              <h2 className={styles.cardTitle}>
+                <span className={styles.badge}>2</span>Phương thức thanh toán
+              </h2>
+              <div className={styles.methods}>
+                {methods.map((item) => (
+                  <label key={item.id} className={styles.option} data-active={payment === item.id}>
+                    <input
+                      type="radio"
+                      name="paymentMethod"
+                      checked={payment === item.id}
+                      onChange={() => setPayment(item.id)}
+                    />
+                    <span className={styles.methodIcon} data-method={item.id}>
+                      {item.icon}
+                    </span>
+                    <span className={styles.optionBody}>
+                      <strong>{item.label}</strong>
+                      <small>{item.hint}</small>
+                    </span>
+                  </label>
                 ))}
-              </select>
-            </label>
-          ) : (
-            <div className={styles.form}>
-              <TextInput label="Người nhận" name="customerName" required fullWidth />
-              <TextInput label="Số điện thoại" name="customerPhone" required fullWidth />
-              <div className={styles.full}>
-                <TextInput label="Địa chỉ" name="shippingAddress" required fullWidth />
               </div>
-              <TextInput label="Phường/xã" name="shippingWard" fullWidth />
-              <TextInput label="Quận/huyện" name="shippingDistrict" fullWidth />
-              <TextInput label="Tỉnh/thành" name="shippingProvince" fullWidth />
+              <p className={styles.payHint} data-method={payment}>
+                {payment === "MOMO"
+                  ? "Sau khi đặt hàng, bạn sẽ được chuyển sang cổng MoMo để quét QR hoặc xác nhận trên app."
+                  : "Không cần thanh toán trước. Kiểm tra hàng rồi trả tiền mặt cho shipper khi nhận."}
+              </p>
+            </section>
+
+            <section className={styles.card}>
+              <h2 className={styles.cardTitle}>
+                <span className={styles.badge}>3</span>Ghi chú đơn hàng
+              </h2>
+              <textarea
+                className={styles.textarea}
+                value={note}
+                onChange={(event) => setNote(event.target.value)}
+                placeholder="Ví dụ: giao giờ hành chính, gọi trước khi giao…"
+                maxLength={500}
+                rows={3}
+              />
+            </section>
+          </div>
+
+          <aside className={styles.summary}>
+            <div className={styles.card}>
+              <h2 className={styles.summaryTitle}>
+                Đơn hàng <span>({lines.length} sản phẩm)</span>
+              </h2>
+              <ul className={styles.items}>
+                {lines.map((line) => (
+                  <li key={line.id}>
+                    <span className={styles.thumb}>
+                      {line.productImage ? <img src={line.productImage} alt="" /> : null}
+                      <b>{line.quantity}</b>
+                    </span>
+                    <span className={styles.itemName}>
+                      {line.productName}
+                      {line.variantSku ? <small>{line.variantSku}</small> : null}
+                    </span>
+                    <span>{formatMoney(line.lineTotal)}</span>
+                  </li>
+                ))}
+              </ul>
+
+              <div className={styles.coupon}>
+                {summary?.coupon ? (
+                  <div className={styles.applied}>
+                    <span>
+                      <strong>{summary.coupon.code}</strong> · {summary.coupon.name}
+                    </span>
+                    <button type="button" onClick={removeCoupon} aria-label="Bỏ mã giảm giá">×</button>
+                  </div>
+                ) : (
+                  <div className={styles.couponRow}>
+                    <input
+                      value={couponInput}
+                      onChange={(event) => setCouponInput(event.target.value)}
+                      onKeyDown={(event) => {
+                        if (event.key === "Enter") {
+                          event.preventDefault();
+                          applyCoupon(couponInput);
+                        }
+                      }}
+                      placeholder="Mã giảm giá"
+                      aria-label="Mã giảm giá"
+                    />
+                    <Button type="button" variant="outline" onClick={() => applyCoupon(couponInput)}>
+                      Áp dụng
+                    </Button>
+                  </div>
+                )}
+                {!summary?.coupon && coupons.length > 0 ? (
+                  <div className={styles.chips}>
+                    {coupons.map((coupon) => (
+                      <button key={coupon.id} type="button" title={coupon.name} onClick={() => applyCoupon(coupon.code)}>
+                        {coupon.code}
+                      </button>
+                    ))}
+                  </div>
+                ) : null}
+              </div>
+
+              <dl className={styles.totals}>
+                <div>
+                  <dt>Tạm tính</dt>
+                  <dd>{formatMoney(subtotal)}</dd>
+                </div>
+                <div>
+                  <dt>Giảm giá</dt>
+                  <dd className={discount > 0 ? styles.discount : undefined}>
+                    {discount > 0 ? `−${formatMoney(discount)}` : formatMoney(0)}
+                  </dd>
+                </div>
+                <div>
+                  <dt>Phí vận chuyển</dt>
+                  <dd>{shippingFee > 0 ? formatMoney(shippingFee) : "Miễn phí"}</dd>
+                </div>
+                <div className={styles.grand}>
+                  <dt>Tổng cộng</dt>
+                  <dd>{formatMoney(total)}</dd>
+                </div>
+              </dl>
+
+              <Button type="submit" variant="primary" size="lg" fullWidth loading={busy} disabled={lines.length === 0}>
+                {submitLabel}
+              </Button>
+              <p className={styles.secure}>
+                <svg {...iconProps} width={16} height={16}>
+                  <rect x="5" y="11" width="14" height="10" rx="2" />
+                  <path d="M8 11V7a4 4 0 0 1 8 0v4" />
+                </svg>
+                Thông tin thanh toán được mã hóa và bảo mật.
+              </p>
+              <Link to="/cart" className={styles.back}>← Quay lại giỏ hàng</Link>
             </div>
-          )}
-          <label>
-            Mã giảm giá{" "}
-            <input value={couponCode} onChange={(event) => setCouponCode(event.target.value)} list="coupons" />
-            <datalist id="coupons">
-              {coupons.map((coupon) => (
-                <option key={coupon.id} value={coupon.code}>{coupon.name}</option>
-              ))}
-            </datalist>
-          </label>
-          <label>
-            Ghi chú
-            <textarea value={note} onChange={(event) => setNote(event.target.value)} />
-          </label>
-          <Button type="button" variant="ghost" disabled={busy} onClick={() => void preview()}>
-            Xem tổng
-          </Button>
-        </div>
-        <aside className={styles.summary}>
-          <h2>Đơn hàng</h2>
-          {items.length === 0 ? (
-            <p>Giỏ trống. <Link to="/shop">Về cửa hàng</Link></p>
-          ) : (
-            items.map((line) => (
-              <div key={line.id} className={styles.line}>
-                <span className={styles.productName}>{line.productName} × {line.quantity}</span>
-                <span>{formatMoney(line.lineTotal)}</span>
-              </div>
-            ))
-          )}
-          <div className={styles.totals}>
-            <span>Tạm tính</span>
-            <span>{formatMoney(summary?.subtotal ?? items.reduce((sum, line) => sum + (line.isAvailable ? line.lineTotal : 0), 0))}</span>
-          </div>
-          <div className={styles.totals}>
-            <span>Giảm giá</span>
-            <span>{formatMoney(summary?.discountAmount ?? 0)}</span>
-          </div>
-          <div className={styles.totals}>
-            <span>Phí vận chuyển</span>
-            <span>{formatMoney(summary?.shippingFee ?? SHIPPING_FEE)}</span>
-          </div>
-          <div className={styles.totals}>
-            <span>Tổng</span>
-            <span className={styles.total}>{formatMoney(summary?.totalAmount ?? 0)}</span>
-          </div>
-          <div className={styles.payments}>
-            {methods.map((item) => (
-              <label key={item.id}>
-                <input
-                  type="radio"
-                  name="paymentMethod"
-                  checked={payment === item.id}
-                  onChange={() => setPayment(item.id)}
-                />{" "}
-                {item.label}
-              </label>
-            ))}
-          </div>
-          <p className={styles.note}>MoMo và ZaloPay chưa tạo được link thanh toán nên không hiện ở đây.</p>
-          <Button type="submit" variant="outline" fullWidth disabled={busy}>
-            Đặt hàng
-          </Button>
-        </aside>
-      </form>
-      <FeatureBar />
-    </>
+          </aside>
+        </form>
+      </div>
+    </div>
   );
 }

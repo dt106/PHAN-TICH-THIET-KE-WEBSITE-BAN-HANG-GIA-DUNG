@@ -74,6 +74,6 @@ export const checkoutValidator = [
   body("paymentMethod")
     .notEmpty()
     .withMessage("Phương thức thanh toán là bắt buộc")
-    .isIn(["COD", "BANK", "MOMO", "VNPAY", "ZALOPAY"])
+    .isIn(["COD", "MOMO"])
     .withMessage("Phương thức thanh toán không hợp lệ"),
 ];

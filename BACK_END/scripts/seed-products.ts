@@ -604,7 +604,7 @@ async function main() {
   for (const item of products) {
     const prices = item.variants.map((variant) => variant.price);
     const product = await Product.findOneAndUpdate(
-      { slug: item.slug },
+      { $or: [{ slug: item.slug }, { sku: item.sku }] },
       {
         $set: {
           categoryId: categoryId.get(item.category),

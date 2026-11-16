@@ -28,7 +28,7 @@ export const MOMO_CONFIG = {
   endpoint: process.env.MOMO_ENDPOINT || "https://test-payment.momo.vn",
   redirectUrl:
     process.env.MOMO_REDIRECT_URL ||
-    "http://localhost:5173/payment/result",
+    "http://localhost:5000/api/payments/momo/return",
   ipnUrl:
     process.env.MOMO_IPN_URL || "http://localhost:5000/api/payments/momo/ipn",
 };

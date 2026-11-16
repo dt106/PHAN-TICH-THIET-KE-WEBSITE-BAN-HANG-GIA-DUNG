@@ -2,11 +2,17 @@
   display: flex;
   align-items: center;
   gap: 14px;
-  min-height: 100px;
-  padding: 0 max(24px, calc((100% - 1240px) / 2));
-  background: #f9f1e7;
+  min-height: 64px;
+  margin: 16px auto 0;
+  width: min(1240px, calc(100% - 48px));
+  padding: 0 20px;
+  background: #fff;
+  border: 1px solid var(--store-line);
+  border-radius: var(--store-radius);
+  box-shadow: var(--store-shadow);
   color: #9f9f9f;
   font-weight: 400;
+  box-sizing: border-box;
 }
 
 .crumbs a {
@@ -36,7 +42,10 @@
 .photo {
   border: 0;
   padding: 0;
-  background: var(--store-card);
+  background: #fff;
+  border-radius: var(--store-radius-sm);
+  overflow: hidden;
+  box-shadow: var(--store-shadow);
 }
 
 .thumbs img,

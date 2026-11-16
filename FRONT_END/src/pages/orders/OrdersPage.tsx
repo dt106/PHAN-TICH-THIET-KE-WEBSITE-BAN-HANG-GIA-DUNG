@@ -5,7 +5,7 @@ import { formatMoney } from "../../lib/money.ts";
 import { errorText } from "../../services/http.ts";
 import type { Pagination } from "../../services/http.ts";
 import { orderService } from "../../services/order.service.ts";
-import { orderStatusLabel, paymentStatusLabel } from "../../lib/orderLabel.ts";
+import { orderStatusLabel, paymentMethodLabel, paymentStatusLabel } from "../../lib/orderLabel.ts";
 import type { Order, OrderStatus } from "../../types/api.ts";
 
 const statuses: { value: "" | OrderStatus; label: string }[] = [
@@ -75,7 +75,7 @@ export function OrdersPage() {
                   {orderStatusLabel(order.status)}
                 </h2>
                 <p>
-                  {new Date(order.createdAt).toLocaleString("vi-VN")} · {order.paymentMethod} ·{" "}
+                  {new Date(order.createdAt).toLocaleString("vi-VN")} · {paymentMethodLabel(order.paymentMethod)} ·{" "}
                   {paymentStatusLabel(order.paymentStatus)}
                 </p>
                 <strong>Tổng {formatMoney(order.totalAmount)}</strong>

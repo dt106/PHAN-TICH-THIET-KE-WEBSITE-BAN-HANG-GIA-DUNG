@@ -95,6 +95,37 @@ export const vnpayIpn = async (req: Request, res: Response, next: NextFunction) 
   }
 };
 
+const applyMomoResult = (body: Record<string, string>) =>
+  paymentService.applyGatewayResult({
+    gateway: "MOMO",
+    transactionCode: String(body.transId ?? body.orderId),
+    orderNumber: paymentService.momoOrderNumber(String(body.orderId ?? "")),
+    amount: Number(body.amount),
+    success: Number(body.resultCode) === 0,
+    message: body.message,
+    rawPayload: body,
+  });
+
+export const momoReturn = async (req: Request, res: Response) => {
+  const query = req.query as Record<string, string>;
+  const orderNumber = paymentService.momoOrderNumber(String(query.orderId ?? ""));
+
+  if (!paymentService.verifyMomoCallback(query)) {
+    return res.redirect(paymentService.buildPaymentResultRedirect(orderNumber, "invalid"));
+  }
+
+  try {
+    await applyMomoResult(query);
+  } catch {
+    return res.redirect(paymentService.buildPaymentResultRedirect(orderNumber, "invalid"));
+  }
+
+  const success = Number(query.resultCode) === 0;
+  return res.redirect(
+    paymentService.buildPaymentResultRedirect(orderNumber, success ? "success" : "failed")
+  );
+};
+
 export const momoIpn = async (req: Request, res: Response, next: NextFunction) => {
   const body = req.body as Record<string, string>;
 
@@ -102,18 +133,8 @@ export const momoIpn = async (req: Request, res: Response, next: NextFunction) =
     return res.status(200).json({ resultCode: 42, message: "Invalid signature" });
   }
 
-  const orderNumber = String(body.orderId ?? "").replace(/-\d+$/, "");
-
   try {
-    await paymentService.applyGatewayResult({
-      gateway: "MOMO",
-      transactionCode: String(body.transId ?? body.orderId),
-      orderNumber,
-      amount: Number(body.amount),
-      success: Number(body.resultCode) === 0,
-      message: body.message,
-      rawPayload: body,
-    });
+    await applyMomoResult(body);
     return res.status(200).json({ resultCode: 0, message: "Thành công" });
   } catch (error) {
     return res.status(200).json({ resultCode: 99, message: getErrorMessage(error) });

@@ -57,6 +57,7 @@
 .primary {
   background: var(--ui-primary);
   color: var(--ui-text-on-primary);
+  box-shadow: 0 8px 18px rgba(184, 142, 47, 0.28);
 }
 
 .primary:hover:not(:disabled) {

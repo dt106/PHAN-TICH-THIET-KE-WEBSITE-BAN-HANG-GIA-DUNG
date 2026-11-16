@@ -2,10 +2,13 @@
   position: sticky;
   top: 0;
   z-index: 20;
-  height: 100px;
+  height: 88px;
   display: flex;
   align-items: center;
-  background: #fff;
+  background: rgba(255, 255, 255, 0.92);
+  backdrop-filter: blur(12px);
+  border-bottom: 1px solid var(--store-line);
+  box-shadow: 0 8px 24px rgba(26, 26, 26, 0.04);
 }
 
 .inner {

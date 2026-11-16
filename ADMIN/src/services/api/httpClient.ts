@@ -7,9 +7,9 @@
 
 import type { QueryParams, RequestOptions } from './api.types';
 
-// Địa chỉ Backend API
+// Dev: "/api" để Vite proxy chuyển tiếp. Production: set VITE_API_BASE_URL.
 const API_BASE_URL = (
-  import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000/api'
+  import.meta.env.VITE_API_BASE_URL || '/api'
 ).replace(/\/+$/, '');
 
 const TOKEN_KEY = 'admin_access_token';
@@ -73,7 +73,10 @@ export const authToken = {
  */
 function buildUrl(path: string, params?: QueryParams): string {
   const normalizedPath = path.replace(/^\/+/, '');
-  const url = new URL(`${API_BASE_URL}/${normalizedPath}`);
+  const href = `${API_BASE_URL}/${normalizedPath}`;
+  const url = href.startsWith('http')
+    ? new URL(href)
+    : new URL(href, window.location.origin);
 
   if (params) {
     Object.entries(params).forEach(([key, value]) => {

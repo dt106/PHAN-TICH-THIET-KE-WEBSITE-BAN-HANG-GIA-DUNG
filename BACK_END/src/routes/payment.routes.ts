@@ -21,6 +21,7 @@ router.get("/my-payments", authMiddleware, paymentController.getMyPayments);
 
 router.get("/vnpay/return", paymentController.vnpayReturn);
 router.get("/vnpay/ipn", paymentController.vnpayIpn);
+router.get("/momo/return", paymentController.momoReturn);
 router.post("/momo/ipn", paymentController.momoIpn);
 router.post("/zalopay/callback", paymentController.zalopayCallback);
 router.post(

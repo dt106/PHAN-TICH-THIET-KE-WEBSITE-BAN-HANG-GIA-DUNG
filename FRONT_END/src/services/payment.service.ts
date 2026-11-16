@@ -3,6 +3,7 @@ import type { PaymentSession } from "../types/api.ts";
 
 export type MyPayment = {
   id: string;
+  orderId: string;
   amount: number;
   status: string;
   paymentMethod: string;
@@ -27,8 +28,29 @@ const mockCompletePayment = (orderNumber: string, success = true) => {
   });
 };
 
+/**
+ * Tạo phiên MoMo. Cổng thật → redirect ngoài.
+ * PAYMENT_ENV=mock → trang giả lập /payment/momo trên web.
+ */
+const startPayment = async (orderId: string, orderNumber: string) => {
+  const session = await createPayment(orderId);
+  const url = session.data.paymentUrl;
+  if (url?.startsWith("http")) {
+    window.location.assign(url);
+    return null;
+  }
+  if (url?.startsWith("mock:")) {
+    const amount = session.data.payment.amount;
+    return {
+      path: `/payment/momo?order=${encodeURIComponent(orderNumber)}&id=${orderId}&amount=${amount}`,
+    };
+  }
+  throw new Error("Không tạo được link thanh toán MoMo.");
+};
+
 export const paymentService = {
   createPayment,
   getMyPayments,
   mockCompletePayment,
+  startPayment,
 };

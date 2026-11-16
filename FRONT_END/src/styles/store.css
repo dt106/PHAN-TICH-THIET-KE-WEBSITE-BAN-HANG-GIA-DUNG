@@ -3,13 +3,19 @@
   --store-gold-hover: #9a7424;
   --store-gold-active: #7f5f1c;
   --store-cream: #fff3e3;
-  --store-card: #f4f5f7;
+  --store-card: #ffffff;
   --store-text: #3a3a3a;
   --store-muted: #898989;
   --store-gray: #9f9f9f;
-  --store-line: rgba(0, 0, 0, 0.17);
+  --store-line: rgba(0, 0, 0, 0.08);
   --store-red: #e97171;
   --store-green: #2ec1ac;
+  --store-radius-sm: 10px;
+  --store-radius: 16px;
+  --store-radius-lg: 22px;
+  --store-shadow: 0 8px 24px rgba(26, 26, 26, 0.06);
+  --store-shadow-md: 0 14px 36px rgba(26, 26, 26, 0.1);
+  --store-shadow-hover: 0 18px 40px rgba(184, 142, 47, 0.16);
 }
 
 .shell {
@@ -17,10 +23,10 @@
   --ui-primary-hover: var(--store-gold-hover);
   --ui-primary-active: var(--store-gold-active);
   --ui-focus: 0 0 0 3px #b88e2f4d;
-  --ui-radius: 0px;
+  --ui-radius: var(--store-radius-sm);
   --ui-text: var(--store-text);
   --ui-text-on-primary: #fff;
-  --ui-border: #9f9f9f;
+  --ui-border: #e5e7eb;
   --ui-surface: #fff;
   width: 100%;
   max-width: 100%;
@@ -28,7 +34,9 @@
   overflow-x: clip;
   display: flex;
   flex-direction: column;
-  background: #fff;
+  background:
+    radial-gradient(circle at top left, rgba(255, 243, 227, 0.7), transparent 42%),
+    linear-gradient(180deg, #faf9f7 0%, #f4f5f7 100%);
   color: var(--store-text);
   color-scheme: light;
   font-family: Poppins, sans-serif;
@@ -54,4 +62,13 @@
 
 .page {
   flex: 1;
+}
+
+/* Card chuẩn dùng lại trên nhiều trang */
+.shell :where(article, section, aside, form).card,
+.storeCard {
+  background: var(--store-card);
+  border: 1px solid var(--store-line);
+  border-radius: var(--store-radius);
+  box-shadow: var(--store-shadow);
 }

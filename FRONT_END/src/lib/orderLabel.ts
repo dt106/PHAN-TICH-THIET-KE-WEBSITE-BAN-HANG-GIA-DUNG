@@ -10,10 +10,18 @@ const statuses: { value: string; label: string }[] = [
 ];
 
 const paymentStatuses: Record<string, string> = {
-  pending: "chờ thanh toán",
-  paid: "đã thanh toán",
-  failed: "thất bại",
-  refunded: "đã hoàn",
+  pending: "Chờ thanh toán",
+  paid: "Đã thanh toán",
+  failed: "Thất bại",
+  refunded: "Đã hoàn",
+};
+
+const paymentMethods: Record<string, string> = {
+  COD: "Thanh toán khi nhận hàng",
+  MOMO: "Ví MoMo",
+  BANK: "Chuyển khoản",
+  VNPAY: "VNPay",
+  ZALOPAY: "ZaloPay",
 };
 
 export function orderStatusLabel(status: string) {
@@ -22,4 +30,8 @@ export function orderStatusLabel(status: string) {
 
 export function paymentStatusLabel(status: string) {
   return paymentStatuses[status] ?? status;
+}
+
+export function paymentMethodLabel(method: string) {
+  return paymentMethods[method] ?? method;
 }
