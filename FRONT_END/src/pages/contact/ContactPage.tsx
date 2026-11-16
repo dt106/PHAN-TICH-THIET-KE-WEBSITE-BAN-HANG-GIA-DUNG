@@ -7,7 +7,7 @@ export function ContactPage() {
   function submit(event: FormEvent) {
     event.preventDefault();
     showToast("Message sent. We will reply by email.", "success");
-    event.currentTarget instanceof HTMLFormElement && event.currentTarget.reset();
+    if (event.currentTarget instanceof HTMLFormElement) event.currentTarget.reset();
   }
 
   return (

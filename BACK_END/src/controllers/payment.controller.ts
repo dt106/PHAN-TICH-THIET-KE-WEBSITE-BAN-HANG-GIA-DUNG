@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction } from "express";
 import * as paymentService from "../services/payment.service";
 import { PAYMENT_ENV } from "../config/payment";
+import Order from "../models/Order.model";
 
 // Trích message lỗi; chỉ dùng cho body giao thức gateway (vnpay/momo/zalopay luôn trả HTTP 200).
 const getErrorMessage = (error: unknown): string =>
@@ -94,6 +95,37 @@ export const vnpayIpn = async (req: Request, res: Response, next: NextFunction) 
   }
 };
 
+const applyMomoResult = (body: Record<string, string>) =>
+  paymentService.applyGatewayResult({
+    gateway: "MOMO",
+    transactionCode: String(body.transId ?? body.orderId),
+    orderNumber: paymentService.momoOrderNumber(String(body.orderId ?? "")),
+    amount: Number(body.amount),
+    success: Number(body.resultCode) === 0,
+    message: body.message,
+    rawPayload: body,
+  });
+
+export const momoReturn = async (req: Request, res: Response) => {
+  const query = req.query as Record<string, string>;
+  const orderNumber = paymentService.momoOrderNumber(String(query.orderId ?? ""));
+
+  if (!paymentService.verifyMomoCallback(query)) {
+    return res.redirect(paymentService.buildPaymentResultRedirect(orderNumber, "invalid"));
+  }
+
+  try {
+    await applyMomoResult(query);
+  } catch {
+    return res.redirect(paymentService.buildPaymentResultRedirect(orderNumber, "invalid"));
+  }
+
+  const success = Number(query.resultCode) === 0;
+  return res.redirect(
+    paymentService.buildPaymentResultRedirect(orderNumber, success ? "success" : "failed")
+  );
+};
+
 export const momoIpn = async (req: Request, res: Response, next: NextFunction) => {
   const body = req.body as Record<string, string>;
 
@@ -101,18 +133,8 @@ export const momoIpn = async (req: Request, res: Response, next: NextFunction) =
     return res.status(200).json({ resultCode: 42, message: "Invalid signature" });
   }
 
-  const orderNumber = String(body.orderId ?? "").replace(/-\d+$/, "");
-
   try {
-    await paymentService.applyGatewayResult({
-      gateway: "MOMO",
-      transactionCode: String(body.transId ?? body.orderId),
-      orderNumber,
-      amount: Number(body.amount),
-      success: Number(body.resultCode) === 0,
-      message: body.message,
-      rawPayload: body,
-    });
+    await applyMomoResult(body);
     return res.status(200).json({ resultCode: 0, message: "Thành công" });
   } catch (error) {
     return res.status(200).json({ resultCode: 99, message: getErrorMessage(error) });
@@ -157,11 +179,25 @@ export const mockComplete = async (req: Request, res: Response, next: NextFuncti
 
   try {
     const success = req.body.success !== false;
+    const rawAmount = req.body.amount;
+    let amount = Number(rawAmount);
+    if (rawAmount === undefined || rawAmount === null || rawAmount === "") {
+      const order = await Order.findOne({ orderNumber: String(req.body.orderNumber) }).select(
+        "totalAmount",
+      );
+      if (!order) {
+        return res.status(404).json({
+          success: false,
+          message: "Không tìm thấy đơn hàng.",
+        });
+      }
+      amount = order.totalAmount;
+    }
     const result = await paymentService.applyGatewayResult({
       gateway: "VNPAY",
       transactionCode: `MOCK-${req.body.orderNumber}`,
       orderNumber: req.body.orderNumber,
-      amount: Number(req.body.amount),
+      amount,
       success,
       message: success ? "Mock success" : "Mock failed",
       rawPayload: { source: "mock", ...req.body },

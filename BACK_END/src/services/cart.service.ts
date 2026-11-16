@@ -2,6 +2,7 @@ import { Types } from "mongoose";
 import { AppError } from "../utils/appError";
 import Cart, { ICart } from "../models/Cart.model";
 import Product from "../models/Product.model";
+import ProductMedia from "../models/ProductMedia.model";
 import ProductVariant from "../models/ProductVariant.model";
 
 export interface CartItemResponse {
@@ -40,6 +41,19 @@ export const getUserCart = async (userId: string): Promise<CartSummaryResponse> 
     })
     .lean();
 
+  const productIds = cartRecords
+    .map((item: any) => item.productId?._id)
+    .filter(Boolean);
+  const primaryMedias = await ProductMedia.find({
+    productId: { $in: productIds },
+    isPrimary: true,
+  }).lean();
+  const mediaMap = new Map<string, string>();
+  primaryMedias.forEach((media) => {
+    const key = media.productId.toString();
+    if (!mediaMap.has(key)) mediaMap.set(key, media.mediaUrl);
+  });
+
   let subtotal = 0;
   let totalQuantity = 0;
 
@@ -68,12 +82,14 @@ export const getUserCart = async (userId: string): Promise<CartSummaryResponse> 
       totalQuantity += item.quantity;
     }
 
+    const productId = product?._id?.toString() ?? item.productId?.toString() ?? "";
+
     return {
       id: item._id.toString(),
-      productId: product?._id?.toString() ?? item.productId?.toString() ?? "",
+      productId,
       productName: product?.name ?? "Sản phẩm không tồn tại",
       productSlug: product?.slug ?? "",
-      productImage: variant?.image ?? null,
+      productImage: variant?.image || mediaMap.get(productId) || null,
       variantId:
         variant?._id?.toString() ?? (item.variantId ? item.variantId.toString() : null),
       variantSku: variant?.sku ?? null,

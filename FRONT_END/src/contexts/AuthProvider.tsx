@@ -6,13 +6,10 @@ import { AuthContext } from "./auth-context.ts";
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
-  const [ready, setReady] = useState(false);
+  const [ready, setReady] = useState(() => !readToken());
 
   useEffect(() => {
-    if (!readToken()) {
-      setReady(true);
-      return;
-    }
+    if (!readToken()) return;
     authService.getCurrentCustomer()
       .then((result) => setUser(result.data.user))
       .catch(() => {

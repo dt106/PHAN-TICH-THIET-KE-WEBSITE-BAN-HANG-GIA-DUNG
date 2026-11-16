@@ -1,3 +1,4 @@
+import { Types } from "mongoose";
 import Product, { IProduct } from "../models/Product.model";
 import Category from "../models/Category.model";
 import Brand from "../models/Brand.model";
@@ -90,6 +91,34 @@ const buildSortOrder = (sort?: ProductSortOption): Record<string, 1 | -1> => {
   }
 };
 
+/** Danh mục cha trên trang chủ phải kéo theo sản phẩm của danh mục con. */
+const categoryIdsIncludingDescendants = async (
+  categoryId: string,
+): Promise<Types.ObjectId[]> => {
+  if (!Types.ObjectId.isValid(categoryId)) return [];
+
+  const ids: Types.ObjectId[] = [new Types.ObjectId(categoryId)];
+  const seen = new Set(ids.map((id) => id.toString()));
+  let frontier = [...ids];
+
+  while (frontier.length > 0) {
+    const children = await Category.find({
+      parentId: { $in: frontier },
+      isActive: true,
+    }).select("_id");
+    frontier = [];
+    for (const child of children) {
+      const key = child._id.toString();
+      if (seen.has(key)) continue;
+      seen.add(key);
+      ids.push(child._id);
+      frontier.push(child._id);
+    }
+  }
+
+  return ids;
+};
+
 const toPlainProduct = (product: IProduct): Record<string, any> => {
   const plain = product.toObject() as Record<string, any>;
   plain.id = product._id.toString();
@@ -139,7 +168,10 @@ export const getPublicProducts = async (
   const skip = (page - 1) * limit;
 
   const query: any = { isActive: true };
-  if (options.categoryId) query.categoryId = options.categoryId;
+  if (options.categoryId) {
+    const categoryIds = await categoryIdsIncludingDescendants(options.categoryId);
+    query.categoryId = categoryIds.length > 0 ? { $in: categoryIds } : options.categoryId;
+  }
   if (options.brandId) query.brandId = options.brandId;
   if (options.isFeatured !== undefined) query.isFeatured = options.isFeatured;
 
@@ -149,8 +181,14 @@ export const getPublicProducts = async (
     if (options.maxPrice !== undefined) query.basePrice.$lte = options.maxPrice;
   }
 
+  // $text không khớp một phần và dễ trượt tiếng Việt có dấu. Cửa hàng tìm theo tên, SKU, mô tả.
   if (options.search) {
-    query.$text = { $search: options.search };
+    const searchPattern = new RegExp(escapeRegex(options.search), "i");
+    query.$or = [
+      { name: searchPattern },
+      { sku: searchPattern },
+      { description: searchPattern },
+    ];
   }
 
   const [products, total] = await Promise.all([

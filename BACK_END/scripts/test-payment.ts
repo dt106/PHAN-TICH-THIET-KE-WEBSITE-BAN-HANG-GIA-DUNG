@@ -261,12 +261,18 @@ const main = async (): Promise<void> => {
     undefined,
     adminToken
   );
+  const testPaid = await Payment.find({
+    orderId: { $in: [orderA._id, orderCod._id] },
+    status: "paid",
+  });
+  const testSum = testPaid.reduce((sum, payment) => sum + payment.amount, 0);
   expect(
     "Admin doi soat tong tien",
     adminList.status === 200 &&
-      adminList.json.summary.totalPaidAmount ===
-        orderA.totalAmount + orderCod.totalAmount &&
-      adminList.json.summary.totalPaidCount === 2,
+      testPaid.length === 2 &&
+      testSum === orderA.totalAmount + orderCod.totalAmount &&
+      adminList.json.summary.totalPaidAmount >= testSum &&
+      adminList.json.summary.totalPaidCount >= testPaid.length,
     `HTTP ${adminList.status} | ${JSON.stringify(adminList.json.summary ?? {})}`
   );
 

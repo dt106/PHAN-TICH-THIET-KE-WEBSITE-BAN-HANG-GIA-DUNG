@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Outlet, useLocation } from "react-router-dom";
 import "../../styles/store.css";
 import { CartDrawer } from "./CartDrawer.tsx";
@@ -6,12 +6,13 @@ import { Footer } from "./Footer.tsx";
 import { Header } from "./Header.tsx";
 
 export function StoreLayout() {
-  const [cartOpen, setCartOpen] = useState(false);
   const location = useLocation();
-
-  useEffect(() => {
+  const [cartOpen, setCartOpen] = useState(false);
+  const [seenPath, setSeenPath] = useState(location.pathname);
+  if (seenPath !== location.pathname) {
+    setSeenPath(location.pathname);
     setCartOpen(false);
-  }, [location.pathname]);
+  }
 
   return (
     <div className="shell">

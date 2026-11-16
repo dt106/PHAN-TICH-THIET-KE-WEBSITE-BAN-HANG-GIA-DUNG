@@ -10,6 +10,7 @@
  */
 
 import { GoogleGenAI } from "@google/genai";
+import { AppError } from "../utils/appError";
 
 const apiKey = process.env.GEMINI_API_KEY;
 
@@ -25,3 +26,12 @@ export const gemini = new GoogleGenAI({
 
 export const GEMINI_MODEL =
   process.env.GEMINI_MODEL || "gemini-2.5-flash";
+
+export const assertGeminiConfigured = (): void => {
+  if (!apiKey) {
+    throw new AppError(
+      503,
+      "Trợ lý AI chưa được cấu hình. Thiếu GEMINI_API_KEY.",
+    );
+  }
+};

@@ -21,7 +21,7 @@ export interface ValidateCouponResult {
 export const getPublicCoupons = async (): Promise<ICoupon[]> => {
   const now = new Date();
 
-  return Coupon.find({
+  const coupons = await Coupon.find({
     isActive: true,
     $and: [
       {
@@ -43,6 +43,12 @@ export const getPublicCoupons = async (): Promise<ICoupon[]> => {
     )
     .sort({ createdAt: -1 })
     .lean();
+
+  // lean() bỏ plugin toJSON nên client không có field id.
+  return coupons.map((coupon) => ({
+    ...coupon,
+    id: coupon._id.toString(),
+  })) as unknown as ICoupon[];
 };
 
 export const validateAndCalculateCoupon = async (

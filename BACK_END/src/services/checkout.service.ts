@@ -30,14 +30,16 @@ export interface CheckoutSummaryResponse {
   taxAmount: number;
   totalAmount: number;
   coupon: { id: string; code: string; name: string } | null;
-  shippingAddress: {
-    customerName: string;
-    customerPhone: string;
-    addressLine: string;
-    ward: string | null;
-    district: string | null;
-    province: string | null;
-  };
+  shippingAddress: ShippingInfo | null;
+}
+
+interface ShippingInfo {
+  customerName: string;
+  customerPhone: string;
+  addressLine: string;
+  ward: string | null;
+  district: string | null;
+  province: string | null;
 }
 
 export interface CheckoutPayload {
@@ -58,7 +60,7 @@ export interface CheckoutPayload {
 const resolveShippingInfo = async (
   userId: string,
   payload: CheckoutPayload
-): Promise<CheckoutSummaryResponse["shippingAddress"]> => {
+): Promise<ShippingInfo> => {
   if (payload.addressId) {
     const address = await UserAddress.findOne({
       _id: new Types.ObjectId(payload.addressId),
@@ -98,9 +100,7 @@ const resolveShippingInfo = async (
 const buildCheckoutSummary = async (
   userId: string,
   payload: CheckoutPayload
-): Promise<CheckoutSummaryResponse> => {
-  const shipping = await resolveShippingInfo(userId, payload);
-
+): Promise<Omit<CheckoutSummaryResponse, "shippingAddress">> => {
   const cartFilter: Record<string, unknown> = {
     userId: new Types.ObjectId(userId),
   };
@@ -202,15 +202,19 @@ const buildCheckoutSummary = async (
     taxAmount,
     totalAmount,
     coupon: couponRef,
-    shippingAddress: shipping,
   };
 };
 
+/** Xem trước tổng tiền; địa chỉ chỉ bắt buộc khi đặt hàng. */
 export const reviewCheckout = async (
   userId: string,
   payload: CheckoutPayload
 ): Promise<CheckoutSummaryResponse> => {
-  return buildCheckoutSummary(userId, payload);
+  const hasShipping = Boolean(
+    payload.addressId || payload.customerName || payload.customerPhone || payload.shippingAddress
+  );
+  const shippingAddress = hasShipping ? await resolveShippingInfo(userId, payload) : null;
+  return { ...(await buildCheckoutSummary(userId, payload)), shippingAddress };
 };
 
 const generateOrderNumber = async (): Promise<string> => {
@@ -246,6 +250,7 @@ export const placeOrder = async (
     throw new AppError(404, "Tài khoản không tồn tại.");
   }
 
+  const shipping = await resolveShippingInfo(userId, payload);
   const summary = await buildCheckoutSummary(userId, payload);
   const orderNumber = await generateOrderNumber();
 
@@ -253,13 +258,13 @@ export const placeOrder = async (
     orderNumber,
     userId: new Types.ObjectId(userId),
     couponId: summary.coupon ? new Types.ObjectId(summary.coupon.id) : null,
-    customerName: summary.shippingAddress.customerName,
+    customerName: shipping.customerName,
     customerEmail: user.email,
-    customerPhone: summary.shippingAddress.customerPhone,
-    shippingAddress: summary.shippingAddress.addressLine,
-    shippingWard: summary.shippingAddress.ward,
-    shippingDistrict: summary.shippingAddress.district,
-    shippingProvince: summary.shippingAddress.province,
+    customerPhone: shipping.customerPhone,
+    shippingAddress: shipping.addressLine,
+    shippingWard: shipping.ward,
+    shippingDistrict: shipping.district,
+    shippingProvince: shipping.province,
     subtotal: summary.subtotal,
     discountAmount: summary.discountAmount,
     shippingFee: summary.shippingFee,

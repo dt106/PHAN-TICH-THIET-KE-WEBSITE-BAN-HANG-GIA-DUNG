@@ -172,6 +172,7 @@ export type Order = {
   totalAmount: number;
   note?: string | null;
   createdAt: string;
+  bankTransferInfo?: BankTransferInfo | null;
 };
 
 export type OrderItem = {

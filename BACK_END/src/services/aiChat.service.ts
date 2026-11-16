@@ -11,7 +11,7 @@
  */
 
 import { Types } from "mongoose";
-import { gemini, GEMINI_MODEL } from "../config/gemini";
+import { assertGeminiConfigured, gemini, GEMINI_MODEL } from "../config/gemini";
 import { AIConversation } from "../models";
 import { findProductsForAIChat } from "./aiChatProduct.service";
 
@@ -60,6 +60,7 @@ const getOwnerFilter = (
 export const sendAIChatMessage = async (
   input: SendAIChatInput,
 ) => {
+  assertGeminiConfigured();
   const message = input.message.trim();
   const ownerFilter = getOwnerFilter(
     input.userId,

@@ -11,6 +11,7 @@ import { ForgotPasswordPage } from "../pages/auth/ForgotPasswordPage.tsx";
 import { HomePage } from "../pages/home/HomePage.tsx";
 import { OrderDetailPage } from "../pages/orders/OrderDetailPage.tsx";
 import { OrdersPage } from "../pages/orders/OrdersPage.tsx";
+import { MomoCheckoutPage } from "../pages/payment/MomoCheckoutPage.tsx";
 import { PaymentResultPage } from "../pages/payment/PaymentResultPage.tsx";
 import { ProductDetailPage } from "../pages/product-detail/ProductDetailPage.tsx";
 import { ProductsPage } from "../pages/products/ProductsPage.tsx";
@@ -30,6 +31,7 @@ export const router = createBrowserRouter([
       { path: "login", element: <AuthPage /> },
       { path: "forgot-password", element: <ForgotPasswordPage /> },
       { path: "tro-ly", element: <AssistantPage /> },
+      { path: "payment/momo", element: <MomoCheckoutPage /> },
       { path: "payment/result", element: <PaymentResultPage /> },
       {
         element: <RequireAuth />,

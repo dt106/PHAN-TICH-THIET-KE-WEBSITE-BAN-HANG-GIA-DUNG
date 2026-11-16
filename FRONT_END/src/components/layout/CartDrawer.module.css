@@ -29,7 +29,8 @@
   padding: 28px 24px 32px;
   overflow: hidden;
   background: #fff;
-  box-shadow: -8px 0 24px rgba(0, 0, 0, 0.08);
+  border-radius: var(--store-radius-lg) 0 0 var(--store-radius-lg);
+  box-shadow: -12px 0 32px rgba(0, 0, 0, 0.12);
 }
 
 .head {

@@ -64,23 +64,84 @@ export const verifyVnpayCallback = (
   );
 };
 
+const signMomo = (fields: [string, string | number][]): string =>
+  crypto
+    .createHmac("sha256", MOMO_CONFIG.secretKey)
+    .update(fields.map(([key, value]) => `${key}=${value}`).join("&"))
+    .digest("hex");
+
+// Thứ tự field theo đặc tả chữ ký kết quả (IPN và redirect) của MoMo v2.
+const MOMO_RESULT_FIELDS = [
+  "amount", "extraData", "message", "orderId", "orderInfo", "orderType",
+  "partnerCode", "payType", "requestId", "responseTime", "resultCode", "transId",
+];
+
+/** Dùng cho cả body IPN lẫn query redirect của MoMo. */
 export const verifyMomoCallback = (
   body: Record<string, string>
 ): boolean => {
-  const receivedSignature = body.signature;
-  if (!receivedSignature) {
+  if (!body.signature || !MOMO_CONFIG.secretKey) {
     return false;
   }
-  const dataToSign = Object.keys(body)
-    .filter((key) => key !== "signature" && body[key] !== "" && body[key] !== undefined)
-    .sort()
-    .map((key) => `${key}=${body[key]}`)
-    .join("&");
-  const expected = crypto
-    .createHmac("sha256", MOMO_CONFIG.secretKey)
-    .update(dataToSign)
-    .digest("hex");
-  return expected === receivedSignature;
+  const expected = signMomo([
+    ["accessKey", MOMO_CONFIG.accessKey],
+    ...MOMO_RESULT_FIELDS.map((key): [string, string] => [key, body[key] ?? ""]),
+  ]);
+  return expected === body.signature;
+};
+
+/** orderId gửi MoMo có dạng `${orderNumber}-${timestamp}` để mỗi lần thanh toán lại là duy nhất. */
+export const momoOrderNumber = (momoOrderId: string): string =>
+  momoOrderId.replace(/-\d+$/, "");
+
+const buildMomoPaymentUrl = async (
+  order: IOrder
+): Promise<{ paymentUrl: string; expiredAt: Date; gatewayOrderId: string }> => {
+  if (!MOMO_CONFIG.accessKey || !MOMO_CONFIG.secretKey) {
+    throw createHttpError(503, "Cổng MoMo chưa được cấu hình (MOMO_ACCESS_KEY, MOMO_SECRET_KEY).");
+  }
+  const orderId = `${order.orderNumber}-${Date.now()}`;
+  const fields = {
+    amount: order.totalAmount,
+    extraData: "",
+    ipnUrl: MOMO_CONFIG.ipnUrl,
+    orderId,
+    orderInfo: `Thanh toan don hang ${order.orderNumber}`,
+    partnerCode: MOMO_CONFIG.partnerCode,
+    redirectUrl: MOMO_CONFIG.redirectUrl,
+    requestId: orderId,
+    requestType: "captureWallet",
+  };
+  const signature = signMomo([["accessKey", MOMO_CONFIG.accessKey], ...Object.entries(fields)]);
+
+  let data: { resultCode?: number; payUrl?: string; message?: string };
+  try {
+    const response = await fetch(`${MOMO_CONFIG.endpoint}/v2/gateway/api/create`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ ...fields, lang: "vi", signature }),
+    });
+    const raw = await response.text();
+    try {
+      data = JSON.parse(raw) as typeof data;
+    } catch {
+      throw createHttpError(
+        502,
+        `MoMo trả HTTP ${response.status} (không phải JSON). Endpoint có thể bị chặn trên mạng hiện tại.`
+      );
+    }
+  } catch (error) {
+    if (error instanceof AppError) throw error;
+    throw createHttpError(502, "Không kết nối được cổng MoMo.");
+  }
+  if (data.resultCode !== 0 || !data.payUrl) {
+    throw createHttpError(502, `MoMo: ${data.message ?? "không tạo được link thanh toán."}`);
+  }
+  return {
+    paymentUrl: data.payUrl,
+    expiredAt: new Date(Date.now() + SESSION_DURATION_MS),
+    gatewayOrderId: orderId,
+  };
 };
 
 export const verifyZalopayCallback = (
@@ -206,7 +267,7 @@ export const createPayment = async (
       paymentUrl = session.paymentUrl;
       expiredAt = session.expiredAt;
     } else if (order.paymentMethod === "MOMO") {
-      gatewayOrderId = `${order.orderNumber}-${Date.now()}`;
+      ({ paymentUrl, expiredAt, gatewayOrderId } = await buildMomoPaymentUrl(order));
     } else if (order.paymentMethod === "ZALOPAY") {
       gatewayOrderId = `${formatVnpDate(new Date()).slice(4)}_${order.orderNumber}`;
     }
@@ -348,6 +409,7 @@ export const getMyPayments = async (
 
   return payments.map((payment) => ({
     ...payment,
+    id: payment._id.toString(),
     order: orderMap.get(payment.orderId.toString())
       ? {
           orderNumber: orderMap.get(payment.orderId.toString())!.orderNumber,
