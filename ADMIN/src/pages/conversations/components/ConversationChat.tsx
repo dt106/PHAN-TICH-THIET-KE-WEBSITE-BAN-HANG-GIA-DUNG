@@ -1,5 +1,5 @@
 
-import { useState, type FormEvent } from 'react';
+import { useEffect, useRef, useState, type FormEvent } from 'react';
 import {
   CheckCheck,
   CircleUserRound,
@@ -18,15 +18,24 @@ import type {
   MessageView,
 } from '../../../types/conversation.types';
 
+export interface AssigneeOption {
+  id: string | number;
+  name: string;
+}
+
 interface ConversationChatProps {
   conversation: ConversationListItem;
   messages: MessageView[];
-  onSendMessage: (content: string) => void;
-  onAssignAdmin: (adminId: string | number | null) => void;
-  onToggleStatus: () => void;
+  assignees?: AssigneeOption[];
+  loadingMessages?: boolean;
+  sending?: boolean;
+  isFallback?: boolean;
+  onSendMessage: (content: string) => void | Promise<void>;
+  onAssignAdmin: (adminId: string | number | null) => void | Promise<void>;
+  onToggleStatus: () => void | Promise<void>;
 }
 
-const ADMIN_OPTIONS = [
+const ADMIN_OPTIONS: AssigneeOption[] = [
   { id: 1, name: 'Admin' },
   { id: 2, name: 'Nhân viên CSKH' },
 ];
@@ -63,25 +72,37 @@ function formatDateTime(value: string) {
 export default function ConversationChat({
   conversation,
   messages,
+  assignees,
+  loadingMessages = false,
+  sending = false,
+  isFallback = false,
   onSendMessage,
   onAssignAdmin,
   onToggleStatus,
 }: ConversationChatProps) {
   const [reply, setReply] = useState('');
+  const messagesEndRef = useRef<HTMLDivElement | null>(null);
 
-  const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
+  const assigneeOptions =
+    assignees && assignees.length > 0 ? assignees : ADMIN_OPTIONS;
+
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
+  }, [messages, conversation.id]);
+
+  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
 
     const content = reply.trim();
 
-    if (!content || conversation.status === 'closed') return;
+    if (!content || conversation.status === 'closed' || sending) return;
 
-    onSendMessage(content);
+    await onSendMessage(content);
     setReply('');
   };
 
   return (
-    <section className="flex min-h-[600px] min-w-0 flex-col overflow-hidden rounded-xl border border-border-default bg-bg-surface">
+    <section className="flex h-[680px] min-h-[600px] min-w-0 flex-col overflow-hidden rounded-xl border border-border-default bg-bg-surface">
       {/* Thông tin khách hàng */}
       <header className="flex flex-col gap-4 border-b border-border-default p-4 lg:flex-row lg:items-center lg:justify-between">
         <div className="flex min-w-0 items-center gap-3">
@@ -153,7 +174,7 @@ export default function ConversationChat({
         >
           <option value="">Chưa phân công</option>
 
-          {ADMIN_OPTIONS.map((admin) => (
+          {assigneeOptions.map((admin) => (
             <option key={admin.id} value={admin.id}>
               {admin.name}
             </option>
@@ -163,7 +184,13 @@ export default function ConversationChat({
 
       {/* Tin nhắn */}
       <div className="flex-1 space-y-4 overflow-y-auto bg-bg-app/40 p-4 sm:p-6">
-        {messages.length === 0 ? (
+        {loadingMessages && messages.length === 0 ? (
+          <div className="py-12 text-center">
+            <p className="text-sm text-text-secondary">
+              Đang tải lịch sử tin nhắn...
+            </p>
+          </div>
+        ) : messages.length === 0 ? (
           <div className="py-12 text-center">
             <MessageCircle
               size={32}
@@ -175,6 +202,21 @@ export default function ConversationChat({
           </div>
         ) : (
           messages.map((message) => {
+            if (message.message_type === 'system') {
+              return (
+                <div key={message.id} className="flex justify-center py-1">
+                  <div className="max-w-[90%] rounded-full border border-border-default/60 bg-bg-surface/70 px-3.5 py-1.5 text-center text-xs italic text-text-muted">
+                    <span>{message.content}</span>
+                    {message.created_at && (
+                      <span className="ml-2 text-[11px] opacity-75">
+                        • {formatDateTime(message.created_at)}
+                      </span>
+                    )}
+                  </div>
+                </div>
+              );
+            }
+
             const isAdmin = message.sender_role === 'admin';
 
             return (
@@ -218,6 +260,7 @@ export default function ConversationChat({
             );
           })
         )}
+        <div ref={messagesEndRef} />
       </div>
 
       {/* Khung trả lời */}
@@ -235,18 +278,21 @@ export default function ConversationChat({
               onChange={(event) => setReply(event.target.value)}
               placeholder="Nhập nội dung trả lời khách hàng..."
               rows={3}
+              disabled={sending}
               aria-label="Nội dung trả lời"
-              className="w-full resize-y rounded-xl border border-border-default bg-bg-app px-4 py-3 text-sm text-text-primary outline-none placeholder:text-text-muted focus:border-accent-primary"
+              className="w-full resize-y rounded-xl border border-border-default bg-bg-app px-4 py-3 text-sm text-text-primary outline-none placeholder:text-text-muted focus:border-accent-primary disabled:cursor-not-allowed disabled:opacity-60"
             />
 
             <div className="flex items-center justify-between gap-3">
               <p className="text-xs text-text-muted">
-                Tin nhắn được lưu trong mock state.
+                {isFallback
+                  ? 'Đang sử dụng dữ liệu mẫu dự phòng.'
+                  : 'Tin nhắn được lưu trực tiếp vào hệ thống.'}
               </p>
 
-              <Button type="submit" disabled={!reply.trim()}>
+              <Button type="submit" disabled={!reply.trim() || sending}>
                 <Send size={16} className="mr-2" />
-                Gửi trả lời
+                {sending ? 'Đang gửi...' : 'Gửi trả lời'}
               </Button>
             </div>
           </form>

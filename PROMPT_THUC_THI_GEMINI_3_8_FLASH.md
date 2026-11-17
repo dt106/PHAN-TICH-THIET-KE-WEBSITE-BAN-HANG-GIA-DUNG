@@ -118,11 +118,11 @@ Thay thế việc đọc Mock Data tĩnh trong RAM tại `ADMIN/src/pages/conver
 - Tương thích cả ID kiểu chuỗi (MongoID) lẫn số nguyên (Mock ID).
 
 ### 5. Checklist tự đối soát của AI cho Sub-Prompt 2
-- [ ] `ConversationsPage.tsx` đã nạp danh sách hội thoại từ API `conversationsService.getConversations`.
-- [ ] 4 thẻ KPI đã lấy dữ liệu từ API `conversationsService.getStatistics`.
-- [ ] Dropdown nhân viên đã nạp từ API `conversationsService.getAssignees`.
-- [ ] Đã có khối `try/catch` fallback dữ liệu an toàn.
-- [ ] Đã kiểm tra biên dịch bằng lệnh: `npx tsc --noEmit --project ADMIN/tsconfig.app.json`.
+- [x] `ConversationsPage.tsx` đã nạp danh sách hội thoại từ API `conversationsService.getConversations`.
+- [x] 4 thẻ KPI đã lấy dữ liệu từ API `conversationsService.getStatistics`.
+- [x] Dropdown nhân viên đã nạp từ API `conversationsService.getAssignees`.
+- [x] Đã có khối `try/catch` fallback dữ liệu an toàn.
+- [x] Đã kiểm tra biên dịch bằng lệnh: `npx tsc --noEmit --project ADMIN/tsconfig.app.json`.
 
 ---
 
@@ -156,11 +156,11 @@ Thay thế việc đọc Mock Data tĩnh trong RAM tại `ADMIN/src/pages/conver
 - Tự động cuộn xuống tin nhắn mới nhất sau khi gửi thành công.
 
 ### 5. Checklist tự đối soát của AI cho Sub-Prompt 3
-- [ ] Click chọn hội thoại đã gọi API `getConversationMessages` và tải tin nhắn từ DB.
-- [ ] Đã tự động gọi API `markRead` để xóa số tin chưa đọc.
-- [ ] Gửi tin nhắn phản hồi đã gọi API `sendMessage` và lưu thành công vào MongoDB.
-- [ ] Trạng thái cuộc hội thoại tự động chuyển sang `open` khi Admin trả lời ca `pending`.
-- [ ] Đã kiểm tra biên dịch bằng lệnh: `npx tsc --noEmit --project ADMIN/tsconfig.app.json`.
+- [x] Click chọn hội thoại đã gọi API `getConversationMessages` và tải tin nhắn từ DB.
+- [x] Đã tự động gọi API `markRead` để xóa số tin chưa đọc.
+- [x] Gửi tin nhắn phản hồi đã gọi API `sendMessage` và lưu thành công vào MongoDB.
+- [x] Trạng thái cuộc hội thoại tự động chuyển sang `open` khi Admin trả lời ca `pending`.
+- [x] Đã kiểm tra biên dịch bằng lệnh: `npx tsc --noEmit --project ADMIN/tsconfig.app.json`.
 
 ---
 
@@ -195,12 +195,12 @@ Thay thế việc đọc Mock Data tĩnh trong RAM tại `ADMIN/src/pages/conver
 - Khi hội thoại bị đóng, nút gửi tin nhắn và khung soạn thảo phải bị vô hiệu hóa hoàn toàn (`disabled`).
 
 ### 5. Checklist tự đối soát của AI cho Sub-Prompt 4
-- [ ] Chọn nhân viên phân công đã gọi API `assignAdmin` và lưu vào MongoDB.
-- [ ] Tin nhắn hệ thống ghi nhận bàn giao hiển thị chính xác trên khung chat.
-- [ ] Bấm Đóng / Mở lại đã gọi API `updateStatus`.
-- [ ] Khung soạn thảo tin nhắn bị khóa khi hội thoại ở trạng thái `closed`.
-- [ ] Tin nhắn hệ thống ghi nhận đóng/mở hiển thị chính xác.
-- [ ] Đã kiểm tra biên dịch bằng lệnh: `npx tsc --noEmit --project ADMIN/tsconfig.app.json`.
+- [x] Chọn nhân viên phân công đã gọi API `assignAdmin` và lưu vào MongoDB.
+- [x] Tin nhắn hệ thống ghi nhận bàn giao hiển thị chính xác trên khung chat.
+- [x] Bấm Đóng / Mở lại đã gọi API `updateStatus`.
+- [x] Khung soạn thảo tin nhắn bị khóa khi hội thoại ở trạng thái `closed`.
+- [x] Tin nhắn hệ thống ghi nhận đóng/mở hiển thị chính xác.
+- [x] Đã kiểm tra biên dịch bằng lệnh: `npx tsc --noEmit --project ADMIN/tsconfig.app.json`.
 
 ---
 
@@ -238,10 +238,10 @@ Vì không nằm trong phạm vi thiết kế UI Front-end khách hàng, bạn c
 - Dọn dẹp dữ liệu kiểm thử sau khi hoàn thành để không làm bẩn DB.
 
 ### 5. Checklist tự đối soát của AI cho Sub-Prompt 5
-- [ ] Tệp `test-customer-conversation-flow.ts` đã được tạo và không có lỗi cú pháp.
-- [ ] Bao quát đủ 6 ca kiểm thử (Tạo ca, Lấy current, Gửi tin, Đếm tin chưa đọc, Re-open khi đóng, Đánh dấu đọc).
-- [ ] Chạy kịch bản kiểm thử và đạt kết quả **100% PASS**.
-- [ ] Đã kiểm tra biên dịch bằng lệnh: `npx tsc --noEmit BACK_END/scripts/test-customer-conversation-flow.ts --skipLibCheck`.
+- [x] Tệp `test-customer-conversation-flow.ts` đã được tạo và không có lỗi cú pháp.
+- [x] Bao quát đủ 6 ca kiểm thử (Tạo ca, Lấy current, Gửi tin, Đếm tin chưa đọc, Re-open khi đóng, Đánh dấu đọc).
+- [x] Chạy kịch bản kiểm thử và đạt kết quả **100% PASS**.
+- [x] Đã kiểm tra biên dịch bằng lệnh: `npx tsc --noEmit BACK_END/scripts/test-customer-conversation-flow.ts --skipLibCheck`.
 
 ---
 
@@ -284,5 +284,5 @@ Báo cáo lại cho người dùng theo đúng khung mẫu sau:
 ```
 
 ### 4. Checklist tự đối soát của AI cho Sub-Prompt 6
-- [ ] Đã chạy kiểm tra TypeScript trên tất cả các tệp liên quan và đạt **0 lỗi**.
-- [ ] Đã hoàn thành đầy đủ báo cáo nghiệm thu theo đúng mẫu quy định.
+- [x] Đã chạy kiểm tra TypeScript trên tất cả các tệp liên quan và đạt **0 lỗi**.
+- [x] Đã hoàn thành đầy đủ báo cáo nghiệm thu theo đúng mẫu quy định.

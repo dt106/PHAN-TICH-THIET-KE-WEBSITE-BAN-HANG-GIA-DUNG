@@ -152,39 +152,39 @@
 ### MASTER CHECKLIST KIỂM SOÁT TIẾN ĐỘ THỰC THI
 
 #### [Đầu mục 1] Seed Data & Môi trường DB
-- [ ] Đã tạo file `BACK_END/scripts/seed-conversations.ts`.
-- [ ] Đã nạp thành công 4 cuộc hội thoại mẫu (pending, open, closed, unread).
-- [ ] Đã có tin nhắn trao đổi mẫu và system message trong DB.
+- [x] Đã tạo file `BACK_END/scripts/seed-conversations.ts`.
+- [x] Đã nạp thành công 4 cuộc hội thoại mẫu (pending, open, closed, unread).
+- [x] Đã có tin nhắn trao đổi mẫu và system message trong DB.
 
 #### [Đầu mục 2] Đấu nối Load Danh sách, Thống kê & Phân công Admin
-- [ ] Đã thay thế state danh sách hội thoại bằng API `getConversations`.
-- [ ] Đã thay thế 4 thẻ KPI bằng API `getStatistics`.
-- [ ] Đã tải danh sách nhân viên bằng API `getAssignees`.
-- [ ] Đã có fallback dữ liệu an toàn nếu API lỗi.
+- [x] Đã thay thế state danh sách hội thoại bằng API `getConversations`.
+- [x] Đã thay thế 4 thẻ KPI bằng API `getStatistics`.
+- [x] Đã tải danh sách nhân viên bằng API `getAssignees`.
+- [x] Đã có fallback dữ liệu an toàn nếu API lỗi.
 
 #### [Đầu mục 3] Đấu nối Xem tin nhắn, Đánh dấu đọc & Gửi tin Admin
-- [ ] Đã tải tin nhắn thật từ DB bằng API `getConversationMessages`.
-- [ ] Đã tự động gọi API `markRead` khi mở xem ca hỗ trợ.
-- [ ] Đã gửi tin nhắn phản hồi vào DB bằng API `sendMessage`.
-- [ ] Đã tự động chuyển trạng thái `pending` sang `open` khi Admin trả lời.
+- [x] Đã tải tin nhắn thật từ DB bằng API `getConversationMessages`.
+- [x] Đã tự động gọi API `markRead` khi mở xem ca hỗ trợ.
+- [x] Đã gửi tin nhắn phản hồi vào DB bằng API `sendMessage`.
+- [x] Đã tự động chuyển trạng thái `pending` sang `open` khi Admin trả lời.
 
 #### [Đầu mục 4] Đấu nối Bàn giao ca & Đóng/Mở hội thoại
-- [ ] Đã gọi API `assignAdmin` khi chọn nhân viên từ dropdown.
-- [ ] Đã hiển thị tin nhắn hệ thống bàn giao trên khung chat.
-- [ ] Đã gọi API `updateStatus` khi bấm Đóng / Mở lại.
-- [ ] Đã khóa khung soạn thảo khi ca đã đóng và hiển thị tin nhắn hệ thống tương ứng.
+- [x] Đã gọi API `assignAdmin` khi chọn nhân viên từ dropdown.
+- [x] Đã hiển thị tin nhắn hệ thống bàn giao trên khung chat.
+- [x] Đã gọi API `updateStatus` khi bấm Đóng / Mở lại.
+- [x] Đã khóa khung soạn thảo khi ca đã đóng và hiển thị tin nhắn hệ thống tương ứng.
 
 #### [Đầu mục 5] Kịch bản Kiểm thử Tự động Backend API Khách hàng
-- [ ] Đã tạo script `BACK_END/scripts/test-customer-conversation-flow.ts`.
-- [ ] Chạy kiểm thử thành công: Khách tạo ca mới (`pending`).
-- [ ] Chạy kiểm thử thành công: Khách lấy ca hiện tại (`/current`).
-- [ ] Chạy kiểm thử thành công: Khách gửi tin nhắn và đếm unread count.
-- [ ] Chạy kiểm thử thành công: Cơ chế Re-open tự động khi khách nhắn vào ca đã đóng.
-- [ ] Chạy kiểm thử thành công: Khách đánh dấu đã đọc (`markRead`).
+- [x] Đã tạo script `BACK_END/scripts/test-customer-conversation-flow.ts`.
+- [x] Chạy kiểm thử thành công: Khách tạo ca mới (`pending`).
+- [x] Chạy kiểm thử thành công: Khách lấy ca hiện tại (`/current`).
+- [x] Chạy kiểm thử thành công: Khách gửi tin nhắn và đếm unread count.
+- [x] Chạy kiểm thử thành công: Cơ chế Re-open tự động khi khách nhắn vào ca đã đóng.
+- [x] Chạy kiểm thử thành công: Khách đánh dấu đã đọc (`markRead`).
 
 #### [Đầu mục 6] Kiểm tra Biên dịch & Nghiệm thu
-- [ ] Chạy kiểm tra TypeScript (`npx tsc --noEmit`) đạt **0 lỗi**.
-- [ ] Hoàn thành báo cáo nghiệm thu chi tiết.
+- [x] Chạy kiểm tra TypeScript (`npx tsc --noEmit`) đạt **0 lỗi**.
+- [x] Hoàn thành báo cáo nghiệm thu chi tiết.
 ```
 
 ---
