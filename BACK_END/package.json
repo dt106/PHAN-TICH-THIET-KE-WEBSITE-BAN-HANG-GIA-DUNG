@@ -12,6 +12,7 @@
     "init-db": "tsx scripts/init-db.ts",
     "seed:products": "tsx scripts/seed-products.ts",
     "seed:store": "tsx scripts/seed-products.ts",
+    "seed:conversations": "tsx scripts/seed-conversations.ts",
     "test:category": "tsx scripts/test-category.ts",
     "test:attribute": "tsx scripts/test-attribute.ts",
     "test:product": "tsx scripts/test-product.ts",

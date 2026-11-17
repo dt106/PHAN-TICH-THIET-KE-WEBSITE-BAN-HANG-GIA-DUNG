@@ -77,10 +77,10 @@ Tạo kịch bản nạp dữ liệu mẫu vào MongoDB để khi khởi động
 - Các trường `lastMessageAt`, `lastMessagePreview` trên bảng `Conversation` phải khớp chuẩn với tin nhắn cuối cùng trong bảng `Message`.
 
 ### 5. Checklist tự đối soát của AI cho Sub-Prompt 1
-- [ ] Tệp `BACK_END/scripts/seed-conversations.ts` đã được tạo và không có lỗi cú pháp.
-- [ ] Đã bao quát đủ 4 trạng thái: 1 ca `pending`, 2 ca `open` (1 ca đã bàn giao), 1 ca `closed`.
-- [ ] Đã có đủ các loại tin nhắn: `text` và `system`.
-- [ ] Đã kiểm tra biên dịch bằng lệnh: `npx tsc --noEmit BACK_END/scripts/seed-conversations.ts --skipLibCheck`.
+- [x] Tệp `BACK_END/scripts/seed-conversations.ts` đã được tạo và không có lỗi cú pháp.
+- [x] Đã bao quát đủ 4 trạng thái: 1 ca `pending`, 2 ca `open` (1 ca đã bàn giao), 1 ca `closed`.
+- [x] Đã có đủ các loại tin nhắn: `text` và `system`.
+- [x] Đã kiểm tra biên dịch bằng lệnh: `npx tsc --noEmit BACK_END/scripts/seed-conversations.ts --skipLibCheck`.
 
 ---
 
