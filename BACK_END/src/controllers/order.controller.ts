@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction } from "express";
 import * as orderService from "../services/order.service";
 import { OrderStatus } from "../models/Order.model";
+import { buildBankTransferInfo } from "../services/payment.service";
 
 const toPositiveInt = (value: unknown): number | undefined => {
   const parsed = Number(value);
@@ -30,10 +31,14 @@ export const getOrderDetail = async (req: Request, res: Response, next: NextFunc
   try {
     const userId = req.user!.userId;
     const order = await orderService.getOrderDetailForUser(userId, String(req.params.id));
+    const data = order.toObject() as Record<string, unknown>;
+    if (order.paymentMethod === "BANK") {
+      data.bankTransferInfo = buildBankTransferInfo(order);
+    }
     return res.status(200).json({
       success: true,
       message: "Lấy chi tiết đơn hàng thành công.",
-      data: order,
+      data,
     });
   } catch (error) {
     next(error);

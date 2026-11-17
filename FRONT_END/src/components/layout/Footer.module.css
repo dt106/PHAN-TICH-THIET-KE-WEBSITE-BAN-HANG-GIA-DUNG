@@ -2,6 +2,9 @@
   border-top: 1px solid var(--store-line);
   background: #fff;
   padding: 48px 0 38px;
+  box-shadow: 0 -8px 24px rgba(26, 26, 26, 0.03);
+  margin-top: 24px;
+  border-radius: var(--store-radius-lg) var(--store-radius-lg) 0 0;
 }
 
 .grid {

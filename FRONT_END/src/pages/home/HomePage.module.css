@@ -10,9 +10,11 @@
 
 .panel {
   width: min(643px, 100%);
-  background: var(--store-cream);
-  border-radius: 10px;
+  background: rgba(255, 243, 227, 0.95);
+  border-radius: var(--store-radius-lg);
   padding: 62px 42px;
+  box-shadow: var(--store-shadow-md);
+  border: 1px solid rgba(184, 142, 47, 0.12);
 }
 
 .kicker {
@@ -37,13 +39,21 @@
 
 .buy {
   display: inline-flex;
-  padding: 25px 72px;
+  padding: 18px 48px;
   background: var(--store-gold);
   color: #fff;
   font-weight: 700;
   letter-spacing: 0.02em;
   text-decoration: none;
   text-transform: uppercase;
+  border-radius: var(--store-radius-sm);
+  box-shadow: 0 10px 24px rgba(184, 142, 47, 0.35);
+  transition: transform 0.15s ease, background 0.15s ease;
+}
+
+.buy:hover {
+  background: var(--store-gold-hover);
+  transform: translateY(-1px);
 }
 
 .section {
@@ -71,15 +81,28 @@
 .ranges a {
   color: #333;
   text-decoration: none;
-  font-size: 24px;
+  font-size: 22px;
   font-weight: 600;
+  display: block;
+  padding: 12px;
+  background: #fff;
+  border-radius: var(--store-radius);
+  border: 1px solid var(--store-line);
+  box-shadow: var(--store-shadow);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.ranges a:hover {
+  transform: translateY(-4px);
+  box-shadow: var(--store-shadow-hover);
 }
 
 .ranges img {
   width: 100%;
-  height: 480px;
+  height: 420px;
   object-fit: cover;
-  margin-bottom: 24px;
+  margin-bottom: 18px;
+  border-radius: calc(var(--store-radius) - 4px);
 }
 
 .grid {
@@ -100,6 +123,15 @@
   color: var(--store-gold);
   font-weight: 600;
   text-decoration: none;
+  border-radius: var(--store-radius-sm);
+  background: #fff;
+  box-shadow: var(--store-shadow);
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.more:hover {
+  background: var(--store-gold);
+  color: #fff;
 }
 
 .inspire {
@@ -108,9 +140,15 @@
   gap: 42px;
   align-items: center;
   text-align: left;
-  background: #fcf8f3;
-  padding: 44px 0 44px 7vw;
+  background: #fff;
+  margin: 24px auto;
+  width: min(1240px, calc(100% - 48px));
+  padding: 36px 36px 36px 40px;
   overflow: hidden;
+  border: 1px solid var(--store-line);
+  border-radius: var(--store-radius-lg);
+  box-shadow: var(--store-shadow-md);
+  box-sizing: border-box;
 }
 
 .inspireCopy h2 {

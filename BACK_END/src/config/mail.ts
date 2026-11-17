@@ -504,6 +504,13 @@ export const sendOtpEmail = async (
    * =======================================================
    */
 
+  if (!MAIL_HOST || !MAIL_USER || !MAIL_PASSWORD) {
+    console.warn(
+      "SMTP chưa được cấu hình. Bỏ qua gửi email; OTP ở log phía trên dùng được ở chế độ dev.",
+    );
+    return;
+  }
+
   try {
     console.log(
       "📤 Đang gọi transporter.sendMail()...",

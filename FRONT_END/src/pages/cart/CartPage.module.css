@@ -8,6 +8,10 @@
 .tableWrap {
   min-width: 0;
   overflow-x: auto;
+  background: #fff;
+  border: 1px solid var(--store-line);
+  border-radius: var(--store-radius);
+  box-shadow: var(--store-shadow);
 }
 
 .table {
@@ -21,6 +25,14 @@
   font-weight: 500;
   padding: 16px;
   text-align: left;
+}
+
+.table th:first-child {
+  border-radius: var(--store-radius) 0 0 0;
+}
+
+.table th:last-child {
+  border-radius: 0 var(--store-radius) 0 0;
 }
 
 .table td {
@@ -41,7 +53,8 @@
   width: 108px;
   height: 108px;
   object-fit: cover;
-  background: var(--store-card);
+  background: var(--color-grey-100);
+  border-radius: var(--store-radius-sm);
 }
 
 .remove {
@@ -53,9 +66,12 @@
 }
 
 .totals {
-  background: #f9f1e7;
-  padding: 24px 48px 48px;
+  background: #fff;
+  padding: 28px 32px 36px;
   text-align: center;
+  border: 1px solid var(--store-line);
+  border-radius: var(--store-radius);
+  box-shadow: var(--store-shadow);
 }
 
 .totals h2 {

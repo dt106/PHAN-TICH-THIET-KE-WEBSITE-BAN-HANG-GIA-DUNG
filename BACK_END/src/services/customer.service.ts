@@ -249,8 +249,9 @@ export const customerForgotPassword = async (
     email: normalizedEmail,
   });
 
+  // Không báo email không tồn tại, để khớp lời hứa trên trang quên mật khẩu.
   if (!user || user.role !== "customer") {
-    throw new Error("Không tìm thấy tài khoản Customer.");
+    return;
   }
 
   checkCustomerStatus(user);

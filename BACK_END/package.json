@@ -11,6 +11,7 @@
     "check-db": "tsx scripts/check-db.ts",
     "init-db": "tsx scripts/init-db.ts",
     "seed:products": "tsx scripts/seed-products.ts",
+    "seed:store": "tsx scripts/seed-products.ts",
     "test:category": "tsx scripts/test-category.ts",
     "test:attribute": "tsx scripts/test-attribute.ts",
     "test:product": "tsx scripts/test-product.ts",
@@ -25,6 +26,7 @@
     "test:order": "tsx scripts/test-order.ts",
     "test:order-item": "tsx scripts/test-order-item.ts",
     "test:payment": "tsx scripts/test-payment.ts",
+    "test:momo": "tsx scripts/test-momo-signature.ts",
     "test": "npm run test:category && npm run test:attribute && npm run test:product && npm run test:product-variant && npm run test:product-media && npm run test:session3 && npm run test:cart && npm run test:wishlist && npm run test:coupon && npm run test:session4 && npm run test:checkout && npm run test:order && npm run test:order-item && npm run test:payment"
   },
   "keywords": [],

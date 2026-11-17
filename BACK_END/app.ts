@@ -3,6 +3,7 @@
 
 import express from "express";
 import cors from "cors";
+import path from "path";
 
 /**
  * 1. AUTH ROUTES ĐÃ TÁCH
@@ -58,6 +59,9 @@ import errorMiddleware from "./src/middlewares/error.middleware";
  * 5. KHỞI TẠO EXPRESS APP
  */
 const app = express();
+
+const documentRoot = path.resolve(process.env.DOCUMENT_PATH || "./DOCUMENT");
+app.use("/uploads", express.static(path.join(documentRoot, "uploads")));
 
 /**
  * 6. GLOBAL MIDDLEWARE

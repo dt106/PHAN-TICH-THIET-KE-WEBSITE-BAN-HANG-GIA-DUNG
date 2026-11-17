@@ -132,6 +132,24 @@ const confirmPasswordValidator = (
       return true;
     });
 
+/** Cửa hàng chỉ gửi mật khẩu mới; nếu có confirmPassword thì phải khớp. */
+const optionalConfirmPasswordValidator = (
+  confirmField: string,
+  passwordField: string,
+  label: string,
+) =>
+  body(confirmField)
+    .optional({ values: "null" })
+    .isString()
+    .withMessage(`${label} phải là chuỗi ký tự.`)
+    .bail()
+    .custom((value, { req }) => {
+      if (value !== req.body[passwordField]) {
+        throw new Error(`${label} không khớp.`);
+      }
+      return true;
+    });
+
 /* =========================================================
  * 2. ĐĂNG KÝ CUSTOMER
  * ========================================================= */
@@ -206,10 +224,10 @@ export const customerResetPasswordValidator = [
   otpValidator("otp"),
   passwordValidator("newPassword"),
 
-  confirmPasswordValidator(
+  optionalConfirmPasswordValidator(
     "confirmPassword",
     "newPassword",
-    "Xác nhận mật khẩu mới"
+    "Xác nhận mật khẩu mới",
   ),
 ];
 
@@ -227,10 +245,10 @@ export const customerChangePasswordValidator = [
 
   passwordValidator("newPassword"),
 
-  confirmPasswordValidator(
+  optionalConfirmPasswordValidator(
     "confirmPassword",
     "newPassword",
-    "Xác nhận mật khẩu mới"
+    "Xác nhận mật khẩu mới",
   ),
 ];
 

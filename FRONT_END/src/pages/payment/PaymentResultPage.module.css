@@ -1,0 +1,89 @@
+.page {
+  display: grid;
+  place-items: center;
+  min-height: 60vh;
+  padding: 64px 16px;
+  background: var(--color-bg-light-base);
+}
+
+.card {
+  width: 100%;
+  max-width: 480px;
+  padding: 40px 32px;
+  border: 1px solid var(--store-line);
+  border-radius: var(--store-radius-lg);
+  background: #fff;
+  box-shadow: var(--store-shadow-md);
+  text-align: center;
+}
+
+.icon {
+  display: inline-grid;
+  place-items: center;
+  width: 72px;
+  height: 72px;
+  border-radius: 50%;
+  background: var(--color-success-dim);
+  color: var(--color-green-700);
+}
+
+.icon[data-tone="error"] {
+  background: var(--color-danger-light);
+  color: var(--color-danger-normal);
+}
+
+.card h1 {
+  margin: 20px 0 8px;
+  font-size: 24px;
+}
+
+.card p {
+  margin: 0;
+  color: var(--store-muted);
+  line-height: 1.6;
+}
+
+.order {
+  margin: 24px 0 0;
+  padding: 12px;
+  border-radius: 10px;
+  background: var(--color-grey-50);
+  color: var(--store-muted);
+  font-size: 14px;
+}
+
+.order strong {
+  margin-left: 6px;
+  color: var(--store-text);
+}
+
+.actions {
+  display: flex;
+  gap: 12px;
+  margin-top: 28px;
+}
+
+.primary,
+.secondary {
+  flex: 1;
+  padding: 12px 16px;
+  border-radius: 10px;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.primary {
+  background: var(--store-gold);
+  color: #fff;
+}
+
+.secondary {
+  border: 1px solid var(--store-gold);
+  color: var(--store-gold);
+}
+
+@media (max-width: 480px) {
+  .actions {
+    flex-direction: column;
+  }
+}

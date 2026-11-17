@@ -1,11 +1,7 @@
 .toolbar {
-  display: flex;
-  justify-content: space-between;
-  gap: 16px;
-  align-items: center;
-  flex-wrap: wrap;
-  background: #f9f1e7;
-  padding: 22px 0;
+  display: block;
+  padding: 20px 0 0;
+  background: transparent;
 }
 
 .toolbar .wrap {
@@ -16,6 +12,11 @@
   gap: 16px;
   align-items: center;
   flex-wrap: wrap;
+  background: #fff;
+  border: 1px solid var(--store-line);
+  border-radius: var(--store-radius);
+  box-shadow: var(--store-shadow);
+  padding: 16px 20px;
 }
 
 .filters {
@@ -31,16 +32,17 @@
 
 .filters select {
   height: 40px;
-  border: 1px solid #9f9f9f;
+  border: 1px solid var(--store-line);
   background: #fff;
-  padding: 0 8px;
+  padding: 0 12px;
+  border-radius: var(--store-radius-sm);
 }
 
 .grid {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
-  gap: 32px;
-  padding: 48px 0 64px;
+  gap: 28px;
+  padding: 32px 0 64px;
 }
 
 @media (max-width: 1000px) {
