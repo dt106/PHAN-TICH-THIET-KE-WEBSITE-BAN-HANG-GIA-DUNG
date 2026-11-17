@@ -6,9 +6,9 @@ export type MessageType = 'text' | 'image' | 'file' | 'system';
 export type ConversationSenderRole = 'customer' | 'admin';
 
 export interface Conversation {
-  id: number;
-  customer_id: number;
-  assigned_admin_id: number | null;
+  id: string | number;
+  customer_id: string | number;
+  assigned_admin_id: string | number | null;
   subject: string | null;
   status: ConversationStatus;
   last_message_at: string | null;
@@ -20,9 +20,9 @@ export interface Conversation {
 }
 
 export interface Message {
-  id: number;
-  conversation_id: number;
-  sender_id: number;
+  id: string | number;
+  conversation_id: string | number;
+  sender_id: string | number;
   message_type: MessageType;
   content: string | null;
   attachments: string | null;

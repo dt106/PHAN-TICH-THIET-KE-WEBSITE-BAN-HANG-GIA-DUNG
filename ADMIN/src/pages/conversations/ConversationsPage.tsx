@@ -25,7 +25,7 @@ export default function ConversationsPage() {
   const [messages, setMessages] =
     useState<MessageView[]>(conversationMessagesMock);
 
-  const [selectedId, setSelectedId] = useState<number | null>(
+  const [selectedId, setSelectedId] = useState<string | number | null>(
     conversationsMock[0]?.id ?? null,
   );
 
@@ -165,13 +165,15 @@ export default function ConversationsPage() {
     );
   };
 
-  const handleAssignAdmin = (adminId: number | null) => {
+  const handleAssignAdmin = (adminId: string | number | null) => {
     if (!selectedConversation) return;
 
-    const adminNames: Record<number, string> = {
-      1: 'Admin',
-      2: 'Nhân viên CSKH',
+    const adminNames: Record<string, string> = {
+      '1': 'Admin',
+      '2': 'Nhân viên CSKH',
     };
+
+    const adminKey = adminId !== null ? String(adminId) : '';
 
     setConversations((current) =>
       current.map((item) =>
@@ -180,7 +182,7 @@ export default function ConversationsPage() {
             ...item,
             assigned_admin_id: adminId,
             assigned_admin_name: adminId
-              ? adminNames[adminId] ?? null
+              ? adminNames[adminKey] ?? 'Admin'
               : null,
             updated_at: new Date().toISOString(),
           }

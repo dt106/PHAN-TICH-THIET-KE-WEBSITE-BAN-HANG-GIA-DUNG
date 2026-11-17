@@ -22,7 +22,7 @@ interface ConversationChatProps {
   conversation: ConversationListItem;
   messages: MessageView[];
   onSendMessage: (content: string) => void;
-  onAssignAdmin: (adminId: number | null) => void;
+  onAssignAdmin: (adminId: string | number | null) => void;
   onToggleStatus: () => void;
 }
 
@@ -145,7 +145,7 @@ export default function ConversationChat({
           value={conversation.assigned_admin_id ?? ''}
           onChange={(event) =>
             onAssignAdmin(
-              event.target.value ? Number(event.target.value) : null,
+              event.target.value || null,
             )
           }
           aria-label="Phân công nhân viên"

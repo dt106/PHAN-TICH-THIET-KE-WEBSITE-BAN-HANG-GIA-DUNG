@@ -45,6 +45,8 @@ import adminCouponRoutes from "./src/routes/admin/admin.coupon.routes";
 import aiProductSearchRoutes from "./src/routes/aiProductSearch.routes";
 import aiChatRoutes from "./src/routes/aiChat.routes";
 import adminReviewRoutes from "./src/routes/admin/admin.review.routes";
+import adminConversationRoutes from "./src/routes/admin/admin.conversation.routes";
+import customerConversationRoutes from "./src/routes/customer/customer.conversation.routes";
 
 
 /**
@@ -224,6 +226,8 @@ app.use("/api/admin/order-items", adminOrderItemRoutes);
 app.use("/api/payments", paymentRoutes);
 app.use("/api/admin/payments", adminPaymentRoutes);
 app.use("/api/admin/reviews", adminReviewRoutes);
+app.use("/api/admin/conversations", adminConversationRoutes);
+app.use("/api/customer/conversations", customerConversationRoutes);
 
 // =======================================================
 // API QUẢN TRỊ CATALOG — đồng nhất quy ước /api/admin/*

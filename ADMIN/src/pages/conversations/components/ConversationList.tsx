@@ -9,7 +9,7 @@ import type {
 
 interface ConversationListProps {
   conversations: ConversationListItem[];
-  selectedId: number | null;
+  selectedId: string | number | null;
   search: string;
   statusFilter: 'all' | ConversationStatus;
   onSearchChange: (value: string) => void;
