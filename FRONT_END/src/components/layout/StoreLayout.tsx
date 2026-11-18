@@ -1,6 +1,5 @@
 import { useState } from "react";
 import { Outlet, useLocation } from "react-router-dom";
-import "../../styles/store.css";
 import { CartDrawer } from "./CartDrawer.tsx";
 import { Footer } from "./Footer.tsx";
 import { Header } from "./Header.tsx";

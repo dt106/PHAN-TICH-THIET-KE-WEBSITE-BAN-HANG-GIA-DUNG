@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Link } from "react-router-dom";
 import room1 from "../../assets/images/gallery/room-1.png";
 import room2 from "../../assets/images/gallery/room-2.png";
@@ -15,59 +15,50 @@ import share9 from "../../assets/images/gallery/share-9.png";
 import bedroom from "../../assets/images/bedroom.png";
 import dining from "../../assets/images/dining.png";
 import living from "../../assets/images/living.png";
-import { ProductCard } from "../../components/product/ProductCard.tsx";
-import { toCard } from "../../lib/productView.ts";
+import { ButtonLink } from "../../components/common/index.ts";
+import { ProductGrid } from "../../components/product/ProductGrid.tsx";
+import { useRequest } from "../../hooks/useRequest.ts";
 import { catalogService } from "../../services/catalog.service.ts";
-import { errorText } from "../../services/http.ts";
-import type { Category, Product } from "../../types/api.ts";
 import styles from "./HomePage.module.css";
 
 const rooms = [
-  { image: room1, index: "01", label: "Bed Room", title: "Inner Peace" },
-  { image: room2, index: "02", label: "Living", title: "Living Room" },
-  { image: room3, index: "03", label: "Dining", title: "Dining Room" },
+  { image: room1, index: "01", label: "Phòng ngủ", title: "Bình yên" },
+  { image: room2, index: "02", label: "Phòng khách", title: "Phòng khách" },
+  { image: room3, index: "03", label: "Phòng ăn", title: "Phòng ăn" },
 ];
 const gallery = [share1, share2, share3, share4, share5, share6, share7, share8, share9];
 const fallbackImages = [dining, living, bedroom];
 
 export function HomePage() {
   const [roomIndex, setRoomIndex] = useState(0);
-  const [categories, setCategories] = useState<Category[]>([]);
-  const [products, setProducts] = useState<Product[]>([]);
-  const [error, setError] = useState("");
   const visibleRooms = [0, 1].map((offset) => rooms[(roomIndex + offset) % rooms.length]);
-
-  useEffect(() => {
-    Promise.all([
+  const { data, error } = useRequest(async () => {
+    const [categoryResult, productResult] = await Promise.all([
       catalogService.getCategories({ parentId: "null", limit: 12 }),
       catalogService.getFeaturedProducts(8),
-    ])
-      .then(([categoryResult, productResult]) => {
-        setCategories(categoryResult.data);
-        setProducts(productResult.data);
-      })
-      .catch((reason: unknown) => setError(errorText(reason)));
+    ]);
+    return { categories: categoryResult.data, products: productResult.data };
   }, []);
+  const categories = data?.categories ?? [];
+  const products = data?.products ?? [];
 
   return (
     <>
       <section className={styles.hero}>
         <div className={styles.panel}>
-          <p className={styles.kicker}>New Arrival</p>
+          <p className={styles.kicker}>Hàng mới</p>
           <h1>
-            Discover Our
+            Bộ sưu tập
             <br />
-            New Collection
+            mới của Furniro
           </h1>
           <p>Sản phẩm nổi bật và danh mục lấy từ cửa hàng.</p>
-          <Link to="/shop" className={styles.buy}>
-            Buy Now
-          </Link>
+          <ButtonLink to="/shop" size="lg">Mua ngay</ButtonLink>
         </div>
       </section>
 
       <section className={`wrap ${styles.section}`}>
-        <h2>Browse The Range</h2>
+        <h2>Danh mục</h2>
         {error ? <p>{error}</p> : null}
         <div className={styles.ranges}>
           {categories.map((category, index) => (
@@ -80,28 +71,20 @@ export function HomePage() {
       </section>
 
       <section className={`wrap ${styles.section}`}>
-        <h2>Our Products</h2>
-        <div className={styles.grid}>
-          {products.map((product) => (
-            <ProductCard key={product.id} product={toCard(product)} />
-          ))}
-        </div>
-        <Link to="/shop" className={styles.more}>
-          Show More
-        </Link>
+        <h2>Sản phẩm</h2>
+        <ProductGrid products={products} />
+        <ButtonLink to="/shop" variant="outline">Xem thêm</ButtonLink>
       </section>
 
       <section className={styles.inspire}>
         <div className={styles.inspireCopy}>
           <h2>
-            50+ Beautiful rooms
+            Hơn 50 góc phòng
             <br />
-            inspiration
+            để bạn tham khảo
           </h2>
-          <p>Bộ sưu tập hình ảnh trưng bày, không lấy từ API.</p>
-          <Link to="/shop" className={styles.buy}>
-            Explore More
-          </Link>
+          <p>Bộ sưu tập hình ảnh trưng bày.</p>
+          <ButtonLink to="/shop" size="lg">Khám phá</ButtonLink>
         </div>
         <div className={styles.rooms}>
           {visibleRooms.map((room, index) => (
@@ -118,7 +101,7 @@ export function HomePage() {
                   <button
                     type="button"
                     className={styles.nextRoom}
-                    aria-label="Next room"
+                    aria-label="Phòng tiếp theo"
                     onClick={() => setRoomIndex((current) => (current + 1) % rooms.length)}
                   >
                     →
@@ -131,8 +114,8 @@ export function HomePage() {
       </section>
 
       <section className={styles.share}>
-        <p>Share your setup with</p>
-        <h2>#FuniroFurniture</h2>
+        <p>Chia sẻ góc nhà của bạn với</p>
+        <h2>#Furniro</h2>
         <div className={styles.collage}>
           {gallery.map((image) => (
             <img key={image} src={image} alt="" />

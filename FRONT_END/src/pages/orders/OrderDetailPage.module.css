@@ -2,15 +2,43 @@
   padding: 40px 0 64px;
   display: grid;
   gap: 20px;
-  max-width: 720px;
+  max-width: 760px;
+}
+
+.block {
+  padding: 18px 20px;
+}
+
+.block h2 {
+  margin: 0 0 8px;
+  font-size: 18px;
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
   background: #fff;
   border: 1px solid var(--store-line);
   border-radius: var(--store-radius);
-  box-shadow: var(--store-shadow);
-  margin-top: 24px;
-  padding-left: 24px;
-  padding-right: 24px;
-  box-sizing: border-box;
+}
+
+.table th,
+.table td {
+  padding: 12px;
+  text-align: left;
+  border-bottom: 1px solid var(--store-line);
+}
+
+.mark {
+  display: inline-grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  margin-right: 10px;
+  border-radius: 8px;
+  background: var(--store-cream);
+  color: var(--store-gold);
+  font-weight: 700;
 }
 
 .meta {
@@ -35,7 +63,7 @@
   gap: 16px;
   padding: 16px 18px;
   border-radius: 14px;
-  background: #fff0f7;
+  background: var(--momo-bg);
   border: 1px solid #f3c2de;
 }
 

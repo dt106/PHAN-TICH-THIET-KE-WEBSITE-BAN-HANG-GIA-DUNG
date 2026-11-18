@@ -1,7 +1,7 @@
 import { createPortal } from "react-dom";
 import { Link } from "react-router-dom";
 import { useCart } from "../../contexts/useCart.ts";
-import { formatMoney } from "../../lib/money.ts";
+import { formatMoney } from "../../lib/format.ts";
 import styles from "./CartDrawer.module.css";
 
 export function CartDrawer({

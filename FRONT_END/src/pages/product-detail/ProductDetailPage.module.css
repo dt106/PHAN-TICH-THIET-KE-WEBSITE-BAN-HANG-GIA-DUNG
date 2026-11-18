@@ -10,7 +10,7 @@
   border: 1px solid var(--store-line);
   border-radius: var(--store-radius);
   box-shadow: var(--store-shadow);
-  color: #9f9f9f;
+  color: var(--store-gray);
   font-weight: 400;
   box-sizing: border-box;
 }
@@ -95,7 +95,7 @@
   height: auto;
   min-height: 36px;
   padding: 8px 12px;
-  border: 1px solid #9f9f9f;
+  border: 1px solid var(--store-gray);
   background: #fff;
   cursor: pointer;
 }
@@ -103,7 +103,7 @@
 .colors button {
   width: 36px;
   height: 36px;
-  border: 1px solid #9f9f9f;
+  border: 1px solid var(--store-gray);
   background: #fff;
   cursor: pointer;
 }
@@ -112,6 +112,29 @@
   background: var(--store-gold);
   color: #fff;
   border-color: var(--store-gold);
+}
+
+.sizes button[data-stock="0"] {
+  opacity: 0.55;
+}
+
+.out {
+  color: var(--ui-danger);
+  font-weight: 600;
+}
+
+.heart {
+  width: 44px;
+  height: 44px;
+  border: 1px solid var(--store-line);
+  border-radius: 50%;
+  background: #fff;
+  cursor: pointer;
+}
+
+.heart img {
+  width: 22px;
+  height: 22px;
 }
 
 .colors button {
@@ -180,9 +203,19 @@
 }
 
 @media (max-width: 900px) {
-  .layout,
-  .grid {
+  .layout {
     grid-template-columns: 1fr;
+  }
+
+  .buyRow {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 15;
+    background: #fff;
+    padding: 12px 16px;
+    border-top: 1px solid var(--store-line);
   }
 
   .thumbs {

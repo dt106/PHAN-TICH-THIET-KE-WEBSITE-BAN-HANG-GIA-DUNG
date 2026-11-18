@@ -1,32 +1,18 @@
+import type { MyPayment, PaymentSession } from "../types/api.ts";
 import { request } from "./http.ts";
-import type { PaymentSession } from "../types/api.ts";
 
-export type MyPayment = {
-  id: string;
-  orderId: string;
-  amount: number;
-  status: string;
-  paymentMethod: string;
-  createdAt?: string;
-  order?: { orderNumber?: string; status?: string };
-};
+const createPayment = (orderId: string) =>
+  request<PaymentSession>("/api/payments", { method: "POST", body: { orderId } });
 
-const createPayment = (orderId: string) => {
-  return request<PaymentSession>("/api/payments", { method: "POST", body: { orderId } });
-};
-
-const getMyPayments = () => {
-  return request<MyPayment[]>("/api/payments/my-payments");
-};
+const getMyPayments = () => request<MyPayment[]>("/api/payments/my-payments");
 
 /** Chỉ có khi backend chạy PAYMENT_ENV=mock. */
-const mockCompletePayment = (orderNumber: string, success = true) => {
-  return request<unknown>("/api/payments/mock/complete", {
+const mockCompletePayment = (orderNumber: string, success = true) =>
+  request<unknown>("/api/payments/mock/complete", {
     method: "POST",
     auth: false,
     body: { orderNumber, success },
   });
-};
 
 /**
  * Tạo phiên MoMo. Cổng thật → redirect ngoài.

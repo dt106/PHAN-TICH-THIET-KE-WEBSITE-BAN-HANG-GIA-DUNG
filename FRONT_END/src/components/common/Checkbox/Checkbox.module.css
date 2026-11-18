@@ -1,5 +1,3 @@
-@import "../tokens.css";
-
 .field {
   --checkbox-size: 18px;
   display: flex;

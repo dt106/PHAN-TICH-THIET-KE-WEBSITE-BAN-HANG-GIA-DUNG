@@ -1,4 +1,5 @@
 import { Navigate, Outlet, useLocation } from "react-router-dom";
+import { PageState } from "../components/common/index.ts";
 import { useAuth } from "../contexts/useAuth.ts";
 
 export function RequireAuth() {
@@ -6,7 +7,7 @@ export function RequireAuth() {
   const location = useLocation();
 
   if (!ready) {
-    return <p className="wrap" style={{ padding: "48px 0" }}>Đang tải phiên đăng nhập…</p>;
+    return <PageState loading />;
   }
   if (!user) {
     const next = `${location.pathname}${location.search}`;

@@ -1,0 +1,39 @@
+.box {
+  padding: 24px;
+}
+
+.tabs {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.tabs button {
+  border: 0;
+  background: var(--ui-secondary);
+  border-radius: var(--store-radius-sm);
+  min-height: 40px;
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.tabs button[aria-selected="true"] {
+  background: var(--store-gold);
+  color: #fff;
+}
+
+.steps {
+  display: flex;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  color: var(--store-muted);
+  font-size: 13px;
+}
+
+.steps li[data-active="true"] {
+  color: var(--store-gold);
+  font-weight: 700;
+}

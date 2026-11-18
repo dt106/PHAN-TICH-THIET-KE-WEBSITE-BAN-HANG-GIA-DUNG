@@ -3,10 +3,13 @@ import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { Button, TextInput, showToast } from "../../components/common/index.ts";
 import { PageBanner } from "../../components/layout/PageBanner.tsx";
 import { useAuth } from "../../contexts/useAuth.ts";
+import { useAction } from "../../hooks/useAction.ts";
 import { authService } from "../../services/auth.service.ts";
-import { ApiError, errorText } from "../../services/http.ts";
+import styles from "./AuthPage.module.css";
 
 type RegisterStep = "email" | "otp" | "profile";
+
+const stepLabel = { email: "Email", otp: "OTP", profile: "Thông tin" };
 
 export function AuthPage() {
   const { login, acceptSession, user } = useAuth();
@@ -16,7 +19,7 @@ export function AuthPage() {
   const [mode, setMode] = useState<"login" | "register">("login");
   const [step, setStep] = useState<RegisterStep>("email");
   const [email, setEmail] = useState("");
-  const [busy, setBusy] = useState(false);
+  const [busy, run] = useAction();
 
   function goNext() {
     navigate(next.startsWith("/") ? next : "/account");
@@ -25,61 +28,38 @@ export function AuthPage() {
   async function submitLogin(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const data = new FormData(event.currentTarget);
-    setBusy(true);
-    try {
-      await login(
-        String(data.get("email") ?? ""),
-        String(data.get("password") ?? ""),
-      );
+    await run(async () => {
+      await login(String(data.get("email") ?? ""), String(data.get("password") ?? ""));
       showToast("Đã đăng nhập.", "success");
       goNext();
-    } catch (reason) {
-      showToast(errorText(reason), "error");
-    } finally {
-      setBusy(false);
-    }
+    });
   }
 
   async function requestOtp(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const data = new FormData(event.currentTarget);
     const nextEmail = String(data.get("email") ?? "");
-    setBusy(true);
-    try {
+    await run(async () => {
       await authService.requestRegisterOtp(nextEmail);
       setEmail(nextEmail);
       setStep("otp");
       showToast("Đã gửi OTP.", "success");
-    } catch (reason) {
-      const retry = reason instanceof ApiError ? reason.retryAfter : undefined;
-      showToast(
-        retry ? `${errorText(reason)} (${retry}s)` : errorText(reason),
-        "error",
-      );
-    } finally {
-      setBusy(false);
-    }
+    });
   }
 
   async function verifyOtp(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const data = new FormData(event.currentTarget);
-    setBusy(true);
-    try {
+    await run(async () => {
       await authService.verifyRegisterOtp(email, String(data.get("otp") ?? ""));
       setStep("profile");
-    } catch (reason) {
-      showToast(errorText(reason), "error");
-    } finally {
-      setBusy(false);
-    }
+    });
   }
 
   async function finishRegister(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const data = new FormData(event.currentTarget);
-    setBusy(true);
-    try {
+    await run(async () => {
       const result = await authService.registerCustomer({
         email,
         name: String(data.get("name") ?? ""),
@@ -90,18 +70,14 @@ export function AuthPage() {
       acceptSession(result.data.user, result.data.token);
       showToast("Đã tạo tài khoản.", "success");
       goNext();
-    } catch (reason) {
-      showToast(errorText(reason), "error");
-    } finally {
-      setBusy(false);
-    }
+    });
   }
 
   if (user) {
     return (
       <>
-        <PageBanner title="Login" />
-        <div className="wrap" style={{ padding: "64px 0" }}>
+        <PageBanner title="Đăng nhập" />
+        <div className="wrap section stack">
           <p>Bạn đã đăng nhập với {user.email}.</p>
           <Link to="/account">Vào tài khoản</Link>
         </div>
@@ -111,87 +87,60 @@ export function AuthPage() {
 
   return (
     <>
-      <PageBanner title={mode === "login" ? "Login" : "Register"} />
-      <div
-        className="wrap"
-        style={{ maxWidth: 480, margin: "64px auto", display: "grid", gap: 16 }}
-      >
+      <PageBanner title={mode === "login" ? "Đăng nhập" : "Đăng ký"} />
+      <div className={`card wrap narrow section stack ${styles.box}`}>
+        <div className={styles.tabs} role="tablist">
+          <button type="button" role="tab" aria-selected={mode === "login"} onClick={() => setMode("login")}>
+            Đăng nhập
+          </button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={mode === "register"}
+            onClick={() => {
+              setMode("register");
+              setStep("email");
+            }}
+          >
+            Đăng ký
+          </button>
+        </div>
+        {mode === "register" ? (
+          <ol className={styles.steps}>
+            {(Object.keys(stepLabel) as RegisterStep[]).map((key) => (
+              <li key={key} data-active={key === step}>{stepLabel[key]}</li>
+            ))}
+          </ol>
+        ) : null}
         {mode === "login" ? (
-          <form onSubmit={submitLogin} style={{ display: "grid", gap: 16 }}>
-            <TextInput
-              label="Email"
-              name="email"
-              type="email"
-              required
-              fullWidth
-            />
-            <TextInput
-              label="Mật khẩu"
-              name="password"
-              type="password"
-              required
-              fullWidth
-            />
-            <Button type="submit" variant="primary" disabled={busy}>
-              Đăng nhập
-            </Button>
+          <form onSubmit={submitLogin} className="stack">
+            <TextInput label="Email" name="email" type="email" required fullWidth />
+            <TextInput label="Mật khẩu" name="password" type="password" required fullWidth />
+            <Button type="submit" variant="primary" disabled={busy}>Đăng nhập</Button>
             <Link to="/forgot-password">Quên mật khẩu</Link>
           </form>
         ) : null}
         {mode === "register" && step === "email" ? (
-          <form onSubmit={requestOtp} style={{ display: "grid", gap: 16 }}>
-            <TextInput
-              label="Email"
-              name="email"
-              type="email"
-              required
-              fullWidth
-            />
-            <Button type="submit" variant="primary" disabled={busy}>
-              Gửi OTP
-            </Button>
+          <form onSubmit={requestOtp} className="stack">
+            <TextInput label="Email" name="email" type="email" required fullWidth />
+            <Button type="submit" variant="primary" disabled={busy}>Gửi OTP</Button>
           </form>
         ) : null}
         {mode === "register" && step === "otp" ? (
-          <form onSubmit={verifyOtp} style={{ display: "grid", gap: 16 }}>
+          <form onSubmit={verifyOtp} className="stack">
             <p>Nhập OTP đã gửi tới {email}</p>
             <TextInput label="OTP" name="otp" required fullWidth />
-            <Button type="submit" variant="primary" disabled={busy}>
-              Xác nhận OTP
-            </Button>
+            <Button type="submit" variant="primary" disabled={busy}>Xác nhận OTP</Button>
           </form>
         ) : null}
         {mode === "register" && step === "profile" ? (
-          <form onSubmit={finishRegister} style={{ display: "grid", gap: 16 }}>
+          <form onSubmit={finishRegister} className="stack">
             <TextInput label="Họ tên" name="name" required fullWidth />
             <TextInput label="Số điện thoại" name="phone" fullWidth />
-            <TextInput
-              label="Mật khẩu"
-              name="password"
-              type="password"
-              required
-              fullWidth
-            />
-            <Button type="submit" variant="primary" disabled={busy}>
-              Tạo tài khoản
-            </Button>
+            <TextInput label="Mật khẩu" name="password" type="password" required fullWidth />
+            <Button type="submit" variant="primary" disabled={busy}>Tạo tài khoản</Button>
           </form>
         ) : null}
-        <button
-          type="button"
-          onClick={() => {
-            setMode(mode === "login" ? "register" : "login");
-            setStep("email");
-          }}
-          style={{
-            border: 0,
-            background: "transparent",
-            cursor: "pointer",
-            font: "inherit",
-          }}
-        >
-          {mode === "login" ? "Tạo tài khoản" : "Đã có tài khoản? Đăng nhập"}
-        </button>
       </div>
     </>
   );

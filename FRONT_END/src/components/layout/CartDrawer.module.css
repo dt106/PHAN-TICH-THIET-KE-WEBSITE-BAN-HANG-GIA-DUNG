@@ -3,7 +3,7 @@
   inset: 0;
   z-index: 40;
   overflow: hidden;
-  color: #3a3a3a;
+  color: var(--store-text);
   color-scheme: light;
   font-family: Poppins, sans-serif;
 }
@@ -46,7 +46,7 @@
 .head h2 {
   margin: 0;
   min-width: 0;
-  color: #3a3a3a;
+  color: var(--store-text);
   font-family: Poppins, sans-serif;
   font-size: 24px;
   font-weight: 600;
@@ -59,14 +59,14 @@
   height: 28px;
   border: 0;
   border-radius: 50%;
-  background: #9f9f9f;
+  background: var(--store-gray);
   color: #fff;
   cursor: pointer;
 }
 
 .empty {
   flex: 1;
-  color: #9f9f9f;
+  color: var(--store-gray);
 }
 
 .list {
@@ -100,7 +100,7 @@
 }
 
 .list span {
-  color: #b88e2f;
+  color: var(--store-gold);
 }
 
 .subtotal {
@@ -110,11 +110,11 @@
   flex-shrink: 0;
   padding: 20px 0;
   border-top: 1px solid #d9d9d9;
-  color: #3a3a3a;
+  color: var(--store-text);
 }
 
 .subtotal strong {
-  color: #b88e2f;
+  color: var(--store-gold);
   font-weight: 600;
 }
 

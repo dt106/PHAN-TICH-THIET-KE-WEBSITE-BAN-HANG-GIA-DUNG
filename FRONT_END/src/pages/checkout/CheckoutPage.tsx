@@ -1,14 +1,17 @@
-import { useEffect, useState, type FormEvent, type ReactNode } from "react";
+import { useState, type FormEvent, type ReactNode } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { Button, TextInput, showToast } from "../../components/common/index.ts";
+import { Button, ButtonLink, showToast, toastError } from "../../components/common/index.ts";
+import { AddressForm } from "../../components/order/AddressForm.tsx";
+import { PriceSummary } from "../../components/order/PriceSummary.tsx";
 import { useCart } from "../../contexts/useCart.ts";
-import { SHIPPING_FEE, formatMoney } from "../../lib/money.ts";
+import { useAction } from "../../hooks/useAction.ts";
+import { useRequest } from "../../hooks/useRequest.ts";
+import { SHIPPING_FEE, formatAddress, formatMoney } from "../../lib/format.ts";
 import { addressService } from "../../services/address.service.ts";
 import { checkoutService } from "../../services/checkout.service.ts";
 import { couponService } from "../../services/coupon.service.ts";
-import { errorText } from "../../services/http.ts";
 import { paymentService } from "../../services/payment.service.ts";
-import type { CheckoutSummary, Coupon, PaymentMethod, UserAddress, CheckoutInput } from "../../types/api.ts";
+import type { CheckoutInput, CheckoutSummary, PaymentMethod } from "../../types/api.ts";
 import styles from "./CheckoutPage.module.css";
 
 const iconProps = { width: 22, height: 22, fill: "none", stroke: "currentColor", strokeWidth: 1.8, viewBox: "0 0 24 24" };
@@ -35,52 +38,51 @@ const methods: { id: PaymentMethod; label: string; hint: string; icon: ReactNode
 
 const steps = ["Giỏ hàng", "Thanh toán", "Hoàn tất"];
 
-function formatAddress(item: UserAddress) {
-  return [item.addressLine, item.ward, item.district, item.province].filter(Boolean).join(", ");
-}
-
 export function CheckoutPage() {
   const { items, refresh } = useCart();
   const navigate = useNavigate();
-  const [addresses, setAddresses] = useState<UserAddress[]>([]);
-  const [addressId, setAddressId] = useState("");
-  const [coupons, setCoupons] = useState<Coupon[]>([]);
+  const [addressId, setAddressId] = useState<string | null>(null);
   const [couponInput, setCouponInput] = useState("");
   const [couponCode, setCouponCode] = useState("");
   const [payment, setPayment] = useState<PaymentMethod>("COD");
   const [note, setNote] = useState("");
-  const [summary, setSummary] = useState<CheckoutSummary | null>(null);
-  const [busy, setBusy] = useState(false);
+  const [busy, run] = useAction();
 
-  const manual = addressId === "";
-  const lines = items.filter((line) => line.isAvailable);
-
-  useEffect(() => {
-    addressService.getAddresses().then((result) => {
-      setAddresses(result.data);
-      const preferred = result.data.find((item) => item.isDefault) ?? result.data[0];
-      if (preferred) setAddressId(preferred.id);
-    }).catch((reason: unknown) => showToast(errorText(reason), "error"));
-    couponService.getPublicCoupons().then((result) => setCoupons(result.data)).catch(() => undefined);
-  }, []);
-
-  useEffect(() => {
-    if (items.length === 0) return;
-    let active = true;
-    checkoutService
-      .previewCheckout({ couponCode: couponCode || undefined, shippingFee: SHIPPING_FEE })
-      .then((result) => {
-        if (active) setSummary(result.data);
-      })
-      .catch((reason: unknown) => {
-        if (!active) return;
-        showToast(errorText(reason), "error");
-        if (couponCode) setCouponCode("");
+  const { data: addresses = [] } = useRequest(
+    () =>
+      addressService
+        .getAddresses()
+        .then((result) => result.data)
+        .catch((reason: unknown) => {
+          toastError(reason);
+          return [];
+        }),
+    [],
+  );
+  const { data: coupons = [] } = useRequest(
+    () => couponService.getPublicCoupons().then((result) => result.data).catch(() => []),
+    [],
+  );
+  const cartKey = items.map((line) => `${line.id}:${line.quantity}:${line.lineTotal}`).join("|");
+  const { data: summary } = useRequest(async () => {
+    if (items.length === 0) return null;
+    try {
+      const result = await checkoutService.previewCheckout({
+        couponCode: couponCode || undefined,
+        shippingFee: SHIPPING_FEE,
       });
-    return () => {
-      active = false;
-    };
-  }, [items, couponCode]);
+      return result.data;
+    } catch (reason) {
+      toastError(reason);
+      if (couponCode) setCouponCode("");
+      throw reason;
+    }
+  }, [cartKey, couponCode]);
+
+  const preferred = addresses.find((item) => item.isDefault) ?? addresses[0];
+  const chosen = addressId === null ? (preferred?.id ?? "") : addressId;
+  const manual = chosen === "";
+  const lines = items.filter((line) => line.isAvailable);
 
   function applyCoupon(code: string) {
     const value = code.trim().toUpperCase();
@@ -100,7 +102,7 @@ export function CheckoutPage() {
       paymentMethod: payment,
       note: note.trim() || undefined,
     };
-    if (!manual) return { ...body, addressId };
+    if (!manual) return { ...body, addressId: chosen };
     const read = (key: string) => String(form.get(key) ?? "").trim();
     return {
       ...body,
@@ -120,8 +122,7 @@ export function CheckoutPage() {
       return;
     }
     const body = payload(new FormData(event.currentTarget));
-    setBusy(true);
-    try {
+    await run(async () => {
       const { order } = (await checkoutService.placeOrder(body)).data;
       await refresh();
       if (payment === "COD") {
@@ -131,17 +132,14 @@ export function CheckoutPage() {
       }
       const next = await paymentService.startPayment(order.id, order.orderNumber);
       if (next) navigate(next.path);
-    } catch (reason) {
-      showToast(errorText(reason), "error");
-    } finally {
-      setBusy(false);
-    }
+    });
   }
 
-  const subtotal = summary?.subtotal ?? lines.reduce((sum, line) => sum + line.lineTotal, 0);
-  const discount = summary?.discountAmount ?? 0;
-  const shippingFee = summary?.shippingFee ?? SHIPPING_FEE;
-  const total = summary?.totalAmount ?? subtotal + shippingFee;
+  const quote: CheckoutSummary | null = summary ?? null;
+  const subtotal = quote?.subtotal ?? lines.reduce((sum, line) => sum + line.lineTotal, 0);
+  const discount = quote?.discountAmount ?? 0;
+  const shippingFee = quote?.shippingFee ?? SHIPPING_FEE;
+  const total = quote?.totalAmount ?? subtotal + shippingFee;
   const submitLabel = payment === "MOMO" ? "Thanh toán bằng MoMo" : "Đặt hàng";
 
   if (items.length === 0) {
@@ -149,7 +147,7 @@ export function CheckoutPage() {
       <div className={`wrap ${styles.empty}`}>
         <h1>Giỏ hàng đang trống</h1>
         <p>Thêm vài món đồ gia dụng rồi quay lại thanh toán nhé.</p>
-        <Link to="/shop" className={styles.primaryLink}>Tiếp tục mua sắm</Link>
+        <ButtonLink to="/shop">Tiếp tục mua sắm</ButtonLink>
       </div>
     );
   }
@@ -157,9 +155,9 @@ export function CheckoutPage() {
   return (
     <div className={styles.page}>
       <div className="wrap">
-        <ol className={styles.steps}>
+        <ol className="steps">
           {steps.map((label, index) => (
-            <li key={label} className={index <= 1 ? styles.stepDone : undefined}>
+            <li key={label} className={index <= 1 ? "stepDone" : undefined}>
               <span>{index + 1}</span>
               {label}
             </li>
@@ -168,18 +166,18 @@ export function CheckoutPage() {
 
         <form className={styles.layout} onSubmit={place}>
           <div className={styles.main}>
-            <section className={styles.card}>
+            <section className={`card ${styles.panel}`}>
               <h2 className={styles.cardTitle}>
                 <span className={styles.badge}>1</span>Thông tin giao hàng
               </h2>
               {addresses.length > 0 ? (
                 <div className={styles.options}>
                   {addresses.map((item) => (
-                    <label key={item.id} className={styles.option} data-active={addressId === item.id}>
+                    <label key={item.id} className={styles.option} data-active={chosen === item.id}>
                       <input
                         type="radio"
                         name="address"
-                        checked={addressId === item.id}
+                        checked={chosen === item.id}
                         onChange={() => setAddressId(item.id)}
                       />
                       <span className={styles.optionBody}>
@@ -187,7 +185,7 @@ export function CheckoutPage() {
                           {item.recipientName} · {item.phone}
                           {item.isDefault ? <em className={styles.tag}>Mặc định</em> : null}
                         </strong>
-                        <small>{formatAddress(item)}</small>
+                        <small>{formatAddress([item.addressLine, item.ward, item.district, item.province])}</small>
                       </span>
                     </label>
                   ))}
@@ -200,31 +198,10 @@ export function CheckoutPage() {
                   </label>
                 </div>
               ) : null}
-              {manual ? (
-                <div className={styles.form}>
-                  <TextInput label="Người nhận" name="customerName" required minLength={2} fullWidth />
-                  <TextInput
-                    label="Số điện thoại"
-                    name="customerPhone"
-                    type="tel"
-                    required
-                    pattern="0\d{9}"
-                    title="Số điện thoại 10 số, bắt đầu bằng 0"
-                    fullWidth
-                  />
-                  <div className={styles.full}>
-                    <TextInput label="Địa chỉ (số nhà, đường)" name="shippingAddress" required minLength={5} fullWidth />
-                  </div>
-                  <TextInput label="Phường/xã" name="shippingWard" fullWidth />
-                  <TextInput label="Quận/huyện" name="shippingDistrict" fullWidth />
-                  <div className={styles.full}>
-                    <TextInput label="Tỉnh/thành" name="shippingProvince" fullWidth />
-                  </div>
-                </div>
-              ) : null}
+              {manual ? <AddressForm checkout /> : null}
             </section>
 
-            <section className={styles.card}>
+            <section className={`card ${styles.panel}`}>
               <h2 className={styles.cardTitle}>
                 <span className={styles.badge}>2</span>Phương thức thanh toán
               </h2>
@@ -254,7 +231,7 @@ export function CheckoutPage() {
               </p>
             </section>
 
-            <section className={styles.card}>
+            <section className={`card ${styles.panel}`}>
               <h2 className={styles.cardTitle}>
                 <span className={styles.badge}>3</span>Ghi chú đơn hàng
               </h2>
@@ -270,7 +247,7 @@ export function CheckoutPage() {
           </div>
 
           <aside className={styles.summary}>
-            <div className={styles.card}>
+            <div className={`card ${styles.panel}`}>
               <h2 className={styles.summaryTitle}>
                 Đơn hàng <span>({lines.length} sản phẩm)</span>
               </h2>
@@ -291,10 +268,10 @@ export function CheckoutPage() {
               </ul>
 
               <div className={styles.coupon}>
-                {summary?.coupon ? (
+                {quote?.coupon ? (
                   <div className={styles.applied}>
                     <span>
-                      <strong>{summary.coupon.code}</strong> · {summary.coupon.name}
+                      <strong>{quote.coupon.code}</strong> · {quote.coupon.name}
                     </span>
                     <button type="button" onClick={removeCoupon} aria-label="Bỏ mã giảm giá">×</button>
                   </div>
@@ -317,7 +294,7 @@ export function CheckoutPage() {
                     </Button>
                   </div>
                 )}
-                {!summary?.coupon && coupons.length > 0 ? (
+                {!quote?.coupon && coupons.length > 0 ? (
                   <div className={styles.chips}>
                     {coupons.map((coupon) => (
                       <button key={coupon.id} type="button" title={coupon.name} onClick={() => applyCoupon(coupon.code)}>
@@ -328,26 +305,7 @@ export function CheckoutPage() {
                 ) : null}
               </div>
 
-              <dl className={styles.totals}>
-                <div>
-                  <dt>Tạm tính</dt>
-                  <dd>{formatMoney(subtotal)}</dd>
-                </div>
-                <div>
-                  <dt>Giảm giá</dt>
-                  <dd className={discount > 0 ? styles.discount : undefined}>
-                    {discount > 0 ? `−${formatMoney(discount)}` : formatMoney(0)}
-                  </dd>
-                </div>
-                <div>
-                  <dt>Phí vận chuyển</dt>
-                  <dd>{shippingFee > 0 ? formatMoney(shippingFee) : "Miễn phí"}</dd>
-                </div>
-                <div className={styles.grand}>
-                  <dt>Tổng cộng</dt>
-                  <dd>{formatMoney(total)}</dd>
-                </div>
-              </dl>
+              <PriceSummary subtotal={subtotal} discount={discount} shipping={shippingFee} total={total} />
 
               <Button type="submit" variant="primary" size="lg" fullWidth loading={busy} disabled={lines.length === 0}>
                 {submitLabel}
