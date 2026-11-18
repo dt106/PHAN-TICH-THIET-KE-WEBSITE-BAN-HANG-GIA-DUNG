@@ -126,6 +126,10 @@
 
   --momo: #a50064;
   --momo-bg: #fff0f7;
+  --momo-dark: #7a0048;
+  --momo-muted: #9a3a6d;
+  --momo-line: #f3c2de;
+  --momo-glow: #ffe6f3;
 
   color-scheme: light;
 }

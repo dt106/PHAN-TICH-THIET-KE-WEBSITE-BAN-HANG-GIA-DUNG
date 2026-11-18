@@ -31,8 +31,17 @@ export function ProductDetailPage() {
     }
   }, [product?.id]);
 
-  if (!product || product.slug !== slug || error) {
-    return <PageState loading={loading && !error} error={error} backTo="/shop" backLabel="Về cửa hàng" />;
+  if (loading || error || !product) {
+    return (
+      <div className="wrap section">
+        <PageState
+          loading={loading}
+          error={error || "Không tìm thấy sản phẩm."}
+          backTo="/shop"
+          backLabel="Về cửa hàng"
+        />
+      </div>
+    );
   }
 
   const current = product;

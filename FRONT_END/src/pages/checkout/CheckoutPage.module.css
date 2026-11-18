@@ -153,8 +153,8 @@
 }
 
 .payHint[data-method="MOMO"] {
-  background: #fff0f7;
-  color: #7a0048;
+  background: var(--momo-bg);
+  color: var(--momo-dark);
 }
 
 .form {

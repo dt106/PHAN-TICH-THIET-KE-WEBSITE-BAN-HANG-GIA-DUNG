@@ -27,7 +27,11 @@ export function OrderDetailPage() {
   const order = data?.order;
   const items = data?.items ?? [];
   if (!order) {
-    return <PageState loading={loading} error={error} backTo="/orders" backLabel="Danh sách đơn" />;
+    return (
+      <div className="wrap section">
+        <PageState loading={loading} error={error} backTo="/orders" backLabel="Danh sách đơn" />
+      </div>
+    );
   }
 
   const step = flow.findIndex((item) => item.value === order.status);
@@ -48,9 +52,7 @@ export function OrderDetailPage() {
               </li>
             ))}
           </ol>
-        ) : (
-          <StatusBadge tone={orderStatusTone(order.status)}>{orderStatusLabel(order.status)}</StatusBadge>
-        )}
+        ) : null}
 
         <div className={styles.meta}>
           <StatusBadge tone={orderStatusTone(order.status)}>{orderStatusLabel(order.status)}</StatusBadge>

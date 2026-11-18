@@ -54,7 +54,10 @@ export function AccountPage() {
       setUser(result.data.user);
       showToast("Đã cập nhật hồ sơ.", "success");
     });
-    if (ok) setPreview("");
+    if (ok) {
+      if (preview) URL.revokeObjectURL(preview);
+      setPreview("");
+    }
   }
 
   async function changePassword(event: FormEvent<HTMLFormElement>) {
@@ -146,6 +149,7 @@ export function AccountPage() {
                   accept="image/jpeg,image/png,image/webp,image/gif"
                   onChange={(event) => {
                     const file = event.target.files?.[0];
+                    if (preview) URL.revokeObjectURL(preview);
                     setPreview(file ? URL.createObjectURL(file) : "");
                   }}
                 />
@@ -174,18 +178,20 @@ export function AccountPage() {
                   {item.isDefault ? <StatusBadge tone="success">Mặc định</StatusBadge> : null}
                   <p>{formatAddress([item.addressLine, item.ward, item.district, item.province])}</p>
                   <div>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() =>
-                        void run(async () => {
-                          await addressService.setDefaultAddress(item.id);
-                          reloadAddresses();
-                        })
-                      }
-                    >
-                      Đặt mặc định
-                    </Button>
+                    {item.isDefault ? null : (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() =>
+                          void run(async () => {
+                            await addressService.setDefaultAddress(item.id);
+                            reloadAddresses();
+                          })
+                        }
+                      >
+                        Đặt mặc định
+                      </Button>
+                    )}
                     <Button
                       variant="ghost"
                       size="sm"

@@ -64,17 +64,17 @@
   padding: 16px 18px;
   border-radius: 14px;
   background: var(--momo-bg);
-  border: 1px solid #f3c2de;
+  border: 1px solid var(--momo-line);
 }
 
 .payBanner strong {
   display: block;
-  color: #7a0048;
+  color: var(--momo-dark);
 }
 
 .payBanner p {
   margin: 4px 0 0;
-  color: #9a3a6d;
+  color: var(--momo-muted);
   font-size: 13px;
 }
 

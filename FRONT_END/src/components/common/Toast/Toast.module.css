@@ -103,26 +103,3 @@
   color: var(--color-danger-normal);
 }
 
-@media (prefers-color-scheme: dark) {
-  .toast {
-    box-shadow: 0 10px 24px rgba(0, 0, 0, 0.35);
-  }
-
-  .success {
-    background: var(--color-green-900);
-    color: var(--color-green-100);
-    border-color: var(--color-green-700);
-  }
-
-  .warning {
-    background: #3d2800;
-    color: var(--color-warning-dim);
-    border-color: var(--color-warning-normal-press);
-  }
-
-  .error {
-    background: #3d1012;
-    color: var(--color-danger-light);
-    border-color: var(--color-danger-normal);
-  }
-}

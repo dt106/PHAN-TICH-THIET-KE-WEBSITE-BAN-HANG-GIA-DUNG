@@ -4,7 +4,7 @@
   place-items: center;
   padding: 48px 16px;
   background:
-    radial-gradient(circle at top, #ffe6f3 0%, transparent 55%),
+    radial-gradient(circle at top, var(--momo-glow) 0%, transparent 55%),
     var(--color-bg-light-base);
 }
 
@@ -50,7 +50,7 @@
 }
 
 .amountBox span {
-  color: #9a3a6d;
+  color: var(--momo-muted);
   font-size: 13px;
 }
 

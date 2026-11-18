@@ -7,7 +7,11 @@ export function RequireAuth() {
   const location = useLocation();
 
   if (!ready) {
-    return <PageState loading />;
+    return (
+      <div className="wrap section">
+        <PageState loading />
+      </div>
+    );
   }
   if (!user) {
     const next = `${location.pathname}${location.search}`;

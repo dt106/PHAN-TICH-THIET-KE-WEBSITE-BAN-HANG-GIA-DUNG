@@ -16,10 +16,10 @@ export function PageState({
   backLabel?: string;
   emptyAction?: ReactNode;
 }) {
-  if (loading) return <p className="wrap section">Đang tải…</p>;
+  if (loading) return <p>Đang tải…</p>;
   if (error) {
     return (
-      <div className="wrap section stack">
+      <div className="stack">
         <p>{error}</p>
         <Link to={backTo}>{backLabel}</Link>
       </div>
@@ -27,7 +27,7 @@ export function PageState({
   }
   if (empty) {
     return (
-      <div className="wrap section stack">
+      <div className="stack">
         <p>{empty}</p>
         {emptyAction}
       </div>
