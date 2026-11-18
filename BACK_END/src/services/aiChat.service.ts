@@ -215,7 +215,7 @@ export const getAIConversationById = async (
 ) => {
   const ownerFilter = getOwnerFilter(userId, sessionId);
 
-  const conversation = await AIConversation.findOne({
+  const conversation: any = await AIConversation.findOne({
     _id: conversationId,
     ...ownerFilter,
   }).lean();

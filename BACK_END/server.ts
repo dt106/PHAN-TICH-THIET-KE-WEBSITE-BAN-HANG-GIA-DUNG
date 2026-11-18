@@ -1,8 +1,10 @@
 import "dotenv/config";
+import http from "http";
 import mongoose from "mongoose";
 import app from "./app";
 import connectDatabase from "./src/config/database";
 import * as models from "./src/models";
+import { initSocket } from "./src/socket";
 
 const PORT = process.env.PORT || 5001;
 
@@ -39,17 +41,21 @@ const startServer = async () => {
       );
     }
 
-    // 3. Chạy server
-    const server = app.listen(PORT, () => {
+    // 3. Chạy HTTP server và gắn Socket.IO Server
+    const httpServer = http.createServer(app);
+    initSocket(httpServer);
+
+    httpServer.listen(PORT, () => {
       console.log("=================================");
       console.log("🚀 Server is running");
       console.log(`🌐 http://localhost:${PORT}`);
+      console.log("⚡ Socket.IO initialized");
       console.log(
         `🐞 Debugger: ws://127.0.0.1:9229 (Chrome DevTools / Cursor)`,
       );
       console.log("=================================");
     });
-    server.on("error", (error) => {
+    httpServer.on("error", (error) => {
       console.error(`❌ Không mở được cổng ${PORT}:`, error);
       process.exit(1);
     });

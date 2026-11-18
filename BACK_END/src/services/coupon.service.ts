@@ -138,7 +138,7 @@ export const getAllCouponsAdmin = async (query: {
   limit?: number;
   search?: string;
   isActive?: string;
-}) => {
+}): Promise<any> => {
   const page = Number(query.page) || 1;
   const limit = Number(query.limit) || 10;
   const skip = (page - 1) * limit;
@@ -170,7 +170,7 @@ export const getAllCouponsAdmin = async (query: {
   };
 };
 
-export const getCouponByIdAdmin = async (id: string) => {
+export const getCouponByIdAdmin = async (id: string): Promise<any> => {
   const coupon = await Coupon.findById(id).lean();
   if (!coupon) {
     throw new AppError(404, "Mã giảm giá không tồn tại.");

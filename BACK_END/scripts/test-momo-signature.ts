@@ -6,7 +6,7 @@ process.env.MOMO_SECRET_KEY = "test-secret";
 
 const main = async () => {
   const { verifyMomoCallback, momoOrderNumber } =
-    await import("../src/services/payment.service");
+    (await import("../src/services/payment.service.js")) as any;
 
   const result: Record<string, string> = {
     partnerCode: "MOMO",
