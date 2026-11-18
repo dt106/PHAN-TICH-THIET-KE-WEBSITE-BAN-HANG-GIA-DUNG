@@ -1,8 +1,7 @@
-import { useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { Button, showToast } from "../../components/common/index.ts";
-import { formatMoney } from "../../lib/money.ts";
-import { errorText } from "../../services/http.ts";
+import { useAction } from "../../hooks/useAction.ts";
+import { formatMoney } from "../../lib/format.ts";
 import { paymentService } from "../../services/payment.service.ts";
 import styles from "./MomoCheckoutPage.module.css";
 
@@ -13,31 +12,26 @@ export function MomoCheckoutPage() {
   const order = params.get("order") ?? "";
   const orderId = params.get("id") ?? "";
   const amount = Number(params.get("amount") ?? "0");
-  const [busy, setBusy] = useState(false);
+  const [busy, run] = useAction();
 
   async function finish(success: boolean) {
     if (!order) {
       showToast("Thiếu mã đơn hàng.", "error");
       return;
     }
-    setBusy(true);
-    try {
+    await run(async () => {
       await paymentService.mockCompletePayment(order, success);
       navigate(
         `/payment/result?order=${encodeURIComponent(order)}&status=${success ? "success" : "failed"}${
           orderId ? `&id=${orderId}` : ""
         }`,
       );
-    } catch (reason) {
-      showToast(errorText(reason), "error");
-    } finally {
-      setBusy(false);
-    }
+    });
   }
 
   return (
     <div className={styles.page}>
-      <div className={styles.card}>
+      <div className={`card ${styles.card}`}>
         <header className={styles.brand}>
           <span className={styles.logo}>MoMo</span>
           <small>Cổng thanh toán (môi trường demo)</small>

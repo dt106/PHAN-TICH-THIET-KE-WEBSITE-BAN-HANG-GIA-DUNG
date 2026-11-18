@@ -1,10 +1,9 @@
 import { Link } from "react-router-dom";
-import { Button, Quantity, showToast } from "../../components/common/index.ts";
+import { ButtonLink, Quantity, toastError } from "../../components/common/index.ts";
 import { FeatureBar } from "../../components/layout/FeatureBar.tsx";
 import { PageBanner } from "../../components/layout/PageBanner.tsx";
 import { useCart } from "../../contexts/useCart.ts";
-import { formatMoney } from "../../lib/money.ts";
-import { errorText } from "../../services/http.ts";
+import { formatMoney } from "../../lib/format.ts";
 import styles from "./CartPage.module.css";
 
 export function CartPage() {
@@ -12,17 +11,13 @@ export function CartPage() {
 
   return (
     <>
-      <PageBanner title="Cart" />
+      <PageBanner title="Giỏ hàng" />
       {loading && items.length === 0 ? (
-        <p className="wrap" style={{ padding: "64px 0" }}>Đang tải giỏ hàng…</p>
+        <p className="wrap section">Đang tải giỏ hàng…</p>
       ) : items.length === 0 ? (
         <div className={`wrap ${styles.empty}`}>
           <p>Giỏ hàng trống.</p>
-          <Button variant="primary">
-            <Link to="/shop" style={{ color: "inherit", textDecoration: "none" }}>
-              Tiếp tục mua
-            </Link>
-          </Button>
+          <ButtonLink to="/shop">Tiếp tục mua</ButtonLink>
         </div>
       ) : (
         <div className={`wrap ${styles.layout}`}>
@@ -53,9 +48,7 @@ export function CartPage() {
                       <Quantity
                         value={line.quantity}
                         onChange={(value) => {
-                          setQuantity(line.id, value).catch((reason: unknown) =>
-                            showToast(errorText(reason), "error"),
-                          );
+                          setQuantity(line.id, value).catch(toastError);
                         }}
                       />
                     </td>
@@ -66,7 +59,7 @@ export function CartPage() {
                         className={styles.remove}
                         aria-label={`Xóa ${line.productName}`}
                         onClick={() => {
-                          remove(line.id).catch((reason: unknown) => showToast(errorText(reason), "error"));
+                          remove(line.id).catch(toastError);
                         }}
                       >
                         ×
@@ -83,11 +76,7 @@ export function CartPage() {
               <span>Hàng còn bán</span>
               <span>{formatMoney(subtotal)}</span>
             </div>
-            <Button variant="outline">
-              <Link to="/checkout" style={{ color: "inherit", textDecoration: "none" }}>
-                Thanh toán
-              </Link>
-            </Button>
+            <ButtonLink to="/checkout" variant="outline">Thanh toán</ButtonLink>
           </aside>
         </div>
       )}

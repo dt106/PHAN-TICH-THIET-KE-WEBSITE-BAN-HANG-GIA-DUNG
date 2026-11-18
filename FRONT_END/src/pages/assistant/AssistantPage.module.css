@@ -1,0 +1,73 @@
+.page {
+  display: grid;
+  gap: 16px;
+  padding: 32px 0 24px;
+  min-height: 70vh;
+  align-content: end;
+}
+
+.tabs {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  max-width: 320px;
+  padding: 4px;
+  border-radius: 999px;
+  background: #fff;
+  border: 1px solid var(--store-line);
+}
+
+.tabs button {
+  border: 0;
+  background: transparent;
+  border-radius: 999px;
+  min-height: 36px;
+  font: inherit;
+  cursor: pointer;
+}
+
+.tabs button[aria-selected="true"] {
+  background: var(--store-gold);
+  color: #fff;
+}
+
+.log {
+  display: grid;
+  gap: 12px;
+  align-content: end;
+}
+
+.bubble {
+  max-width: min(640px, 100%);
+  padding: 12px 14px;
+  border-radius: 16px;
+}
+
+.user {
+  justify-self: end;
+  background: var(--store-gold);
+  color: #fff;
+}
+
+.assistant {
+  justify-self: start;
+  background: #fff;
+  border: 1px solid var(--store-line);
+}
+
+.composer {
+  position: sticky;
+  bottom: 0;
+  display: flex;
+  gap: 12px;
+  padding: 12px 0;
+  background: linear-gradient(180deg, transparent, #f7f6f4 24%);
+}
+
+.composer input {
+  flex: 1;
+  min-height: 44px;
+  border: 1px solid var(--store-line);
+  border-radius: var(--store-radius-sm);
+  padding: 0 12px;
+  font: inherit;
+}

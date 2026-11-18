@@ -123,25 +123,66 @@
   font: inherit;
 }
 
+.menuButton {
+  display: none;
+  width: 40px;
+  height: 40px;
+  border: 0;
+  background: transparent;
+  font-size: 24px;
+  cursor: pointer;
+}
+
+.drawer {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+}
+
+.backdrop {
+  position: absolute;
+  inset: 0;
+  border: 0;
+  background: rgba(0, 0, 0, 0.35);
+}
+
+.panel {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: min(320px, 86vw);
+  height: 100dvh;
+  display: grid;
+  align-content: start;
+  gap: 18px;
+  padding: 24px;
+  background: #fff;
+}
+
+.panel a {
+  color: var(--store-text);
+  text-decoration: none;
+  font-size: 18px;
+  font-weight: 600;
+}
+
+.close {
+  justify-self: end;
+  border: 0;
+  background: transparent;
+  font-size: 28px;
+  cursor: pointer;
+}
+
 @media (max-width: 900px) {
-  .header {
-    height: auto;
-    padding: 16px 0;
-  }
-
   .inner {
-    grid-template-columns: 1fr;
-    justify-items: center;
-    padding: 0 20px;
+    grid-template-columns: auto 1fr auto;
+    padding: 0 16px;
+    gap: 12px;
   }
 
-  .nav {
-    gap: 20px;
-    flex-wrap: wrap;
-    justify-content: center;
-  }
-
-  .tools {
-    gap: 20px;
-  }
+  .nav { display: none; }
+  .menuButton { display: inline-flex; align-items: center; justify-content: center; }
+  .name { font-size: 24px; }
+  .tools { gap: 16px; }
 }

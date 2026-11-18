@@ -1,0 +1,38 @@
+.chips {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+}
+
+.chips button {
+  border: 1px solid var(--store-line);
+  background: #fff;
+  border-radius: 999px;
+  padding: 8px 14px;
+  font: inherit;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.chips button[aria-selected="true"] {
+  background: var(--store-gold);
+  border-color: var(--store-gold);
+  color: #fff;
+}
+
+.card {
+  padding: 16px 18px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+}
+
+.card h2 {
+  margin: 0;
+  font-size: 18px;
+}
+
+.card strong {
+  margin-left: auto;
+}

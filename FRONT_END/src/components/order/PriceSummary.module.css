@@ -1,0 +1,45 @@
+.totals {
+  margin: 0;
+  padding: 16px 0;
+  display: grid;
+  gap: 10px;
+  font-size: 14px;
+}
+
+.totals div {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.totals dt {
+  margin: 0;
+  color: var(--store-muted);
+}
+
+.totals dd {
+  margin: 0;
+  font-weight: 600;
+}
+
+.discount {
+  color: var(--color-green-700);
+}
+
+.grand {
+  margin-top: 6px;
+  padding-top: 14px;
+  border-top: 1px solid var(--color-grey-200);
+  align-items: baseline;
+}
+
+.grand dt {
+  color: var(--store-text);
+  font-size: 16px;
+}
+
+.grand dd {
+  color: var(--store-gold);
+  font-size: 24px;
+  font-weight: 700;
+}

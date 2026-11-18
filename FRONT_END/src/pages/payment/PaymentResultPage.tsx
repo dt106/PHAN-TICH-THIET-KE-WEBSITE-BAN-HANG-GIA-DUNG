@@ -1,4 +1,5 @@
-import { Link, useSearchParams } from "react-router-dom";
+import { useSearchParams } from "react-router-dom";
+import { ButtonLink } from "../../components/common/index.ts";
 import styles from "./PaymentResultPage.module.css";
 
 type Tone = "success" | "error";
@@ -38,7 +39,7 @@ export function PaymentResultPage() {
 
   return (
     <div className={styles.page}>
-      <div className={styles.card}>
+      <div className={`card ${styles.card}`}>
         <span className={styles.icon} data-tone={result.tone}>
           <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4">
             {result.tone === "success" ? <path d="m5 12.5 4.5 4.5L19 7.5" /> : <path d="M7 7l10 10M17 7 7 17" />}
@@ -52,12 +53,10 @@ export function PaymentResultPage() {
           </div>
         ) : null}
         <div className={styles.actions}>
-          <Link to={id ? `/orders/${id}` : "/orders"} className={styles.primary}>
-            Xem đơn hàng
-          </Link>
-          <Link to={result.tone === "error" ? "/account" : "/shop"} className={styles.secondary}>
+          <ButtonLink to={id ? `/orders/${id}` : "/orders"}>Xem đơn hàng</ButtonLink>
+          <ButtonLink to={result.tone === "error" ? "/account" : "/shop"} variant="outline">
             {result.tone === "error" ? "Thanh toán lại" : "Tiếp tục mua sắm"}
-          </Link>
+          </ButtonLink>
         </div>
       </div>
     </div>

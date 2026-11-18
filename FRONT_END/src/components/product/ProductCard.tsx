@@ -1,24 +1,15 @@
-import { Link, useNavigate } from "react-router-dom";
-import { useAuth } from "../../contexts/useAuth.ts";
+import { Link } from "react-router-dom";
 import { useCart } from "../../contexts/useCart.ts";
-import { formatMoney } from "../../lib/money.ts";
+import { useRequireUser } from "../../hooks/useRequireUser.ts";
+import { formatMoney } from "../../lib/format.ts";
 import type { CardProduct } from "../../lib/productView.ts";
-import { errorText } from "../../services/http.ts";
 import { wishlistService } from "../../services/wishlist.service.ts";
-import { Button, showToast } from "../common/index.ts";
+import { Button, showToast, toastError } from "../common/index.ts";
 import styles from "./ProductCard.module.css";
 
 export function ProductCard({ product }: { product: CardProduct }) {
   const { add } = useCart();
-  const { user } = useAuth();
-  const navigate = useNavigate();
-
-  function requireUser() {
-    if (user) return true;
-    navigate(`/login?next=${encodeURIComponent(`/shop/${product.slug}`)}`);
-    showToast("Đăng nhập để tiếp tục.", "warning");
-    return false;
-  }
+  const requireUser = useRequireUser();
 
   return (
     <article className={styles.card}>
@@ -50,7 +41,7 @@ export function ProductCard({ product }: { product: CardProduct }) {
             if (!requireUser()) return;
             add(product.id)
               .then(() => showToast(`Đã thêm ${product.name} vào giỏ.`, "success"))
-              .catch((error: unknown) => showToast(errorText(error), "error"));
+              .catch(toastError);
           }}
         >
           Thêm vào giỏ
@@ -62,7 +53,7 @@ export function ProductCard({ product }: { product: CardProduct }) {
               if (!requireUser()) return;
               wishlistService.addToWishlist(product.id)
                 .then(() => showToast("Đã lưu vào yêu thích.", "success"))
-                .catch((error: unknown) => showToast(errorText(error), "error"));
+                .catch(toastError);
             }}
           >
             Yêu thích

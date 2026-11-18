@@ -39,20 +39,31 @@
 }
 
 .grid {
+  padding: 32px 0 16px;
+}
+
+.skeleton {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
   gap: 28px;
-  padding: 32px 0 64px;
+}
+
+.skeleton span {
+  height: 280px;
+  border-radius: var(--store-radius);
+  background: linear-gradient(90deg, #eee, #f7f7f7, #eee);
+  background-size: 200% 100%;
+  animation: pulse 1.2s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  to { background-position: -200% 0; }
 }
 
 @media (max-width: 1000px) {
-  .grid {
-    grid-template-columns: 1fr 1fr;
-  }
+  .skeleton { grid-template-columns: 1fr 1fr; }
 }
 
 @media (max-width: 640px) {
-  .grid {
-    grid-template-columns: 1fr;
-  }
+  .skeleton { grid-template-columns: 1fr; }
 }

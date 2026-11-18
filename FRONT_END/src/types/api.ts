@@ -130,6 +130,26 @@ export type Coupon = {
   maximumDiscountAmount?: number | null;
 };
 
+export type AddressInput = {
+  recipientName: string;
+  phone: string;
+  addressLine: string;
+  ward?: string;
+  district?: string;
+  province?: string;
+  isDefault?: boolean;
+};
+
+export type MyPayment = {
+  id: string;
+  orderId: string;
+  amount: number;
+  status: string;
+  paymentMethod: string;
+  createdAt?: string;
+  order?: { orderNumber?: string; status?: string };
+};
+
 export type UserAddress = {
   id: string;
   recipientName: string;

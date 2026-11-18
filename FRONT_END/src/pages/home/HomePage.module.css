@@ -225,7 +225,7 @@
   width: 48px;
   height: 48px;
   border: 0;
-  background: #b88e2f;
+  background: var(--store-gold);
   color: #fff;
   font-size: 24px;
   cursor: pointer;

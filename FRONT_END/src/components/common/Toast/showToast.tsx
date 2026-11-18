@@ -1,4 +1,5 @@
 import { toast } from "react-hot-toast";
+import { errorText } from "../../../services/http.ts";
 import { ToastView, type ToastVariant } from "./Toast.tsx";
 
 const ariaByVariant = {
@@ -24,3 +25,5 @@ export function showToast(message: string, variant: ToastVariant = "success") {
     },
   );
 }
+
+export const toastError = (error: unknown) => showToast(errorText(error), "error");

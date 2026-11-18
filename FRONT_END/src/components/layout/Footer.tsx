@@ -1,8 +1,8 @@
 import { useState, type FormEvent } from "react";
 import { Link } from "react-router-dom";
+import { footerColumns, site } from "../../constants/site.ts";
 import { showToast } from "../common/Toast/showToast.tsx";
 import styles from "./Footer.module.css";
-import "../common/tokens.css";
 
 export function Footer() {
   const [email, setEmail] = useState("");
@@ -10,10 +10,10 @@ export function Footer() {
   function subscribe(event: FormEvent) {
     event.preventDefault();
     if (!email.includes("@")) {
-      showToast("Enter a valid email address.", "error");
+      showToast("Nhập email hợp lệ.", "error");
       return;
     }
-    showToast("You are subscribed to the newsletter.", "success");
+    showToast("Bạn đã đăng ký nhận tin.", "success");
     setEmail("");
   }
 
@@ -22,46 +22,39 @@ export function Footer() {
       <div className="wrap">
         <div className={styles.grid}>
           <div>
-            <p className={styles.brand}>Funiro.</p>
+            <p className={styles.brand}>{site.name}</p>
             <p className={styles.address}>
-              400 University Drive Suite 200 Coral Gables,
+              {site.address[0]}
               <br />
-              FL 33134 USA
+              {site.address[1]}
             </p>
           </div>
-          <div>
-            <p className={styles.heading}>Links</p>
-            <div className={styles.links}>
-              <Link to="/">Home</Link>
-              <Link to="/shop">Shop</Link>
-              <Link to="/about">About</Link>
-              <Link to="/contact">Contact</Link>
+          {footerColumns.map((column) => (
+            <div key={column.title}>
+              <p className={styles.heading}>{column.title}</p>
+              <div className={styles.links}>
+                {column.links.map((link) => (
+                  <Link key={link.label} to={link.to}>{link.label}</Link>
+                ))}
+              </div>
             </div>
-          </div>
+          ))}
           <div>
-            <p className={styles.heading}>Help</p>
-            <div className={styles.links}>
-              <Link to="/checkout">Payment Options</Link>
-              <Link to="/orders">Returns</Link>
-              <Link to="/about">Privacy Policies</Link>
-            </div>
-          </div>
-          <div>
-            <p className={styles.heading}>Newsletter</p>
+            <p className={styles.heading}>Bản tin</p>
             <form className={styles.newsletter} onSubmit={subscribe}>
               <input
                 type="email"
                 required
-                placeholder="Enter Your Email Address"
-                aria-label="Email address"
+                placeholder="Email của bạn"
+                aria-label="Email"
                 value={email}
                 onChange={(event) => setEmail(event.target.value)}
               />
-              <button type="submit">SUBSCRIBE</button>
+              <button type="submit">Đăng ký</button>
             </form>
           </div>
         </div>
-        <p className={styles.legal}>2023 furino. All rights reverved</p>
+        <p className={styles.legal}>© {new Date().getFullYear()} {site.name}</p>
       </div>
     </footer>
   );

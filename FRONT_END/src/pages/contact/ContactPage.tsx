@@ -2,51 +2,48 @@ import type { FormEvent } from "react";
 import { Button, TextInput, showToast } from "../../components/common/index.ts";
 import { FeatureBar } from "../../components/layout/FeatureBar.tsx";
 import { PageBanner } from "../../components/layout/PageBanner.tsx";
+import { site } from "../../constants/site.ts";
 
 export function ContactPage() {
   function submit(event: FormEvent) {
     event.preventDefault();
-    showToast("Message sent. We will reply by email.", "success");
+    showToast("Đã gửi. Chúng tôi sẽ trả lời qua email.", "success");
     if (event.currentTarget instanceof HTMLFormElement) event.currentTarget.reset();
   }
 
   return (
     <>
-      <PageBanner title="Contact" />
-      <section className="wrap" style={{ padding: "64px 0", display: "grid", gridTemplateColumns: "0.8fr 1.2fr", gap: 48 }}>
-        <div>
-          <h2>Get In Touch With Us</h2>
+      <PageBanner title="Liên hệ" />
+      <section className="wrap section split">
+        <div className="stack">
+          <h2>Liên hệ với {site.name}</h2>
+          <p>Cần thêm thông tin về sản phẩm hoặc dịch vụ, hãy gửi email. Nhân viên luôn sẵn sàng hỗ trợ.</p>
           <p>
-            For more information about our product and services, please feel free to drop us an email. Our staff always be there to help you out. Do not hesitate!
+            <strong>Địa chỉ</strong>
+            <br />
+            {site.address.join(", ")}
           </p>
           <p>
-            <strong>Address</strong>
+            <strong>Điện thoại</strong>
             <br />
-            236 5th SE Avenue, New York NY10000, United States
+            Di động: {site.phone}
+            <br />
+            Tổng đài: {site.hotline}
           </p>
           <p>
-            <strong>Phone</strong>
+            <strong>Giờ làm việc</strong>
             <br />
-            Mobile: +(84) 546-6789
+            {site.hours[0]}
             <br />
-            Hotline: +(84) 456-6789
-          </p>
-          <p>
-            <strong>Working Time</strong>
-            <br />
-            Monday–Friday: 9:00 – 22:00
-            <br />
-            Saturday–Sunday: 9:00 – 21:00
+            {site.hours[1]}
           </p>
         </div>
-        <form onSubmit={submit} style={{ display: "grid", gap: 16 }}>
-          <TextInput label="Your name" name="name" required fullWidth placeholder="Abc" />
-          <TextInput label="Email address" name="email" type="email" required fullWidth placeholder="Abc@def.com" />
-          <TextInput label="Subject" name="subject" fullWidth placeholder="This is an optional" />
-          <TextInput label="Message" name="message" required fullWidth placeholder="Hi! I’d like to ask about" />
-          <Button type="submit" variant="primary">
-            Submit
-          </Button>
+        <form onSubmit={submit} className="stack">
+          <TextInput label="Họ tên" name="name" required fullWidth placeholder="Nguyễn Văn A" />
+          <TextInput label="Email" name="email" type="email" required fullWidth placeholder="ban@email.com" />
+          <TextInput label="Tiêu đề" name="subject" fullWidth placeholder="Không bắt buộc" />
+          <TextInput label="Nội dung" name="message" required fullWidth placeholder="Tôi muốn hỏi về…" />
+          <Button type="submit" variant="primary">Gửi</Button>
         </form>
       </section>
       <FeatureBar />

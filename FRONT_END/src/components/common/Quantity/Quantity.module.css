@@ -1,7 +1,7 @@
 .stepper {
   display: inline-flex;
   align-items: center;
-  border: 1px solid #9f9f9f;
+  border: 1px solid var(--store-gray);
   border-radius: 10px;
   height: 44px;
 }

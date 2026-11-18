@@ -1,100 +1,95 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Link, useParams } from "react-router-dom";
-import { Button, Quantity, showToast } from "../../components/common/index.ts";
-import { ProductCard } from "../../components/product/ProductCard.tsx";
-import { useAuth } from "../../contexts/useAuth.ts";
+import heartIcon from "../../assets/icons/heart.svg";
+import { Button, PageState, Quantity, showToast, toastError } from "../../components/common/index.ts";
+import { ProductGrid } from "../../components/product/ProductGrid.tsx";
 import { useCart } from "../../contexts/useCart.ts";
-import { formatMoney } from "../../lib/money.ts";
-import { attributeText, refName, sellingPrice, toCard } from "../../lib/productView.ts";
+import { useRequest } from "../../hooks/useRequest.ts";
+import { useRequireUser } from "../../hooks/useRequireUser.ts";
+import { formatMoney } from "../../lib/format.ts";
+import { attributeText, refName, sellingPrice } from "../../lib/productView.ts";
 import { catalogService } from "../../services/catalog.service.ts";
-import { errorText } from "../../services/http.ts";
 import { wishlistService } from "../../services/wishlist.service.ts";
-import type { Product, ProductVariant } from "../../types/api.ts";
+import type { ProductVariant } from "../../types/api.ts";
 import styles from "./ProductDetailPage.module.css";
 
 export function ProductDetailPage() {
   const { slug = "" } = useParams();
   const { add } = useCart();
-  const { user } = useAuth();
-  const [product, setProduct] = useState<Product | null>(null);
-  const [related, setRelated] = useState<Product[]>([]);
-  const [error, setError] = useState("");
-  const [variantId, setVariantId] = useState("");
-  const [quantity, setQuantity] = useState(1);
-  const [image, setImage] = useState("");
+  const requireUser = useRequireUser();
+  const [picked, setPicked] = useState<{ slug: string; variantId: string; image: string; quantity: number } | null>(null);
+  const { data: product, error, loading } = useRequest(
+    () => catalogService.getProductBySlug(slug).then((result) => result.data),
+    [slug],
+  );
+  const { data: related = [] } = useRequest(async () => {
+    if (!product?.id) return [];
+    try {
+      return (await catalogService.getRelatedProducts(product.id, 4)).data;
+    } catch {
+      return [];
+    }
+  }, [product?.id]);
 
-  useEffect(() => {
-    let cancelled = false;
-    catalogService.getProductBySlug(slug)
-      .then(async (result) => {
-        if (cancelled) return;
-        const next = result.data;
-        setProduct(next);
-        setError("");
-        const primary =
-          next.media?.find((item) => item.isPrimary)?.mediaUrl ??
-          next.media?.[0]?.mediaUrl ??
-          next.thumbnail ??
-          "";
-        setImage(primary);
-        setVariantId(next.variants?.[0]?.id ?? "");
-        try {
-          const relatedResult = await catalogService.getRelatedProducts(next.id, 4);
-          if (!cancelled) setRelated(relatedResult.data);
-        } catch {
-          if (!cancelled) setRelated([]);
-        }
-      })
-      .catch((reason: unknown) => {
-        if (cancelled) return;
-        setProduct(null);
-        setError(errorText(reason));
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [slug]);
-
-  if (error && !product) {
+  if (loading || error || !product) {
     return (
-      <div className="wrap" style={{ padding: "64px 0" }}>
-        <p>{error}</p>
-        <Link to="/shop">Về cửa hàng</Link>
+      <div className="wrap section">
+        <PageState
+          loading={loading}
+          error={error || "Không tìm thấy sản phẩm."}
+          backTo="/shop"
+          backLabel="Về cửa hàng"
+        />
       </div>
     );
   }
-  if (!product) return <p className="wrap" style={{ padding: "64px 0" }}>Đang tải…</p>;
 
-  const variant = product.variants?.find((item) => item.id === variantId);
-  const price = variant?.price ?? sellingPrice(product);
+  const current = product;
+  const fallbackImage =
+    current.media?.find((item) => item.isPrimary)?.mediaUrl ??
+    current.media?.[0]?.mediaUrl ??
+    current.thumbnail ??
+    "";
+  const selection = picked?.slug === current.slug ? picked : null;
+  const image = selection?.image || fallbackImage;
+  const variantId = selection?.variantId || current.variants?.[0]?.id || "";
+  const quantity = selection?.quantity ?? 1;
+  function choose(next: Partial<{ variantId: string; image: string; quantity: number }>) {
+    setPicked({
+      slug: current.slug,
+      variantId: next.variantId ?? variantId,
+      image: next.image ?? image,
+      quantity: next.quantity ?? quantity,
+    });
+  }
+  const variant = current.variants?.find((item) => item.id === variantId);
+  const price = variant?.price ?? sellingPrice(current);
+  const outOfStock = Boolean(variant && variant.stockQuantity <= 0);
 
   function addToCart() {
-    if (!user) {
-      showToast("Đăng nhập để thêm vào giỏ.", "warning");
-      return;
-    }
-    if (product?.variants?.length && !variantId) {
+    if (!requireUser()) return;
+    if (current.variants?.length && !variantId) {
       showToast("Chọn biến thể trước khi thêm vào giỏ.", "warning");
       return;
     }
-    add(product!.id, variantId || undefined, quantity)
+    add(current.id, variantId || undefined, quantity)
       .then(() => showToast("Đã thêm vào giỏ.", "success"))
-      .catch((reason: unknown) => showToast(errorText(reason), "error"));
+      .catch(toastError);
   }
 
   return (
     <>
       <nav className={styles.crumbs} aria-label="Breadcrumb">
-        <Link to="/">Home</Link>
+        <Link to="/">Trang chủ</Link>
         <span aria-hidden="true">&gt;</span>
-        <Link to="/shop">Shop</Link>
+        <Link to="/shop">Cửa hàng</Link>
         <span aria-hidden="true">&gt;</span>
         <span className={styles.current}>{product.name}</span>
       </nav>
       <div className={`wrap ${styles.layout}`}>
         <div className={styles.thumbs}>
           {(product.media ?? []).filter((item) => item.mediaType === "image").map((item) => (
-            <button key={item.id} type="button" onClick={() => setImage(item.mediaUrl)}>
+            <button key={item.id} type="button" onClick={() => choose({ image: item.mediaUrl })}>
               <img src={item.mediaUrl} alt={item.altText ?? ""} />
             </button>
           ))}
@@ -106,7 +101,7 @@ export function ProductDetailPage() {
           <h1>{product.name}</h1>
           <p className={styles.price}>{formatMoney(price)}</p>
           <p className={styles.stars}>
-            ★ {product.averageRating ?? 0} <span style={{ color: "#9f9f9f" }}>{product.totalReviews ?? 0} đánh giá</span>
+            ★ {product.averageRating ?? 0} <span className="muted">{product.totalReviews ?? 0} đánh giá</span>
           </p>
           <p>{product.description}</p>
           {product.variants?.length ? (
@@ -118,32 +113,31 @@ export function ProductDetailPage() {
                     key={item.id}
                     item={item}
                     pressed={variantId === item.id}
-                    onSelect={() => {
-                      setVariantId(item.id);
-                      if (item.image) setImage(item.image);
-                    }}
+                    onSelect={() => choose({ variantId: item.id, image: item.image || image })}
                   />
                 ))}
               </div>
             </div>
           ) : null}
+          <p className={outOfStock ? styles.out : undefined}>{outOfStock ? "Hết hàng" : variant ? `Còn ${variant.stockQuantity}` : null}</p>
           <div className={styles.buyRow}>
-            <Quantity value={quantity} onChange={(value) => setQuantity(Math.max(1, value))} />
-            <Button variant="outline" onClick={addToCart}>Thêm vào giỏ</Button>
-            <Button
-              variant="ghost"
+            <Quantity value={quantity} onChange={(value) => choose({ quantity: Math.max(1, value) })} />
+            <Button variant="outline" onClick={addToCart} disabled={outOfStock}>
+              {outOfStock ? "Hết hàng" : "Thêm vào giỏ"}
+            </Button>
+            <button
+              type="button"
+              className={styles.heart}
+              aria-label="Yêu thích"
               onClick={() => {
-                if (!user) {
-                  showToast("Đăng nhập để lưu yêu thích.", "warning");
-                  return;
-                }
+                if (!requireUser()) return;
                 wishlistService.addToWishlist(product.id)
                   .then(() => showToast("Đã lưu yêu thích.", "success"))
-                  .catch((reason: unknown) => showToast(errorText(reason), "error"));
+                  .catch(toastError);
               }}
             >
-              Yêu thích
-            </Button>
+              <img src={heartIcon} alt="" />
+            </button>
           </div>
           <p className={styles.meta}>
             SKU: {variant?.sku || product.sku}
@@ -151,17 +145,12 @@ export function ProductDetailPage() {
             Danh mục: {refName(product.categoryId) || "—"}
             <br />
             Thương hiệu: {refName(product.brandId) || "—"}
-            {variant ? <><br />Kho: {variant.stockQuantity}</> : null}
           </p>
         </div>
       </div>
       <section className={`wrap ${styles.related}`}>
         <h2>Sản phẩm liên quan</h2>
-        <div className={styles.grid}>
-          {related.map((item) => (
-            <ProductCard key={item.id} product={toCard(item)} />
-          ))}
-        </div>
+        <ProductGrid products={related} />
       </section>
     </>
   );
@@ -178,8 +167,9 @@ function VariantButton({
 }) {
   const label = attributeText(item.attributes) || item.sku;
   return (
-    <button type="button" aria-pressed={pressed} onClick={onSelect}>
+    <button type="button" aria-pressed={pressed} data-stock={item.stockQuantity} onClick={onSelect}>
       {label} · {formatMoney(item.price)}
+      {item.stockQuantity <= 0 ? " · Hết hàng" : ""}
     </button>
   );
 }

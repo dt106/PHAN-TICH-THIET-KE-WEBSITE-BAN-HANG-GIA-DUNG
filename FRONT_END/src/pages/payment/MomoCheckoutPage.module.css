@@ -4,7 +4,7 @@
   place-items: center;
   padding: 48px 16px;
   background:
-    radial-gradient(circle at top, #ffe6f3 0%, transparent 55%),
+    radial-gradient(circle at top, var(--momo-glow) 0%, transparent 55%),
     var(--color-bg-light-base);
 }
 
@@ -12,10 +12,6 @@
   width: 100%;
   max-width: 420px;
   padding: 28px 24px 24px;
-  border-radius: 20px;
-  background: #fff;
-  border: 1px solid #f0d0e2;
-  box-shadow: 0 18px 40px rgba(165, 0, 100, 0.08);
 }
 
 .brand {
@@ -32,7 +28,7 @@
   min-width: 72px;
   padding: 8px 12px;
   border-radius: 12px;
-  background: #a50064;
+  background: var(--momo);
   color: #fff;
   font-weight: 800;
   letter-spacing: 0.04em;
@@ -48,18 +44,18 @@
   gap: 6px;
   padding: 18px;
   border-radius: 14px;
-  background: #fff0f7;
+  background: var(--momo-bg);
   text-align: center;
   margin-bottom: 18px;
 }
 
 .amountBox span {
-  color: #9a3a6d;
+  color: var(--momo-muted);
   font-size: 13px;
 }
 
 .amountBox strong {
-  color: #a50064;
+  color: var(--momo);
   font-size: 32px;
   font-weight: 800;
 }

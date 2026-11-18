@@ -15,6 +15,13 @@
   text-align: center;
 }
 
+.logo {
+  width: 48px;
+  height: 48px;
+  object-fit: cover;
+  object-position: center;
+}
+
 .title {
   margin: 12px 0 8px;
   font-size: 48px;

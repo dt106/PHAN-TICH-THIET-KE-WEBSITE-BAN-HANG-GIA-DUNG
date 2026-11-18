@@ -3,27 +3,17 @@ import type { Order, OrderItem, OrderStatus } from "../types/api.ts";
 
 const getMyOrders = (
   params: { status?: OrderStatus; page?: number; limit?: number } = {},
-) => {
-  return request<Order[]>(`/api/orders/my-orders${toQuery(params)}`);
-};
+) => request<Order[]>(`/api/orders/my-orders${toQuery(params)}`);
 
-const getOrder = (id: string) => {
-  return request<Order>(`/api/orders/${id}`);
-};
+const getOrder = (id: string) => request<Order>(`/api/orders/${id}`);
 
-const getOrderItems = (id: string) => {
-  return request<OrderItem[]>(`/api/orders/${id}/items`);
-};
+const getOrderItems = (id: string) => request<OrderItem[]>(`/api/orders/${id}/items`);
 
-const cancelOrder = (id: string) => {
-  return request<Order>(`/api/orders/${id}/cancel`, { method: "PUT" });
-};
+const cancelOrder = (id: string) => request<Order>(`/api/orders/${id}/cancel`, { method: "PUT" });
 
-const confirmDelivery = (id: string) => {
-  return request<Order>(`/api/orders/${id}/confirm-delivery`, {
+const confirmDelivery = (id: string) => request<Order>(`/api/orders/${id}/confirm-delivery`, {
     method: "PUT",
   });
-};
 
 export const orderService = {
   getMyOrders,

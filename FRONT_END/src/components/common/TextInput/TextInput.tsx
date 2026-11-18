@@ -1,4 +1,4 @@
-import { useId, type InputHTMLAttributes, type ReactNode, type Ref } from 'react'
+import { useId, useState, type InputHTMLAttributes, type ReactNode, type Ref } from 'react'
 import { cn } from '../cn.ts'
 import styles from './TextInput.module.css'
 
@@ -32,7 +32,9 @@ export function TextInput({
   ...rest
 }: TextInputProps) {
   const generatedId = useId()
+  const [showPassword, setShowPassword] = useState(false)
   const inputId = id ?? generatedId
+  const inputType = type === 'password' && showPassword ? 'text' : type
   const hintId = hint ? `${inputId}-hint` : undefined
   const errorId = error ? `${inputId}-error` : undefined
   const describedBy = [error ? errorId : hintId].filter(Boolean).join(' ') || undefined
@@ -63,13 +65,23 @@ export function TextInput({
           {...rest}
           ref={ref}
           id={inputId}
-          type={type}
+          type={inputType}
           className={styles.input}
           disabled={disabled}
           required={required}
           aria-invalid={error ? true : undefined}
           aria-describedby={describedBy}
         />
+        {type === 'password' ? (
+          <button
+            type="button"
+            className={styles.reveal}
+            aria-label={showPassword ? 'Ẩn mật khẩu' : 'Hiện mật khẩu'}
+            onClick={() => setShowPassword((current) => !current)}
+          >
+            {showPassword ? 'Ẩn' : 'Hiện'}
+          </button>
+        ) : null}
         {rightAddon ? <span className={styles.addon}>{rightAddon}</span> : null}
       </div>
       {error ? (

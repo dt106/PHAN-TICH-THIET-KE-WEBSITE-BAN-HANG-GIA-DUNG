@@ -1,72 +1,41 @@
-import { useCallback, useEffect, useState } from "react";
-import { Link, useNavigate, useParams } from "react-router-dom";
-import { Button, showToast } from "../../components/common/index.ts";
+import { useNavigate, useParams } from "react-router-dom";
+import { Button, ButtonLink, PageState, StatusBadge, showToast } from "../../components/common/index.ts";
 import { PageBanner } from "../../components/layout/PageBanner.tsx";
-import { formatMoney } from "../../lib/money.ts";
-import { orderStatusLabel, paymentMethodLabel, paymentStatusLabel } from "../../lib/orderLabel.ts";
-import { errorText } from "../../services/http.ts";
+import { PriceSummary } from "../../components/order/PriceSummary.tsx";
+import { useAction } from "../../hooks/useAction.ts";
+import { useRequest } from "../../hooks/useRequest.ts";
+import { formatAddress, formatMoney } from "../../lib/format.ts";
+import { ORDER_STATUSES, orderStatusLabel, orderStatusTone, paymentMethodLabel, paymentStatusLabel } from "../../lib/orderLabel.ts";
 import { orderService } from "../../services/order.service.ts";
 import { paymentService } from "../../services/payment.service.ts";
-import type { Order, OrderItem } from "../../types/api.ts";
 import styles from "./OrderDetailPage.module.css";
+
+const flow = ORDER_STATUSES.filter((item) => item.value !== "cancelled" && item.value !== "returned");
 
 export function OrderDetailPage() {
   const { id = "" } = useParams();
   const navigate = useNavigate();
-  const [order, setOrder] = useState<Order | null>(null);
-  const [items, setItems] = useState<OrderItem[]>([]);
-  const [error, setError] = useState("");
-  const [paying, setPaying] = useState(false);
-
-  const load = useCallback(() => {
-    Promise.all([orderService.getOrder(id), orderService.getOrderItems(id)])
-      .then(([orderResult, itemResult]) => {
-        setOrder(orderResult.data);
-        setItems(itemResult.data);
-        setError("");
-      })
-      .catch((reason: unknown) => setError(errorText(reason)));
+  const [busy, run] = useAction();
+  const { data, error, loading, reload } = useRequest(async () => {
+    const [orderResult, itemResult] = await Promise.all([
+      orderService.getOrder(id),
+      orderService.getOrderItems(id),
+    ]);
+    return { order: orderResult.data, items: itemResult.data };
   }, [id]);
 
-  useEffect(() => {
-    load();
-  }, [load]);
-
-  async function run(action: () => Promise<unknown>, ok: string) {
-    try {
-      await action();
-      showToast(ok, "success");
-      load();
-    } catch (reason) {
-      showToast(errorText(reason), "error");
-    }
-  }
-
-  async function payNow() {
-    if (!order) return;
-    setPaying(true);
-    try {
-      const next = await paymentService.startPayment(order.id, order.orderNumber);
-      if (next) navigate(next.path);
-    } catch (reason) {
-      showToast(errorText(reason), "error");
-    } finally {
-      setPaying(false);
-    }
-  }
-
-  if (error) {
+  const order = data?.order;
+  const items = data?.items ?? [];
+  if (!order) {
     return (
-      <div className="wrap" style={{ padding: "64px 0" }}>
-        <p>{error}</p>
-        <Link to="/orders">Danh sách đơn</Link>
+      <div className="wrap section">
+        <PageState loading={loading} error={error} backTo="/orders" backLabel="Danh sách đơn" />
       </div>
     );
   }
-  if (!order) return <p className="wrap" style={{ padding: "64px 0" }}>Đang tải…</p>;
 
-  const unpaid =
-    (order.status === "pending" || order.status === "confirmed") && order.paymentStatus !== "paid";
+  const step = flow.findIndex((item) => item.value === order.status);
+  const unpaid = (order.status === "pending" || order.status === "confirmed") && order.paymentStatus !== "paid";
   const canPay = unpaid && order.paymentMethod === "MOMO";
   const canCancel = unpaid;
 
@@ -74,9 +43,20 @@ export function OrderDetailPage() {
     <>
       <PageBanner title={order.orderNumber} />
       <div className={`wrap ${styles.page}`}>
+        {step >= 0 ? (
+          <ol className="steps">
+            {flow.map((item, index) => (
+              <li key={item.value} className={index <= step ? "stepDone" : undefined}>
+                <span>{index + 1}</span>
+                {item.label}
+              </li>
+            ))}
+          </ol>
+        ) : null}
+
         <div className={styles.meta}>
-          <span>{orderStatusLabel(order.status)}</span>
-          <span>{paymentStatusLabel(order.paymentStatus)}</span>
+          <StatusBadge tone={orderStatusTone(order.status)}>{orderStatusLabel(order.status)}</StatusBadge>
+          <StatusBadge tone={orderStatusTone(order.paymentStatus)}>{paymentStatusLabel(order.paymentStatus)}</StatusBadge>
           <span>{paymentMethodLabel(order.paymentMethod)}</span>
         </div>
 
@@ -86,62 +66,97 @@ export function OrderDetailPage() {
               <strong>Chờ thanh toán MoMo</strong>
               <p>Đơn chưa được thanh toán. Bấm bên cạnh để mở cổng MoMo.</p>
             </div>
-            <Button variant="primary" loading={paying} onClick={() => void payNow()}>
+            <Button
+              variant="primary"
+              loading={busy}
+              onClick={() =>
+                void run(async () => {
+                  const next = await paymentService.startPayment(order.id, order.orderNumber);
+                  if (next) navigate(next.path);
+                })
+              }
+            >
               Thanh toán MoMo
             </Button>
           </div>
         ) : null}
 
-        <p>
-          {order.customerName} · {order.customerPhone}
-          <br />
-          {[order.shippingAddress, order.shippingWard, order.shippingDistrict, order.shippingProvince]
-            .filter(Boolean)
-            .join(", ")}
-        </p>
-        <ul className={styles.items}>
-          {items.map((item) => (
-            <li key={item.id}>
-              <span>
-                {item.productName} × {item.quantity}
-              </span>
-              <span>{formatMoney(item.totalPrice)}</span>
-            </li>
-          ))}
-        </ul>
-        <dl className={styles.totals}>
-          <div>
-            <dt>Tạm tính</dt>
-            <dd>{formatMoney(order.subtotal)}</dd>
-          </div>
-          <div>
-            <dt>Giảm giá</dt>
-            <dd>{formatMoney(order.discountAmount)}</dd>
-          </div>
-          <div>
-            <dt>Phí ship</dt>
-            <dd>{formatMoney(order.shippingFee)}</dd>
-          </div>
-          <div className={styles.grand}>
-            <dt>Tổng</dt>
-            <dd>{formatMoney(order.totalAmount)}</dd>
-          </div>
-        </dl>
+        <section className={`card ${styles.block}`}>
+          <h2>Giao tới</h2>
+          <p>
+            {order.customerName} · {order.customerPhone}
+          </p>
+          <p>
+            {formatAddress([
+              order.shippingAddress,
+              order.shippingWard,
+              order.shippingDistrict,
+              order.shippingProvince,
+            ])}
+          </p>
+        </section>
+
+        <table className={styles.table}>
+          <thead>
+            <tr>
+              <th>Sản phẩm</th>
+              <th>Số lượng</th>
+              <th>Thành tiền</th>
+            </tr>
+          </thead>
+          <tbody>
+            {items.map((item) => (
+              <tr key={item.id}>
+                <td>
+                  <span className={styles.mark} aria-hidden="true">{item.productName.slice(0, 1)}</span>
+                  {item.productName}
+                </td>
+                <td>{item.quantity}</td>
+                <td>{formatMoney(item.totalPrice)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+
+        <PriceSummary
+          subtotal={order.subtotal}
+          discount={order.discountAmount}
+          shipping={order.shippingFee}
+          total={order.totalAmount}
+        />
+
         <div className={styles.actions}>
           {canCancel ? (
-            <Button variant="outline" onClick={() => void run(() => orderService.cancelOrder(order.id), "Đã hủy đơn.")}>
+            <Button
+              variant="outline"
+              loading={busy}
+              onClick={() =>
+                void run(async () => {
+                  await orderService.cancelOrder(order.id);
+                  showToast("Đã hủy đơn.", "success");
+                  reload();
+                })
+              }
+            >
               Hủy đơn
             </Button>
           ) : null}
           {order.status === "delivered" ? (
             <Button
               variant="primary"
-              onClick={() => void run(() => orderService.confirmDelivery(order.id), "Đã xác nhận nhận hàng.")}
+              loading={busy}
+              onClick={() =>
+                void run(async () => {
+                  await orderService.confirmDelivery(order.id);
+                  showToast("Đã xác nhận nhận hàng.", "success");
+                  reload();
+                })
+              }
             >
               Đã nhận hàng
             </Button>
           ) : null}
-          <Link to="/orders">Tất cả đơn</Link>
+          <ButtonLink to="/orders" variant="ghost">Tất cả đơn</ButtonLink>
         </div>
       </div>
     </>

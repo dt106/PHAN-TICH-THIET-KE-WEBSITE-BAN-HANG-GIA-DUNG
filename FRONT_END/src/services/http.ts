@@ -38,7 +38,8 @@ export class ApiError extends Error {
 }
 
 export function errorText(error: unknown) {
-  return error instanceof ApiError ? error.message : "Không thể kết nối máy chủ.";
+  if (!(error instanceof ApiError)) return "Không thể kết nối máy chủ.";
+  return error.retryAfter ? `${error.message} (${error.retryAfter}s)` : error.message;
 }
 
 export function readFailure(status: number, payload: unknown) {
@@ -65,7 +66,9 @@ function selfCheck() {
     error.status !== 429 ||
     error.message !== "cooldown" ||
     error.retryAfter !== 60 ||
-    error.errors?.[0]?.field !== "email"
+    error.errors?.[0]?.field !== "email" ||
+    errorText(error) !== "cooldown (60s)" ||
+    errorText(new Error("x")) !== "Không thể kết nối máy chủ."
   ) {
     throw new Error("readFailure self-check failed");
   }

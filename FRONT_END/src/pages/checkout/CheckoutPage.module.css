@@ -3,51 +3,6 @@
   padding: 40px 0 80px;
 }
 
-.steps {
-  display: flex;
-  justify-content: center;
-  gap: 12px;
-  list-style: none;
-  margin: 0 0 32px;
-  padding: 0;
-  color: var(--store-gray);
-  font-size: 14px;
-}
-
-.steps li {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.steps li + li::before {
-  content: "";
-  width: 40px;
-  height: 1px;
-  background: var(--store-line);
-}
-
-.steps span {
-  display: grid;
-  place-items: center;
-  width: 26px;
-  height: 26px;
-  border-radius: 50%;
-  border: 1px solid var(--store-line);
-  font-weight: 600;
-}
-
-.stepDone {
-  color: var(--store-text);
-  font-weight: 600;
-}
-
-.stepDone span {
-  background: var(--store-gold);
-  border-color: var(--store-gold);
-  color: #fff;
-}
-
 .layout {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 400px;
@@ -60,11 +15,7 @@
   gap: 20px;
 }
 
-.card {
-  background: #fff;
-  border: 1px solid var(--store-line);
-  border-radius: var(--store-radius);
-  box-shadow: var(--store-shadow);
+.panel {
   padding: 24px;
 }
 
@@ -174,7 +125,7 @@
   width: 100%;
   height: 100%;
   border-radius: 10px;
-  background: #a50064;
+  background: var(--momo);
   color: #fff;
   font-size: 11px;
   font-weight: 700;
@@ -187,7 +138,7 @@
 }
 
 .option[data-active="true"] .methodIcon[data-method="MOMO"] {
-  background: #a50064;
+  background: var(--momo);
   color: #fff;
 }
 
@@ -202,8 +153,8 @@
 }
 
 .payHint[data-method="MOMO"] {
-  background: #fff0f7;
-  color: #7a0048;
+  background: var(--momo-bg);
+  color: var(--momo-dark);
 }
 
 .form {
@@ -379,50 +330,6 @@
   cursor: pointer;
 }
 
-.totals {
-  margin: 0;
-  padding: 16px 0;
-  display: grid;
-  gap: 10px;
-  font-size: 14px;
-}
-
-.totals div {
-  display: flex;
-  justify-content: space-between;
-}
-
-.totals dt {
-  color: var(--store-muted);
-}
-
-.totals dd {
-  margin: 0;
-}
-
-.discount {
-  color: var(--color-green-700);
-}
-
-.grand {
-  margin-top: 6px;
-  padding-top: 14px;
-  border-top: 1px solid var(--color-grey-200);
-  align-items: baseline;
-}
-
-.grand dt {
-  color: var(--store-text);
-  font-weight: 600;
-  font-size: 16px;
-}
-
-.grand dd {
-  color: var(--store-gold);
-  font-size: 24px;
-  font-weight: 700;
-}
-
 .secure {
   display: flex;
   align-items: center;
@@ -445,16 +352,6 @@
   text-align: center;
 }
 
-.primaryLink {
-  display: inline-block;
-  margin-top: 12px;
-  padding: 12px 28px;
-  border-radius: 10px;
-  background: var(--store-gold);
-  color: #fff;
-  text-decoration: none;
-}
-
 @media (max-width: 960px) {
   .layout {
     grid-template-columns: 1fr;
@@ -472,9 +369,5 @@
 
   .methods {
     grid-template-columns: 1fr;
-  }
-
-  .steps li + li::before {
-    width: 16px;
   }
 }
