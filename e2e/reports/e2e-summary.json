@@ -1,0 +1,99 @@
+{
+  "executedAt": "2026-11-19T14:15:03.509Z",
+  "totalCases": 5,
+  "passed": 5,
+  "failed": 0,
+  "passRate": "100.0%",
+  "averageLatencyMs": 84.2,
+  "latencyThresholdMs": 300,
+  "testResults": [
+    {
+      "id": "TC-REALTIME-01",
+      "name": "Khách hàng mở ca chat & Admin nhận tức thời",
+      "description": "Gửi tin nhắn đầu tiên; KPI Chờ tiếp nhận nhảy 0 -> 1 và danh sách cập nhật badge unread không reload.",
+      "status": "PASS",
+      "latencyMs": 45,
+      "thresholdMs": 300,
+      "screenshots": [
+        "TC01_Customer_Sent_First_Message.png",
+        "TC01_Admin_Received_Realtime_KPI_And_List.png"
+      ],
+      "details": {
+        "initialPending": "0",
+        "finalPending": "1",
+        "badgeText": "1",
+        "adminReloadsDuringTest": 0,
+        "latencyMs": 45
+      }
+    },
+    {
+      "id": "TC-REALTIME-02",
+      "name": "Hiển thị Typing Indicator hai chiều",
+      "description": "Chỉ báo gõ phím real-time hiển thị tức thời cả 2 chiều khi một bên gõ phím.",
+      "status": "PASS",
+      "latencyMs": 62,
+      "thresholdMs": 300,
+      "screenshots": [
+        "TC02_Admin_Sees_Customer_Typing.png",
+        "TC02_Customer_Sees_Admin_Typing.png"
+      ],
+      "details": {
+        "latencyCustomerToAdminMs": 62,
+        "latencyAdminToCustomerMs": 29,
+        "adminTypingText": "AAdminFluxCommerceTổng quanBán hàngĐơn hàngThanh toánKhuyến mãiKhách hàngDanh sách khách hàngChăm sóc khách hàngĐánh giá sản phẩmHội thoại khách hàngThông báo gửi kháchQuản lý sản phẩmDanh mục & phân loạiDanh sách sản phẩmDanh mụcThương hiệuThuộc tính & biến thểThuộc tính sản phẩmGiá trị thuộc tínhBiến thể sản phẩmLiên kết thuộc tính biến thểTài nguyên sản phẩmThư viện hình ảnhKho hàngTồn khoHệ thốngCài đặtThông báo quản trịAdminFlux · CommerceCUSTOMER SUPPORTHội thoại khách hàngReal-time đã kết nốiChuông: BậtQuản lý tin nhắn, phản hồi và phân công nhân viên chăm sóc khách hàng.Tổng hội thoại1Tổng hội thoại1Tất cả cuộc trò chuyệnĐang xử lý0Hội thoại đang mởChờ tiếp nhận1Cần nhân viên phản hồiTin chưa đọc0Tin nhắn từ khách hàngTrung tâm hỗ trợTheo dõi và trả lời hội thoại khách hàng theo thời gian gần nhất.Hội thoại1 cuộc trò chuyệnTất cả trạng tháiĐang xử lýChờ tiếp nhậnĐã đóngKhách Hàng MẫuHỗ trợ khách hàng Furniro[E2E-TEST-01] Xin chào Furniro, tôi cần tư vấn về bộ bàn ăn gỗ óc chó cao cấp!Chờ tiếp nhận21:14 19-11Khách Hàng Mẫuuser@gmail.comHỗ trợ khách hàng FurniroChờ tiếp nhậnĐóng hội thoạiPhân công choChưa phân côngAdminNhân viên CSKHKhách Hàng Mẫu21:14 19/11/2026[E2E-TEST-01] Xin chào Furniro, tôi cần tư vấn về bộ bàn ăn gỗ óc chó cao cấp!Khách Hàng MẫuKhách Hàng Mẫu đang soạn tin...Tin nhắn được lưu trực tiếp vào hệ thống.Gửi trả lời",
+        "customerTypingText": "FurniroHomeShopTư vấnAboutContactNew ArrivalDiscover OurNew CollectionSản phẩm nổi bật và danh mục lấy từ cửa hàng.Buy NowBrowse The RangeDanhmucjOur ProductsShow More50+ Beautiful roomsinspirationBộ sưu tập hình ảnh trưng bày, không lấy từ API.Explore More01 — Bed RoomInner Peace→Share your setup with#FuniroFurnitureFuniro.400 University Drive Suite 200 Coral Gables,FL 33134 USALinksHomeShopAboutContactHelpPayment OptionsReturnsPrivacy PoliciesNewsletterSUBSCRIBE2023 furino. All rights revervedFurniro CSKHTư vấn viên trực tuyến[E2E-TEST-01] Xin chào Furniro, tôi cần tư vấn về bộ bàn ăn gỗ óc chó cao cấp!21:14AAdmin đang soạn tin..."
+      }
+    },
+    {
+      "id": "TC-REALTIME-03",
+      "name": "Admin phản hồi & Khách nhận tin ngay",
+      "description": "Admin bấm 'Gửi trả lời', bong bóng chat của Admin hiển thị ngay lập tức phía Khách hàng dưới 300ms.",
+      "status": "PASS",
+      "latencyMs": 82,
+      "thresholdMs": 300,
+      "screenshots": [
+        "TC03_Admin_Sent_Reply.png",
+        "TC03_Customer_Received_Reply.png"
+      ],
+      "details": {
+        "latencyMs": 82,
+        "replyMessage": "[E2E-TEST-03] Bộ bàn ăn 6 ghế có kích thước 1m8 x 0.9m, gỗ óc chó Bắc Mỹ nguyên khối bảo hành 3 năm ạ!",
+        "customerReloadsDuringTest": 0
+      }
+    },
+    {
+      "id": "TC-REALTIME-04",
+      "name": "Bàn giao ca & Đóng/Mở ca Real-Time",
+      "description": "Bàn giao nhân viên CSKH và Đóng ca, cả 2 màn hình nhận tin nhắn hệ thống system và trạng thái cập nhật tức thời.",
+      "status": "PASS",
+      "latencyMs": 137,
+      "thresholdMs": 300,
+      "screenshots": [
+        "TC04_Admin_Handover_And_Closed.png",
+        "TC04_Customer_Handover_And_Closed.png"
+      ],
+      "details": {
+        "latencyHandoverMs": 137,
+        "latencyCloseMs": 129
+      }
+    },
+    {
+      "id": "TC-REALTIME-05",
+      "name": "Khôi phục kết nối tự động (Reconnection Test)",
+      "description": "Giả lập ngắt mạng 3 giây; Socket tự động reconnect và các tin nhắn trao đổi tiếp theo tức thì không cần F5 trang.",
+      "status": "PASS",
+      "latencyMs": 95,
+      "thresholdMs": 300,
+      "screenshots": [
+        "TC05_Customer_Reconnected_Chat.png",
+        "TC05_Admin_Reconnected_Chat.png"
+      ],
+      "details": {
+        "latencyCustomerSendToAdminMs": 95,
+        "latencyAdminSendToCustomerMs": 59,
+        "customerReloadCount": 0,
+        "adminReloadCount": 0
+      }
+    }
+  ]
+}

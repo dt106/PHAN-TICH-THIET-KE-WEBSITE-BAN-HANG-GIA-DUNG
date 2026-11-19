@@ -1,9 +1,15 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { MessageCircle } from 'lucide-react';
+import { Bell, BellOff, MessageCircle } from 'lucide-react';
 
 import ConversationList from './components/ConversationList';
 import ConversationChat from './components/ConversationChat';
 import { conversationsService } from '../../services/conversations/conversations.service';
+import { useAdminChatSocket } from '../../hooks/useAdminChatSocket';
+import {
+  isChatSoundEnabled,
+  setChatSoundEnabled,
+  playNotificationChime,
+} from '../../utils/chatSound';
 
 import {
   conversationMessagesMock,
@@ -54,6 +60,30 @@ export default function ConversationsPage() {
     unread: 0,
   });
   const [isFallback, setIsFallback] = useState(false);
+  const [soundEnabled, setSoundEnabled] = useState<boolean>(() => isChatSoundEnabled());
+
+  // Tích hợp Socket.IO Client lắng nghe và cập nhật thời gian thực
+  const {
+    isConnected,
+    partnerTyping,
+    sendTypingStart,
+    sendTypingStop,
+  } = useAdminChatSocket({
+    selectedId,
+    setMessages,
+    setConversations,
+    setKpiStats,
+    isFallback,
+  });
+
+  const handleToggleSound = () => {
+    const next = !soundEnabled;
+    setSoundEnabled(next);
+    setChatSoundEnabled(next);
+    if (next) {
+      playNotificationChime();
+    }
+  };
 
   const refreshStatistics = useCallback(async () => {
     if (isFallback) return;
@@ -173,7 +203,9 @@ export default function ConversationsPage() {
 
   useEffect(() => {
     if (isFallback || selectedId === null) return;
-    void loadConversationMessages(selectedId);
+    queueMicrotask(() => {
+      void loadConversationMessages(selectedId);
+    });
   }, [selectedId, isFallback, loadConversationMessages]);
 
   const selectedConversation =
@@ -524,9 +556,63 @@ export default function ConversationsPage() {
             CUSTOMER SUPPORT
           </p>
 
-          <h1 className="text-2xl font-bold tracking-tight text-text-primary">
-            Hội thoại khách hàng
-          </h1>
+          <div className="flex flex-wrap items-center gap-3">
+            <h1 className="text-2xl font-bold tracking-tight text-text-primary">
+              Hội thoại khách hàng
+            </h1>
+
+            {/* Chấm tròn trạng thái Real-time Socket.IO */}
+            <div
+              className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium transition-all duration-300 ${
+                isConnected
+                  ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-400'
+                  : 'border-border-default bg-bg-surface text-text-muted'
+              }`}
+              title={
+                isConnected
+                  ? 'Kênh Socket.IO đang kết nối thời gian thực'
+                  : 'Đang kết nối lại Socket.IO...'
+              }
+            >
+              <span
+                className={`size-2 rounded-full ${
+                  isConnected
+                    ? 'bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.8)] animate-pulse'
+                    : 'bg-text-muted'
+                }`}
+                aria-hidden="true"
+              />
+              <span>{isConnected ? 'Real-time đã kết nối' : 'Đang kết nối Real-time'}</span>
+            </div>
+
+            {/* Nút bật / tắt chuông âm thanh thông báo */}
+            <button
+              type="button"
+              onClick={handleToggleSound}
+              className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium transition-all duration-200 cursor-pointer ${
+                soundEnabled
+                  ? 'border-amber-500/30 bg-amber-500/10 text-amber-400 hover:bg-amber-500/20'
+                  : 'border-border-default bg-bg-surface text-text-muted hover:text-text-secondary'
+              }`}
+              title={
+                soundEnabled
+                  ? 'Chuông báo: Đang BẬT (Bấm để tắt)'
+                  : 'Chuông báo: Đang TẮT (Bấm để bật)'
+              }
+              aria-label={
+                soundEnabled
+                  ? 'Tắt âm thanh chuông báo'
+                  : 'Bật âm thanh chuông báo'
+              }
+            >
+              {soundEnabled ? (
+                <Bell size={13} className="text-amber-400" />
+              ) : (
+                <BellOff size={13} className="text-text-muted" />
+              )}
+              <span>{soundEnabled ? 'Chuông: Bật' : 'Chuông: Tắt'}</span>
+            </button>
+          </div>
 
           <p className="mt-2 max-w-2xl text-sm leading-6 text-text-secondary">
             Quản lý tin nhắn, phản hồi và phân công nhân viên chăm sóc khách hàng.
@@ -683,9 +769,18 @@ export default function ConversationsPage() {
                 loadingMessages={loadingMessages}
                 sending={sendingMessage}
                 isFallback={isFallback}
+                isPartnerTyping={
+                  Boolean(
+                    partnerTyping?.isTyping &&
+                    String(partnerTyping.conversationId) === String(selectedConversation.id)
+                  )
+                }
+                partnerTypingName={partnerTyping?.userName}
                 onSendMessage={handleSendMessage}
                 onAssignAdmin={handleAssignAdmin}
                 onToggleStatus={handleToggleStatus}
+                onTypingStart={sendTypingStart}
+                onTypingStop={sendTypingStop}
               />
             </div>
           ) : (

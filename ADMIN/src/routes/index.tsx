@@ -50,7 +50,6 @@ import ReviewDetailPage from '../pages/reviews/ReviewDetailPage';
 import AnnouncementsPage from '../pages/announcements/components/AnnouncementFormModal';
 import ConversationsPage from '../pages/conversations/ConversationsPage';
 import NotificationsPage from '../pages/notifications/NotificationsPage';
-import type { AnnouncementFormValues } from '../types/announcement.types';
 import ProfilePage from '../pages/profile/ProfilePage';
 
 // ==========================================

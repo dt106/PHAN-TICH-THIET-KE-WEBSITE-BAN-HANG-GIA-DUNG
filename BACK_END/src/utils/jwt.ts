@@ -17,6 +17,8 @@ import jwt, { SignOptions } from "jsonwebtoken";
 export interface JwtPayload {
   userId: string;
   role: "customer" | "admin";
+  email?: string;
+  name?: string;
 }
 
 /**

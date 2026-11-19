@@ -16,6 +16,12 @@
 import { Types } from "mongoose";
 import { AppError } from "../../utils/appError";
 import { Conversation, Message, User } from "../../models";
+import {
+  emitNewMessage,
+  emitConversationUpdated,
+  emitKpiUpdated,
+  emitConversationStatusChanged,
+} from "../../socket/socketEmitter";
 import type { ConversationStatus, MessageType } from "../../types/conversation.types";
 
 export interface GetAdminConversationsParams {
@@ -336,7 +342,35 @@ export const sendAdminMessageService = async (
 
   await conversation.save();
 
-  return formatMessageForView(createdMessage, adminUser);
+  const formattedMsg = formatMessageForView(createdMessage, adminUser);
+
+  // =========================================================================
+  // GIAI ĐOẠN 2: PHÁT SỰ KIỆN SOCKET.IO REAL-TIME (DB-FIRST PATTERN)
+  // =========================================================================
+  try {
+    // 1. Bắn emitNewMessage tới room ca chat (để khách hàng nhận được ngay)
+    emitNewMessage(conversationId, formattedMsg);
+
+    // 2. Bắn emitConversationUpdated để cập nhật preview và badge trên Admin Portal
+    const updatedConversation = await Conversation.findById(conversationId)
+      .populate("customerId", "name email avatar")
+      .populate("assignedAdminId", "name email avatar")
+      .lean();
+    if (updatedConversation) {
+      emitConversationUpdated(formatConversationForAdmin(updatedConversation));
+    }
+
+    // 3. Tính lại và bắn emitKpiUpdated tới admin_channel
+    const kpiStats = await getAdminConversationStatisticsService();
+    emitKpiUpdated(kpiStats);
+  } catch (socketError) {
+    console.error(
+      "⚠️ [SocketEmitter] Lỗi phát sự kiện trong sendAdminMessageService:",
+      socketError
+    );
+  }
+
+  return formattedMsg;
 };
 
 /**
@@ -401,9 +435,28 @@ export const assignAdminService = async (
     .populate("assignedAdminId", "name email avatar")
     .lean();
 
+  const formattedConversation = formatConversationForAdmin(updatedConversation);
+  const formattedSystemMessage = formatMessageForView(systemMessage, performingAdmin);
+
+  // =========================================================================
+  // GIAI ĐOẠN 2: PHÁT SỰ KIỆN SOCKET.IO REAL-TIME (DB-FIRST PATTERN)
+  // =========================================================================
+  try {
+    // 1. Bắn emitNewMessage (tin nhắn hệ thống bàn giao) tới room ca chat
+    emitNewMessage(conversationId, formattedSystemMessage);
+
+    // 2. Bắn emitConversationUpdated tới admin_channel và room ca chat
+    emitConversationUpdated(formattedConversation);
+  } catch (socketError) {
+    console.error(
+      "⚠️ [SocketEmitter] Lỗi phát sự kiện trong assignAdminService:",
+      socketError
+    );
+  }
+
   return {
-    conversation: formatConversationForAdmin(updatedConversation),
-    systemMessage: formatMessageForView(systemMessage, performingAdmin),
+    conversation: formattedConversation,
+    systemMessage: formattedSystemMessage,
   };
 };
 
@@ -455,9 +508,35 @@ export const updateConversationStatusService = async (
     .populate("assignedAdminId", "name email avatar")
     .lean();
 
+  const formattedConversation = formatConversationForAdmin(updatedConversation);
+  const formattedSystemMessage = formatMessageForView(systemMessage, performingAdmin);
+
+  // =========================================================================
+  // GIAI ĐOẠN 2: PHÁT SỰ KIỆN SOCKET.IO REAL-TIME (DB-FIRST PATTERN)
+  // =========================================================================
+  try {
+    // 1. Bắn emitNewMessage (tin nhắn hệ thống đóng/mở ca) tới room ca chat
+    emitNewMessage(conversationId, formattedSystemMessage);
+
+    // 2. Bắn emitConversationStatusChanged tới room ca chat & admin_channel
+    emitConversationStatusChanged(conversationId, nextStatus);
+
+    // 3. Bắn emitConversationUpdated để cập nhật danh sách
+    emitConversationUpdated(formattedConversation);
+
+    // 4. Bắn emitKpiUpdated tới admin_channel
+    const kpiStats = await getAdminConversationStatisticsService();
+    emitKpiUpdated(kpiStats);
+  } catch (socketError) {
+    console.error(
+      "⚠️ [SocketEmitter] Lỗi phát sự kiện trong updateConversationStatusService:",
+      socketError
+    );
+  }
+
   return {
-    conversation: formatConversationForAdmin(updatedConversation),
-    systemMessage: formatMessageForView(systemMessage, performingAdmin),
+    conversation: formattedConversation,
+    systemMessage: formattedSystemMessage,
   };
 };
 
@@ -491,6 +570,26 @@ export const markAdminConversationReadService = async (conversationId: string) =
       },
     }
   );
+
+  // =========================================================================
+  // GIAI ĐOẠN 2: PHÁT SỰ KIỆN SOCKET.IO REAL-TIME (DB-FIRST PATTERN)
+  // =========================================================================
+  try {
+    const updatedConversation = await Conversation.findById(conversationId)
+      .populate("customerId", "name email avatar")
+      .populate("assignedAdminId", "name email avatar")
+      .lean();
+    if (updatedConversation) {
+      emitConversationUpdated(formatConversationForAdmin(updatedConversation));
+    }
+    const kpiStats = await getAdminConversationStatisticsService();
+    emitKpiUpdated(kpiStats);
+  } catch (socketError) {
+    console.error(
+      "⚠️ [SocketEmitter] Lỗi phát sự kiện trong markAdminConversationReadService:",
+      socketError
+    );
+  }
 
   return { success: true };
 };

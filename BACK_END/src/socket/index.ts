@@ -18,7 +18,7 @@ import { Server as HttpServer } from "http";
 import { Server, Socket } from "socket.io";
 import mongoose from "mongoose";
 import { verifyToken, JwtPayload } from "../utils/jwt";
-import { Conversation } from "../models";
+import { Conversation, User } from "../models";
 
 declare module "socket.io" {
   interface SocketData {
@@ -107,7 +107,27 @@ export const initSocket = (httpServer: HttpServer): Server => {
       }
 
       // Lưu thông tin user đã giải mã vào socket.data.user
-      socket.data.user = decoded;
+      socket.data.user = {
+        ...decoded,
+        name: decoded.name || (decoded.role === "admin" ? "CSKH" : "Khách hàng"),
+      };
+
+      // Tự động nạp tên hiển thị từ DB nếu MongoDB sẵn sàng
+      if (
+        mongoose.connection.readyState === 1 &&
+        mongoose.Types.ObjectId.isValid(decoded.userId)
+      ) {
+        User.findById(decoded.userId)
+          .select("name")
+          .lean()
+          .then((foundUser) => {
+            if (foundUser?.name) {
+              socket.data.user.name = foundUser.name;
+            }
+          })
+          .catch(() => {});
+      }
+
       return next();
     } catch (_error) {
       return next(
@@ -293,6 +313,74 @@ export const initSocket = (httpServer: HttpServer): Server => {
     );
 
     // ========================================================================
+    // SỰ KIỆN: typing_start
+    // Bắt đầu soạn tin nhắn -> Phát tín hiệu user_typing (isTyping: true) tới room ca chat
+    // ========================================================================
+    socket.on(
+      "typing_start",
+      (payload: { conversationId?: string; userName?: string } | string) => {
+        const conversationId =
+          typeof payload === "string" ? payload : payload?.conversationId;
+        const customUserName =
+          typeof payload === "object" ? payload?.userName : undefined;
+
+        if (!conversationId) return;
+
+        const roomName = `conversation:${conversationId}`;
+        const senderName =
+          customUserName ||
+          socket.data.user?.name ||
+          (user.role === "admin" ? "CSKH" : "Khách hàng");
+
+        socket.to(roomName).emit("user_typing", {
+          userId: user.userId,
+          userName: senderName,
+          role: user.role,
+          conversationId: String(conversationId),
+          isTyping: true,
+        });
+
+        console.log(
+          `✍️ [Socket.IO] typing_start: ${user.role} ${user.userId} (${senderName}) trong ${roomName}`
+        );
+      }
+    );
+
+    // ========================================================================
+    // SỰ KIỆN: typing_stop
+    // Dừng soạn tin nhắn -> Phát tín hiệu user_typing (isTyping: false) tới room ca chat
+    // ========================================================================
+    socket.on(
+      "typing_stop",
+      (payload: { conversationId?: string; userName?: string } | string) => {
+        const conversationId =
+          typeof payload === "string" ? payload : payload?.conversationId;
+        const customUserName =
+          typeof payload === "object" ? payload?.userName : undefined;
+
+        if (!conversationId) return;
+
+        const roomName = `conversation:${conversationId}`;
+        const senderName =
+          customUserName ||
+          socket.data.user?.name ||
+          (user.role === "admin" ? "CSKH" : "Khách hàng");
+
+        socket.to(roomName).emit("user_typing", {
+          userId: user.userId,
+          userName: senderName,
+          role: user.role,
+          conversationId: String(conversationId),
+          isTyping: false,
+        });
+
+        console.log(
+          `🛑 [Socket.IO] typing_stop: ${user.role} ${user.userId} trong ${roomName}`
+        );
+      }
+    );
+
+    // ========================================================================
     // SỰ KIỆN: disconnect
     // ========================================================================
     socket.on("disconnect", (reason) => {
@@ -316,6 +404,8 @@ export const getIO = (): Server => {
   }
   return io;
 };
+
+export * from "./socketEmitter";
 
 export default {
   initSocket,

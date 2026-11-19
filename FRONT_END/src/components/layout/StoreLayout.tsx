@@ -3,6 +3,7 @@ import { Outlet, useLocation } from "react-router-dom";
 import { CartDrawer } from "./CartDrawer.tsx";
 import { Footer } from "./Footer.tsx";
 import { Header } from "./Header.tsx";
+import { CustomerChatWidget } from "../chat/CustomerChatWidget.tsx";
 
 export function StoreLayout() {
   const location = useLocation();
@@ -21,6 +22,7 @@ export function StoreLayout() {
       </main>
       <Footer />
       <CartDrawer open={cartOpen} onClose={() => setCartOpen(false)} />
+      <CustomerChatWidget />
     </div>
   );
 }

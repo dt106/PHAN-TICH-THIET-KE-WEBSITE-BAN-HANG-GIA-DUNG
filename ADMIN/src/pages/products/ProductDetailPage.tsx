@@ -157,17 +157,6 @@ export default function ProductDetailPage() {
     );
   }
 
-  const discount =
-    product.salePrice !== null &&
-      product.salePrice !== undefined &&
-      product.basePrice > 0 &&
-      product.salePrice < product.basePrice
-      ? Math.round(
-        ((product.basePrice - product.salePrice) / product.basePrice) *
-        100,
-      )
-      : 0;
-
   const categoryId = getReferenceId(product.categoryId);
   const brandId = getReferenceId(product.brandId);
 
