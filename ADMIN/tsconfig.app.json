@@ -22,5 +22,21 @@
     "erasableSyntaxOnly": true,
     "noFallthroughCasesInSwitch": true
   },
-  "include": ["src"]
+  "include": ["src"],
+  "exclude": [
+    "src/mocks/attribute-values.mock.ts",
+    "src/mocks/attribute.mock.ts",
+    "src/mocks/brands.mock.ts",
+    "src/mocks/categories.mock.ts",
+    "src/mocks/coupons.mock.ts",
+    "src/mocks/customers.mock.ts",
+    "src/mocks/order-items.mock.ts",
+    "src/mocks/orders.mock.ts",
+    "src/mocks/payments.mock.ts",
+    "src/mocks/product-media.mock.ts",
+    "src/mocks/product-variants.mock.ts",
+    "src/mocks/products.mock.ts",
+    "src/mocks/reviews.mock.ts",
+    "src/mocks/variant-attributes.mock.ts"
+  ]
 }

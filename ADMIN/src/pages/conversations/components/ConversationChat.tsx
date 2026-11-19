@@ -11,6 +11,7 @@ import {
 
 import StatusBadge from '../../../components/shared/StatusBadge';
 import { Button } from '../../../components/ui/buttons/Button';
+import TypingIndicator from './TypingIndicator';
 
 import type {
   ConversationListItem,
@@ -30,9 +31,13 @@ interface ConversationChatProps {
   loadingMessages?: boolean;
   sending?: boolean;
   isFallback?: boolean;
+  isPartnerTyping?: boolean;
+  partnerTypingName?: string;
   onSendMessage: (content: string) => void | Promise<void>;
   onAssignAdmin: (adminId: string | number | null) => void | Promise<void>;
   onToggleStatus: () => void | Promise<void>;
+  onTypingStart?: (conversationId: string | number) => void;
+  onTypingStop?: (conversationId: string | number) => void;
 }
 
 const ADMIN_OPTIONS: AssigneeOption[] = [
@@ -76,19 +81,63 @@ export default function ConversationChat({
   loadingMessages = false,
   sending = false,
   isFallback = false,
+  isPartnerTyping = false,
+  partnerTypingName = 'Khách hàng',
   onSendMessage,
   onAssignAdmin,
   onToggleStatus,
+  onTypingStart,
+  onTypingStop,
 }: ConversationChatProps) {
   const [reply, setReply] = useState('');
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
+  const typingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const isTypingRef = useRef(false);
 
   const assigneeOptions =
     assignees && assignees.length > 0 ? assignees : ADMIN_OPTIONS;
 
+  // Tự động cuộn xuống khi có tin nhắn mới hoặc khi đối tác đang gõ
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
-  }, [messages, conversation.id]);
+  }, [messages, conversation.id, isPartnerTyping]);
+
+  // Dọn dẹp timer khi chuyển cuộc hội thoại hoặc unmount
+  useEffect(() => {
+    return () => {
+      if (typingTimeoutRef.current) {
+        clearTimeout(typingTimeoutRef.current);
+      }
+      if (isTypingRef.current) {
+        isTypingRef.current = false;
+        onTypingStop?.(conversation.id);
+      }
+    };
+  }, [conversation.id, onTypingStop]);
+
+  // Xử lý sự kiện gõ phím kèm debounce 1500ms
+  const handleReplyChange = (event: React.ChangeEvent<HTMLTextAreaElement>) => {
+    const val = event.target.value;
+    setReply(val);
+
+    if (conversation.status === 'closed' || sending) return;
+
+    // Phát typing_start khi bắt đầu gõ ký tự
+    if (!isTypingRef.current && val.trim().length > 0) {
+      isTypingRef.current = true;
+      onTypingStart?.(conversation.id);
+    }
+
+    // Làm mới timeout debounce 1500ms
+    if (typingTimeoutRef.current) {
+      clearTimeout(typingTimeoutRef.current);
+    }
+
+    typingTimeoutRef.current = setTimeout(() => {
+      isTypingRef.current = false;
+      onTypingStop?.(conversation.id);
+    }, 1500);
+  };
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -96,6 +145,15 @@ export default function ConversationChat({
     const content = reply.trim();
 
     if (!content || conversation.status === 'closed' || sending) return;
+
+    // Hủy ngay trạng thái đang gõ khi bấm nút gửi
+    if (typingTimeoutRef.current) {
+      clearTimeout(typingTimeoutRef.current);
+    }
+    if (isTypingRef.current) {
+      isTypingRef.current = false;
+      onTypingStop?.(conversation.id);
+    }
 
     await onSendMessage(content);
     setReply('');
@@ -260,6 +318,9 @@ export default function ConversationChat({
             );
           })
         )}
+        {isPartnerTyping && (
+          <TypingIndicator userName={partnerTypingName} />
+        )}
         <div ref={messagesEndRef} />
       </div>
 
@@ -275,7 +336,7 @@ export default function ConversationChat({
           <form onSubmit={handleSubmit} className="space-y-3">
             <textarea
               value={reply}
-              onChange={(event) => setReply(event.target.value)}
+              onChange={handleReplyChange}
               placeholder="Nhập nội dung trả lời khách hàng..."
               rows={3}
               disabled={sending}

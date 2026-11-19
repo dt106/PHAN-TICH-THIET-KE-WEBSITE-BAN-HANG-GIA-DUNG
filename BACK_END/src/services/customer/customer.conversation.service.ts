@@ -16,7 +16,14 @@ import { Conversation, Message, User } from "../../models";
 import {
   formatConversationForAdmin,
   formatMessageForView,
+  getAdminConversationStatisticsService,
 } from "../admin/admin.conversation.service";
+import {
+  emitNewMessage,
+  emitConversationUpdated,
+  emitKpiUpdated,
+  emitConversationStatusChanged,
+} from "../../socket/socketEmitter";
 import type { MessageType } from "../../types/conversation.types";
 
 /**
@@ -120,9 +127,35 @@ export const createCustomerConversationService = async (
     readAt: null,
   });
 
+  const formattedConversationCustomer = formatConversationForCustomer(conversation);
+  const formattedMessage = formatMessageForView(message, customerUser);
+
+  // =========================================================================
+  // GIAI ĐOẠN 2: PHÁT SỰ KIỆN SOCKET.IO REAL-TIME (DB-FIRST PATTERN)
+  // =========================================================================
+  try {
+    const convIdStr = conversation._id.toString();
+
+    // 1. Bắn emitNewMessage tới room ca chat
+    emitNewMessage(convIdStr, formattedMessage);
+
+    // 2. Bắn emitConversationUpdated tới admin_channel để Admin thấy preview & badge unread
+    const formattedConversationAdmin = formatConversationForAdmin(conversation, customerUser);
+    emitConversationUpdated(formattedConversationAdmin);
+
+    // 3. Tính toán lại thống kê và bắn emitKpiUpdated tới admin_channel
+    const kpiStats = await getAdminConversationStatisticsService();
+    emitKpiUpdated(kpiStats);
+  } catch (socketError) {
+    console.error(
+      "⚠️ [SocketEmitter] Lỗi phát sự kiện trong createCustomerConversationService:",
+      socketError
+    );
+  }
+
   return {
-    conversation: formatConversationForCustomer(conversation),
-    message: formatMessageForView(message, customerUser),
+    conversation: formattedConversationCustomer,
+    message: formattedMessage,
   };
 };
 
@@ -239,11 +272,15 @@ export const sendCustomerMessageService = async (
   // CƠ CHẾ RE-OPEN TỰ ĐỘNG:
   // Nếu cuộc hội thoại trước đó đang ở trạng thái 'closed', khi khách hàng nhắn tin lại,
   // hệ thống tự động mở lại cuộc hội thoại để Admin/CSKH nhìn thấy ngay lập tức!
+  let isReopened = false;
+  let reopenSystemMessageDoc: any = null;
+
   if (conversation.status === "closed") {
+    isReopened = true;
     conversation.status = conversation.assignedAdminId ? "open" : "pending";
 
     // Tạo tin nhắn hệ thống ghi nhận tái mở
-    await Message.create({
+    reopenSystemMessageDoc = await Message.create({
       conversationId: conversation._id,
       senderId: new Types.ObjectId(customerId),
       messageType: "system",
@@ -255,7 +292,50 @@ export const sendCustomerMessageService = async (
 
   await conversation.save();
 
-  return formatMessageForView(message, customerUser);
+  const formattedMessage = formatMessageForView(message, customerUser);
+
+  // =========================================================================
+  // GIAI ĐOẠN 2: PHÁT SỰ KIỆN SOCKET.IO REAL-TIME (DB-FIRST PATTERN)
+  // =========================================================================
+  try {
+    const convIdStr = conversation._id.toString();
+
+    // 1. Bắn emitNewMessage cho tin nhắn của khách tới room ca chat
+    emitNewMessage(convIdStr, formattedMessage);
+
+    // 2. Nếu kích hoạt cơ chế Auto Re-open:
+    // - Bắn emitNewMessage cho tin nhắn hệ thống tái mở
+    // - Bắn emitConversationStatusChanged tới room ca chat
+    if (isReopened) {
+      if (reopenSystemMessageDoc) {
+        const formattedSystemMsg = formatMessageForView(reopenSystemMessageDoc, customerUser);
+        emitNewMessage(convIdStr, formattedSystemMsg);
+      }
+      emitConversationStatusChanged(convIdStr, conversation.status);
+    }
+
+    // 3. Bắn emitConversationUpdated tới admin_channel để Admin thấy tin nhắn preview và badge unread
+    const updatedConversationDoc = await Conversation.findById(conversation._id)
+      .populate("customerId", "name email avatar")
+      .populate("assignedAdminId", "name email avatar")
+      .lean();
+    const formattedAdminConv = formatConversationForAdmin(
+      updatedConversationDoc || conversation,
+      customerUser
+    );
+    emitConversationUpdated(formattedAdminConv);
+
+    // 4. Tính toán lại thống kê và bắn emitKpiUpdated tới admin_channel
+    const kpiStats = await getAdminConversationStatisticsService();
+    emitKpiUpdated(kpiStats);
+  } catch (socketError) {
+    console.error(
+      "⚠️ [SocketEmitter] Lỗi phát sự kiện trong sendCustomerMessageService:",
+      socketError
+    );
+  }
+
+  return formattedMessage;
 };
 
 /**
@@ -295,6 +375,22 @@ export const markCustomerConversationReadService = async (
       },
     }
   );
+
+  // Phát sự kiện cập nhật hội thoại (reset customerUnreadCount)
+  try {
+    const updatedConversationDoc = await Conversation.findById(conversation._id)
+      .populate("customerId", "name email avatar")
+      .populate("assignedAdminId", "name email avatar")
+      .lean();
+    if (updatedConversationDoc) {
+      emitConversationUpdated(formatConversationForAdmin(updatedConversationDoc));
+    }
+  } catch (socketError) {
+    console.error(
+      "⚠️ [SocketEmitter] Lỗi phát sự kiện trong markCustomerConversationReadService:",
+      socketError
+    );
+  }
 
   return { success: true };
 };

@@ -16,6 +16,7 @@
     "dev:admin": "npm run dev --prefix ADMIN",
     "install:all": "npm install && npm install --prefix BACK_END && npm install --prefix FRONT_END && npm install --prefix ADMIN",
     "build:all": "npm run build --prefix BACK_END && npm run build --prefix FRONT_END && npm run build --prefix ADMIN",
+    "test:e2e": "npm run test:e2e --prefix BACK_END",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "repository": {
